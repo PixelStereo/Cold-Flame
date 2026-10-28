@@ -13,13 +13,12 @@ class Console : public QMainWindow {
     EditHistory history;
     QCheckBox *cueOnly;
     Network network;
-    QTimer timer;
+    QTimer timer, channelFitTimer;
     QElapsedTimer elapsed;
     QListWidget *channels, *sequences, *palettes;
     QTableWidget *cues;
     QLabel *playback;
     QProgressBar *progress;
-    bool refreshing = false;
     QLineEdit *command;
     QLabel *status, *selection;
     QDoubleSpinBox *fade;
@@ -50,14 +49,27 @@ class Console : public QMainWindow {
     void refresh() {
         auto out = engine.output();
         QSignalBlocker cueBlock(cues);
+        // Rendering-only roles must not cause QListView to recompute its icon layout.
+        // Structural changes remain in rebuild(), with normal model notifications.
+        QSignalBlocker channelModelBlock(channels->model());
+        bool repaintChannels = false;
         for (int i = 0; i < channels->count(); ++i) {
             auto item = channels->item(i);
             int id = item->data(Qt::UserRole).toInt();
             double v = out.value(id);
-            item->setText(QString("%1\n%2\n%3 %")
-                              .arg(id, 2, 10, QChar('0'))
-                              .arg(engine.channels[id])
-                              .arg(v, 0, 'f', 0));
+            const auto valueText = QString("%1\n%2\n%3 %")
+                                       .arg(id, 2, 10, QChar('0'))
+                                       .arg(engine.channels[id])
+                                       .arg(v, 0, 'f', 0);
+            const bool manual = engine.manual.contains(id);
+            const QString flag = engine.parked.contains(id)     ? "PARK"
+                                 : engine.captured.contains(id) ? "CAPTURE"
+                                                                : "";
+            repaintChannels |= item->text() != valueText ||
+                               item->data(Qt::UserRole + 1).toDouble() != v ||
+                               item->data(Qt::UserRole + 2).toBool() != manual ||
+                               item->data(Qt::UserRole + 4).toString() != flag;
+            item->setText(valueText);
             item->setData(Qt::UserRole + 1, v);
             item->setData(Qt::UserRole + 2, engine.manual.contains(id));
             item->setData(Qt::UserRole + 4, engine.parked.contains(id)     ? "PARK"
@@ -76,9 +88,9 @@ class Console : public QMainWindow {
             if (destinations.size() > 1)
                 item->setData(Qt::UserRole + 3,
                               destinations.first() + QString(" +%1").arg(destinations.size() - 1));
-            item->setBackground(v > 0 ? QColor::fromHsv(38, 120, 55 + int(v * 1.3))
-                                      : QColor("#17232f"));
         }
+        if (repaintChannels)
+            channels->viewport()->update();
         selection->setText(QString("%1 channels selected  •  %2 manual values")
                                .arg(engine.selection.size())
                                .arg(engine.manual.size()));
@@ -195,8 +207,10 @@ class Console : public QMainWindow {
         int columns = qMax(
             1, int(std::ceil(std::sqrt(double(n) * size.width() / qMax(1, size.height()) * 0.8))));
         int rows = (n + columns - 1) / columns;
-        channels->setGridSize(
-            QSize(qMax(62, (size.width() - 6) / columns), qMax(54, (size.height() - 6) / rows)));
+        const QSize cell(qMax(62, (size.width() - 6) / columns),
+                         qMax(54, (size.height() - 6) / rows));
+        if (cell != channels->gridSize())
+            channels->setGridSize(cell);
     }
     void channelTiming() {
         int row = cues->currentRow();
@@ -464,8 +478,8 @@ class Console : public QMainWindow {
 
   protected:
     bool eventFilter(QObject *o, QEvent *e) override {
-        if (channels && o == channels->viewport() && e->type() == QEvent::Resize)
-            QTimer::singleShot(0, this, [this] { fitChannels(); });
+        if (channels && o == channels && e->type() == QEvent::Resize)
+            channelFitTimer.start(0);
         return QMainWindow::eventFilter(o, e);
     }
     void closeEvent(QCloseEvent *e) override {
@@ -494,7 +508,7 @@ class Console : public QMainWindow {
  QHeaderView::section{background:#293847;color:#acbdca;border:0;border-bottom:1px solid #53606a;padding:9px 5px;font-size:10px;font-weight:700;}
  QTableWidget{gridline-color:#293847;} QMenuBar,QMenu{background:#1b2733;} QMenu::item:selected{background:#3a4c5e;}
  QSlider::groove:horizontal{height:5px;background:#3a4855;} QSlider::handle:horizontal{background:#efbc72;width:15px;margin:-6px 0;border-radius:3px;}
- QProgressBar{border:0;background:#26333f;max-height:4px;} QProgressBar::chunk{background:#efbc72;} QScrollBar{background:#1b2733;}
+ QProgressBar{border:0;background:#26333f;max-height:4px;} QProgressBar::chunk{background:#efbc72;} QScrollBar:vertical{background:#18222d;width:10px;margin:0;} QScrollBar::handle:vertical{background:#3a4b5a;min-height:24px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;} QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{background:none;}
  )");
         auto editMenu = menuBar()->addMenu("Edit");
         editMenu
@@ -618,12 +632,18 @@ class Console : public QMainWindow {
         channels = new QListWidget;
         channels->setObjectName("channelList");
         channels->setViewMode(QListView::IconMode);
-        channels->setResizeMode(QListView::Adjust);
+        channels->setResizeMode(QListView::Fixed);
+        channels->setUniformItemSizes(true);
+        // A permanent gutter prevents scrollbar visibility from changing available width.
+        channels->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+        channels->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         channels->setMovement(QListView::Static);
         channels->setSpacing(0);
         channels->setItemDelegate(new ChannelDelegate(channels));
         channels->setSelectionMode(QAbstractItemView::ExtendedSelection);
-        channels->viewport()->installEventFilter(this);
+        channels->installEventFilter(this);
+        channelFitTimer.setSingleShot(true);
+        connect(&channelFitTimer, &QTimer::timeout, this, [this] { fitChannels(); });
         stageLayout->addWidget(channels, 1);
         selection = new QLabel;
         stageLayout->addWidget(selection);

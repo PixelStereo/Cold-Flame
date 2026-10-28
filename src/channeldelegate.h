@@ -3,6 +3,12 @@
 class ChannelDelegate : public QStyledItemDelegate {
   public:
     using QStyledItemDelegate::QStyledItemDelegate;
+    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override {
+        if (auto view = qobject_cast<const QListView *>(parent()))
+            if (view->gridSize().isValid())
+                return view->gridSize();
+        return QSize(76, 62);
+    }
     void paint(QPainter *p, const QStyleOptionViewItem &o, const QModelIndex &i) const override {
         p->save();
         QRect r = o.rect.adjusted(3, 3, -3, -3);

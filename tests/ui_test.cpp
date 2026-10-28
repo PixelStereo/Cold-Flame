@@ -80,6 +80,77 @@ class UiTests : public QObject {
         QCOMPARE(e.tracked(0, 0)[1], 80.);
         QCOMPARE(e.output()[1], 30.);
     }
+    void channelGridRemainsStable_data() {
+        QTest::addColumn<QSize>("windowSize");
+        QTest::newRow("desktop") << QSize(1440, 940);
+        QTest::newRow("compact") << QSize(1100, 720);
+        QTest::newRow("fractional-columns") << QSize(1291, 853);
+    }
+    void channelGridRemainsStable() {
+        QFETCH(QSize, windowSize);
+        Console window;
+        window.resize(windowSize);
+        window.show();
+        auto list = window.findChild<QListWidget *>("channelList");
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel"))
+                input = edit;
+        QVERIFY(input);
+        input->setText("1 at 0");
+        window.execute();
+        QTest::qWait(100);
+        QList<QRect> bounds;
+        for (int i = 0; i < list->count(); ++i)
+            bounds << list->visualItemRect(list->item(i));
+        for (const auto &r : bounds)
+            QCOMPARE(r.size(), list->gridSize());
+        auto viewport = list->viewport()->size();
+        QSignalSpy changes(list->model(), &QAbstractItemModel::dataChanged);
+        for (int level : {100, 9, 50, 0, 99}) {
+            input->setText(QString("1 at %1").arg(level));
+            window.execute();
+            QTest::qWait(60);
+            QCOMPARE(list->viewport()->size(), viewport);
+            for (int i = 0; i < bounds.size(); ++i)
+                QCOMPARE(list->visualItemRect(list->item(i)), bounds[i]);
+        }
+        // Level updates repaint tiles; they must not notify QListView to lay out its model again.
+        QCOMPARE(changes.size(), 0);
+    }
+    void channelGridStaysPutDuringFade() {
+        Console window;
+        window.show();
+        auto list = window.findChild<QListWidget *>("channelList");
+        auto fade = window.findChild<QDoubleSpinBox *>("recordFade");
+        auto record = window.findChild<QPushButton *>("recordButton");
+        auto cues = window.findChild<QTableWidget *>("cueSheet");
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel"))
+                input = edit;
+        QVERIFY(input);
+        fade->setValue(0);
+        input->setText("1 at 0");
+        window.execute();
+        record->click();
+        fade->setValue(2);
+        input->setText("1 at 100");
+        window.execute();
+        record->click();
+        cues->selectRow(0);
+        window.findChild<QPushButton *>("gotoButton")->click();
+        QTest::qWait(80);
+        QList<QRect> rects;
+        for (int i = 0; i < list->count(); ++i)
+            rects << list->visualItemRect(list->item(i));
+        window.findChild<QPushButton *>("goButton")->click();
+        QTest::qWait(500);
+        double value = list->item(0)->data(Qt::UserRole + 1).toDouble();
+        QVERIFY(value > 0 && value < 100);
+        for (int i = 0; i < rects.size(); ++i)
+            QCOMPARE(list->visualItemRect(list->item(i)), rects[i]);
+    }
     void commandAndSelection() {
         Console window;
         window.show();
