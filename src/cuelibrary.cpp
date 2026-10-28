@@ -21,15 +21,16 @@ CueLibraryPanel::CueLibraryPanel(Engine &e, std::function<void()> editCallback,
     auto actions = new QGridLayout;
     auto add = [&](QString text, int row, int col, std::function<void()> action, QString object, QString help) {
         auto button = new QPushButton(text); button->setObjectName(object); button->setStatusTip(help);
-        actions->addWidget(button, row, col); connect(button, &QPushButton::clicked, this, action);
+        button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        actions->addWidget(button, row, col, Qt::AlignLeft); connect(button, &QPushButton::clicked, this, action);
     };
     add("Record look", 0, 0, [this] {
         auto number = engine.nextStoredCueNumber();
-        if (engine.storeCue(number)) { changed(); reload(number); }
+        if (engine.storeCue(number)) { reload(number); changed(); }
     }, "recordLibraryCueButton", "Record the live look as the next stored cue. This does not insert a sequence step.");
     add("Record Only", 0, 1, [this] {
         auto number = engine.nextStoredCueNumber();
-        if (engine.storeCue(number, {}, true)) { changed(); reload(number); }
+        if (engine.storeCue(number, {}, true)) { reload(number); changed(); }
     }, "recordLibraryOnlyButton", "Record manual values only as a new stored cue.");
     add("Insert into sequence", 1, 0, [this] { if (!selected().isEmpty()) insert(selected()); },
         "insertStoredCueButton", "Append the selected stored cue to the selected sequence. Repeated uses share the same look.");
@@ -37,10 +38,10 @@ CueLibraryPanel::CueLibraryPanel(Engine &e, std::function<void()> editCallback,
         "Edit stored channel values and membership. Every referencing step uses the new look on its next playback.");
     add("Update from manual", 2, 0, [this] {
         auto number = selected();
-        if (engine.updateStoredCue(number, engine.manual)) { changed(); reload(number); }
+        if (engine.updateStoredCue(number, engine.manual)) { reload(number); changed(); }
     }, "updateStoredCueButton", "Merge manual channel values into this shared cue, retaining other stored values.");
     add("Delete stored cue", 2, 1, [this] {
-        if (engine.deleteStoredCue(selected())) { changed(); reload(); }
+        if (engine.deleteStoredCue(selected())) { reload(); changed(); }
         else feedback->setText("Remove this cue's steps from sequences before deleting the stored cue.");
     }, "deleteStoredCueButton", "Delete an unused cue. Remove its sequence steps first if it is still referenced.");
     layout->addLayout(actions); feedback = new QLabel; feedback->setWordWrap(true); layout->addWidget(feedback);
@@ -49,7 +50,8 @@ CueLibraryPanel::CueLibraryPanel(Engine &e, std::function<void()> editCallback,
         if (!engine.cueLibrary.contains(number)) return;
         if (item->column() == 0) {
             if (!engine.renameStoredCue(number, item->text())) { feedback->setText("Use a unique cue number between 0.001 and 9999.999."); reload(number); return; }
-            changed(); reload(QString::number(item->text().toDouble(), 'g', 12));
+            const QString renamed = QString::number(item->text().toDouble(), 'g', 12);
+            reload(renamed); changed();
         } else if (item->column() == 1) {
             engine.cueLibrary[number].label = item->text().isEmpty() ? "cue-" + number : item->text();
             changed();

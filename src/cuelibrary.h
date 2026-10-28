@@ -13,5 +13,6 @@ class CueLibraryPanel : public QWidget {
   public:
     CueLibraryPanel(Flame::Engine &, std::function<void()> changed,
                     std::function<void(QString)> insert, QWidget *parent = nullptr);
+    QString selectedCue() const { return selected(); }
     void reload(QString select = {});
 };

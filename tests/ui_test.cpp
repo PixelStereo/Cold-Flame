@@ -3,6 +3,30 @@
 #include <QtTest>
 class UiTests : public QObject {
     Q_OBJECT
+    static void dropStep(StepTable *table, int source, int beforeRow, bool gutter = false) {
+        std::unique_ptr<QMimeData> mime(table->stepMimeData(source));
+        const int y = beforeRow < table->rowCount() ? table->rowViewportPosition(beforeRow) + 1
+            : table->rowViewportPosition(table->rowCount() - 1) + table->rowHeight(table->rowCount() - 1) + 2;
+        QPoint point(8, y);
+        QWidget *target = gutter ? table->verticalHeader()->viewport() : table->viewport();
+        QDragEnterEvent enter(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(target, &enter); QVERIFY(enter.isAccepted());
+        QDragMoveEvent move(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(target, &move); QVERIFY(move.isAccepted());
+        QDropEvent drop(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(target, &drop); QVERIFY(drop.isAccepted());
+    }
+    static void removeStepByContext(Console &window, QTableWidget *table) {
+        QTimer::singleShot(0, &window, [&window] {
+            auto menu = window.findChild<QMenu *>("stepContextMenu");
+            if (!menu) return;
+            auto action = menu->actions().first();
+            menu->setActiveAction(action);
+            QTest::keyClick(menu, Qt::Key_Return);
+        });
+        QPoint point = table->visualItemRect(table->item(table->currentRow(), 0)).center();
+        table->customContextMenuRequested(point);
+    }
   private slots:
     void patchOverviewAndAtomicValidation() {
         Engine e;
@@ -40,7 +64,7 @@ class UiTests : public QObject {
         auto record = window.findChild<QPushButton *>("recordButton");
         auto table = window.findChild<QTableWidget *>("cueSheet");
         auto list = window.findChild<QListWidget *>("channelList");
-        QCOMPARE(table->columnCount(), 10);
+        QCOMPARE(table->columnCount(), 15);
         QCOMPARE(table->horizontalHeaderItem(1)->text(), QString("CUE"));
         QVERIFY(!table->isColumnHidden(1));
         input->setText("1 at 20");
@@ -114,12 +138,87 @@ class UiTests : public QObject {
         QCOMPARE(table->item(2, 1)->text(), QString("15"));
         QCOMPARE(table->item(2, 2)->text(), QString("cue-15"));
         table->selectRow(2);
-        window.findChild<QPushButton *>("moveStepUpButton")->click();
+        dropStep(dynamic_cast<StepTable *>(table), 2, 1);
         QCOMPARE(table->item(1, 0)->text(), QString("3"));
         QCOMPARE(table->item(0, 6)->text(), QString("1/3"));
-        window.findChild<QPushButton *>("removeStepButton")->click();
+        removeStepByContext(window, table);
         QCOMPARE(table->rowCount(), 2); QVERIFY(table->item(0, 6)->text().isEmpty());
         QCOMPARE(library->rowCount(), 1);
+    }
+    void liveChannelModesAndSelectedMembership() {
+        Console window; window.show();
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel")) input = edit;
+        QVERIFY(input);
+        auto execute = [&](QString text) { input->setText(text); window.execute(); };
+        auto list = window.findChild<QListWidget *>("channelList");
+        auto used = window.findChild<QPushButton *>("channelViewUSED");
+        auto edit = window.findChild<QPushButton *>("channelViewEDIT");
+        auto all = window.findChild<QPushButton *>("channelViewALL");
+        QCOMPARE(list->count(), 120); used->click(); QCOMPARE(list->count(), 0);
+        execute("1 at 50"); execute("2 at 0");
+        QCOMPARE(list->count(), 1); QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 1);
+        execute("record only cue 10"); execute("insert cue 10");
+        auto table = window.findChild<QTableWidget *>("cueSheet");
+        edit->click(); table->selectRow(0);
+        QTRY_COMPARE(list->count(), 2); // Stored zero is part of the selected cue.
+        QCOMPARE(list->item(1)->data(Qt::UserRole).toInt(), 2);
+        execute("3 at 80"); used->click(); QCOMPARE(list->count(), 2);
+        execute("2 at 30");
+        window.findChild<QPushButton *>("recordSubmasterButton")->click();
+        execute("select manual"); execute("release");
+        QCOMPARE(list->count(), 0);
+        window.findChild<QSlider *>("subFader1")->setValue(100);
+        QCOMPARE(list->count(), 1); QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 2);
+        window.findChild<QSlider *>("subFader1")->setValue(0); QCOMPARE(list->count(), 0);
+        table->item(0, 3)->setText("0"); table->selectRow(0);
+        window.findChild<QPushButton *>("gotoButton")->click();
+        QCOMPARE(list->count(), 1); QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 1);
+        edit->click(); QCOMPARE(list->count(), 2);
+        all->click(); QCOMPARE(list->count(), 120);
+        window.findChild<QPushButton *>("addChannelPageButton")->click();
+        execute("121 at 70"); used->click();
+        QCOMPARE(list->count(), 2); // Active channels from both 120-channel pages.
+        QCOMPARE(list->item(1)->data(Qt::UserRole).toInt(), 121);
+        auto tabs = window.findChild<QTabWidget *>("workspaceTabs");
+        auto library = window.findChild<QTableWidget *>("storedCueTable");
+        tabs->setCurrentWidget(library->parentWidget()); edit->click();
+        QCOMPARE(list->count(), 2); QCOMPARE(list->item(1)->data(Qt::UserRole).toInt(), 2);
+    }
+    void inlineTriggersFlagsAndDragValidation() {
+        Console window; window.show();
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel")) input = edit;
+        QVERIFY(input);
+        input->setText("1 at 40"); window.execute();
+        window.findChild<QPushButton *>("recordButton")->click();
+        auto insert = window.findChild<QPushButton *>("insertStoredCueButton"); insert->click(); insert->click();
+        auto table = dynamic_cast<StepTable *>(window.findChild<QTableWidget *>("cueSheet")); QVERIFY(table);
+        QVERIFY(!table->verticalHeader()->isHidden());
+        QVERIFY(table->columnViewportPosition(14) < table->columnViewportPosition(0));
+        QVERIFY(!window.findChild<QPushButton *>("moveStepUpButton"));
+        QVERIFY(!window.findChild<QPushButton *>("removeStepButton"));
+        for (auto button : window.findChildren<QPushButton *>())
+            QVERIFY(button->text() != "Cue library" && button->text() != "Triggers…" && button->text() != "Block" && button->text() != "Assert");
+        table->item(0, 10)->setText("3"); QCOMPARE(table->item(0, 10)->text(), QString("3"));
+        table->item(0, 11)->setText("-1"); QVERIFY(table->item(0, 10)->text().isEmpty());
+        QCOMPARE(table->item(0, 11)->text(), QString("-1"));
+        table->item(0, 10)->setText("-2"); QVERIFY(table->item(0, 10)->text().isEmpty());
+        table->item(0, 12)->setText("999"); QVERIFY(table->item(0, 12)->text().isEmpty());
+        table->item(0, 12)->setText("1/2"); QCOMPARE(table->item(0, 12)->text(), QString("1/2"));
+        table->item(0, 13)->setText("2"); QCOMPARE(table->item(0, 13)->text(), QString("2"));
+        auto block = window.findChild<QPushButton *>("blockStep1");
+        auto assertFlag = window.findChild<QPushButton *>("assertStep1");
+        QVERIFY(block); QVERIFY(assertFlag); block->click(); assertFlag->click();
+        QVERIFY(block->isChecked()); QVERIFY(assertFlag->isChecked());
+        dropStep(table, 0, 2, true);
+        QCOMPARE(table->item(1, 0)->text(), QString("1"));
+        QVERIFY(window.findChild<QPushButton *>("blockStep1")->isChecked());
+        std::unique_ptr<QMimeData> stale(table->stepMimeData(0)); table->setSequenceContext("another sequence");
+        QDragEnterEvent event(QPoint(10, 10), Qt::MoveAction, stale.get(), Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(table->viewport(), &event); QVERIFY(!event.isAccepted());
     }
     void contextualFooterAndNumberDragging() {
         Console window;

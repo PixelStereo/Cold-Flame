@@ -8,6 +8,7 @@
 #include "outputpanel.h"
 #include "numberdrag.h"
 #include "cuelibrary.h"
+#include "steptable.h"
 #include "patchdialog.h"
 #include <QtWidgets>
 #include <cmath>
@@ -28,7 +29,11 @@ class Console : public QMainWindow {
     QComboBox *channelPages;
     int channelPage = 0;
     PatchDialog *patchPanel;
-    QTableWidget *cues;
+    StepTable *cues;
+    enum ChannelView { AllChannels, UsedChannels, EditChannels };
+    ChannelView channelView = AllChannels;
+    QList<int> shownChannels;
+    int matchingChannels = 0;
     QLabel *playback;
     QProgressBar *progress;
     QLineEdit *command;
@@ -47,6 +52,7 @@ class Console : public QMainWindow {
     QPushButton *button(QString text, QLayout *layout, std::function<void()> action,
                         QString style = {}) {
         auto b = new QPushButton(text);
+        b->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
         if (!style.isEmpty())
             b->setStyleSheet(style);
         layout->addWidget(b);
@@ -60,10 +66,65 @@ class Console : public QMainWindow {
         refresh();
     }
     void message(QString text) { status->setText(text); }
+    void updateChannelPage(const Values &out) {
+        QList<int> matching;
+        QSet<int> members;
+        if (channelView == EditChannels) {
+            if (workspaceTabs->currentWidget() == libraryPanel) {
+                const auto values = engine.cueLibrary.value(libraryPanel->selectedCue()).values;
+                for (int channel : values.keys()) members.insert(channel);
+            } else {
+                const auto &steps = engine.sequences[selectedSequence].cues;
+                const int row = cues->currentRow();
+                if (row >= 0 && row < steps.size()) {
+                    for (int channel : engine.cueValues(steps[row]).keys()) members.insert(channel);
+                    for (int channel : steps[row].blocked.keys()) members.insert(channel);
+                }
+            }
+        }
+        for (int channel : engine.channels.keys())
+            if (channelView == AllChannels || (channelView == UsedChannels && out.value(channel) > 0) ||
+                (channelView == EditChannels && members.contains(channel))) matching << channel;
+        matchingChannels = matching.size();
+        const int pages = channelView == AllChannels
+            ? (engine.channels.isEmpty() ? 1 : (engine.channels.lastKey() - 1) / Engine::ChannelsPerPage + 1)
+            : qMax(1, int((matching.size() + Engine::ChannelsPerPage - 1) / Engine::ChannelsPerPage));
+        channelPage = qBound(0, channelPage, pages - 1);
+        QStringList labels;
+        for (int page = 0; page < pages; ++page) {
+            const int first = page * Engine::ChannelsPerPage + 1;
+            labels << (channelView == AllChannels ? QString("%1–%2").arg(first).arg(first + Engine::ChannelsPerPage - 1)
+                : matching.isEmpty() ? "0 / 0" : QString("%1–%2 / %3").arg(first)
+                    .arg(qMin((page + 1) * Engine::ChannelsPerPage, int(matching.size()))).arg(matching.size()));
+        }
+        bool newLabels = channelPages->count() != labels.size();
+        for (int i = 0; !newLabels && i < labels.size(); ++i) newLabels |= channelPages->itemText(i) != labels[i];
+        {
+            QSignalBlocker block(channelPages);
+            if (newLabels) { channelPages->clear(); channelPages->addItems(labels); }
+            channelPages->setCurrentIndex(channelPage);
+        }
+        QList<int> visible;
+        if (channelView == AllChannels) {
+            for (int channel : matching)
+                if ((channel - 1) / Engine::ChannelsPerPage == channelPage) visible << channel;
+        } else visible = matching.mid(channelPage * Engine::ChannelsPerPage, Engine::ChannelsPerPage);
+        if (visible == shownChannels) return;
+        shownChannels = visible;
+        QSignalBlocker block(channels);
+        channels->clear();
+        for (int channel : visible) {
+            auto item = new QListWidgetItem;
+            item->setData(Qt::UserRole, channel); item->setTextAlignment(Qt::AlignCenter);
+            channels->addItem(item); item->setSelected(engine.selection.contains(channel));
+        }
+        fitChannels();
+    }
     void refresh() {
         outputStatus->setText(!network.enabled ? "DMX OFF" : !network.lastError.isEmpty() ? "DMX ERROR" : "DMX ON");
         outputStatus->setToolTip(network.lastError);
         auto out = engine.output();
+        updateChannelPage(out);
         QSignalBlocker cueBlock(cues);
         // Rendering-only roles must not cause QListView to recompute its icon layout.
         // Structural changes remain in rebuild(), with normal model notifications.
@@ -95,10 +156,11 @@ class Console : public QMainWindow {
         }
         if (repaintChannels)
             channels->viewport()->update();
-        selection->setText(QString("%1 channels selected  •  %2 manual values")
-                               .arg(engine.selection.size())
-                               .arg(engine.manual.size()));
+        selection->setText(QString("%1 shown / %2 matching · %3 selected · %4 manual")
+                               .arg(channels->count()).arg(matchingChannels)
+                               .arg(engine.selection.size()).arg(engine.manual.size()));
         auto &s = engine.sequences[selectedSequence];
+        cues->setSequenceContext(QString::number(s.number));
         cues->setRowCount(s.cues.size());
         for (int i = 0; i < s.cues.size(); ++i) {
             auto c = s.cues[i];
@@ -114,39 +176,28 @@ class Console : public QMainWindow {
                                                : s.elapsed < s.duration ? "FADING"
                                                                         : "ACTIVE")
                                             : (i == engine.nextCueIndex(selectedSequence) ? "NEXT" : "")};
-            QStringList flags;
-            if (c.follow)
-                flags << "F" + QString::number(*c.follow);
-            if (c.hang)
-                flags << "H" + QString::number(*c.hang);
-            if (!c.execute.isEmpty())
-                flags << "Exec " + c.execute;
-            if (!c.after.isEmpty())
-                flags << "After " + c.after;
-            if (c.block)
-                flags << "B";
-            if (c.asserted)
-                flags << "A";
-            if (!flags.isEmpty())
-                vals[8] += " · " + flags.join(" · ");
-            vals << (c.reference.isEmpty() ? c.number + " (inline)" : c.reference);
+            vals << (c.reference.isEmpty() ? c.number + " (inline)" : c.reference)
+                 << (c.follow ? QString::number(*c.follow) : QString())
+                 << (c.hang ? QString::number(*c.hang) : QString()) << c.execute << c.after;
             for (int j = 0; j < vals.size(); ++j) {
-                const int column = j == 9 ? 1 : j == 0 ? 0 : j + 1;
+                const int column = j >= 10 ? j : j == 9 ? 1 : j == 0 ? 0 : j + 1;
                 auto item = cues->item(i, column);
                 if (!item) {
                     item = new QTableWidgetItem;
                     cues->setItem(i, column, item);
                 }
-                item->setToolTip(QString("Follow: %1 · Hang: %2\nExecute: %3\nAfter step: %4")
+                item->setToolTip(QString("Follow: %1 · Hang: %2\nExecute: %3\nAfter step: %4\n%5 stored channels · %6 individual timings")
                                      .arg(c.follow ? QString::number(*c.follow) : "—",
                                           c.hang ? QString::number(*c.hang) : "—", c.execute,
-                                          c.after));
-                if (j >= 6 || j == 0)
+                                          c.after).arg(engine.cueValues(c).size()).arg(c.channelTimes.size()));
+                if (j == 1) item->setToolTip(engine.cueLabel(c));
+                if ((j >= 6 && j <= 9) || j == 0)
                     item->setFlags(item->flags() & ~Qt::ItemIsEditable);
                 if (item->text() != vals[j])
                     item->setText(vals[j]);
                 item->setForeground(QColor(i == s.current ? "#c2e5d3" : "#e5e5e5"));
             }
+            stepFlags(i, s, c);
         }
         QString current = s.current >= 0
                               ? "Step " + s.cues[s.current].number + " · Cue " +
@@ -166,24 +217,6 @@ class Console : public QMainWindow {
         progress->setValue(s.duration <= 0 ? 0 : qMin(1000, qRound(1000 * s.elapsed / s.duration)));
     }
     void rebuild() {
-        QSignalBlocker channelBlock(channels);
-        channels->clear();
-        QSignalBlocker pageBlock(channelPages);
-        const int pages = engine.channels.isEmpty() ? 1 : (engine.channels.lastKey() - 1) / Engine::ChannelsPerPage + 1;
-        channelPage = qBound(0, channelPage, pages - 1);
-        channelPages->clear();
-        for (int page = 0; page < pages; ++page)
-            channelPages->addItem(QString("%1–%2").arg(page * Engine::ChannelsPerPage + 1).arg((page + 1) * Engine::ChannelsPerPage));
-        channelPages->setCurrentIndex(channelPage);
-        for (auto i = engine.channels.begin(); i != engine.channels.end(); ++i) {
-            if ((i.key() - 1) / Engine::ChannelsPerPage != channelPage) continue;
-            auto item = new QListWidgetItem;
-            item->setData(Qt::UserRole, i.key());
-            item->setToolTip(i.value());
-            item->setTextAlignment(Qt::AlignCenter);
-            channels->addItem(item);
-            item->setSelected(engine.selection.contains(i.key()));
-        }
         QSignalBlocker tabsBlock(sequences);
         QList<int> order;
         for (int i = 0; i < sequences->count(); ++i)
@@ -216,9 +249,9 @@ class Console : public QMainWindow {
     void record(bool manualOnly = false) {
         const QString number = engine.nextStoredCueNumber();
         if (!engine.storeCue(number, {}, manualOnly)) { message("Cue number limit reached"); return; }
-        changed();
         libraryPanel->reload(number);
         workspaceTabs->setCurrentWidget(libraryPanel);
+        changed();
         message("Stored cue " + number + " · select Insert into sequence to create a step");
     }
     void updateStep() {
@@ -321,80 +354,59 @@ class Console : public QMainWindow {
             changed();
         }
     }
-    void cueTriggers() {
-        int row = cues->currentRow();
-        if (row < 0) {
-            message("Select a step first");
-            return;
+    bool validStepTarget(QString target) const {
+        if (target.isEmpty()) return true;
+        const auto parts = target.split('/');
+        if (parts.size() > 2) return false;
+        int sequence = selectedSequence;
+        QString step = target;
+        if (parts.size() == 2) {
+            sequence = -1; step = parts[1];
+            for (int i = 0; i < engine.sequences.size(); ++i)
+                if (QString::number(engine.sequences[i].number) == parts[0]) sequence = i;
         }
-        auto &cue = engine.sequences[selectedSequence].cues[row];
-        QDialog d(this);
-        d.setWindowTitle("Step triggers · Link / Follow / Hang / Execute");
-        QFormLayout form(&d);
-        QLineEdit follow(cue.follow ? QString::number(*cue.follow) : ""),
-            hang(cue.hang ? QString::number(*cue.hang) : ""), execute(cue.execute),
-            after(cue.after);
-        form.addRow("Follow · seconds from start", &follow);
-        form.addRow("Hang · seconds after completion", &hang);
-        form.addRow("Execute · step or sequence/step at start", &execute);
-        form.addRow("After · step at completion (extension)", &after);
-        auto info = new QLabel(
-            "Follow and Hang are mutually exclusive. Execute starts the target step when this step "
-            "starts. After plays its target alongside the main sequence at completion, without changing the next step.");
-        info->setWordWrap(true);
-        form.addRow(info);
-        QLabel error;
-        error.setWordWrap(true);
-        form.addRow(&error);
-        QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        form.addRow(&buttons);
-        connect(&buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
-        connect(&buttons, &QDialogButtonBox::accepted, &d, [&] {
-            if (!follow.text().isEmpty() && !hang.text().isEmpty()) {
-                error.setText("Use Follow or Hang, not both.");
-                return;
+        bool ok; const double number = step.toDouble(&ok);
+        if (!ok || sequence < 0 || !std::isfinite(number)) return false;
+        for (const auto &candidate : engine.sequences[sequence].cues)
+            if (candidate.number.toDouble() == number) return true;
+        return false;
+    }
+    void stepFlags(int row, const Sequence &sequence, const Cue &step) {
+        const QString binding = QString::number(sequence.number) + "/" + step.number;
+        auto cell = cues->cellWidget(row, 14);
+        if (!cell || cell->property("binding").toString() != binding) {
+            cell = new QWidget;
+            cell->setProperty("binding", binding); cell->setStyleSheet("background:transparent;");
+            auto layout = new QVBoxLayout(cell); layout->setContentsMargins(2, 1, 2, 1); layout->setSpacing(1);
+            for (bool assertFlag : {false, true}) {
+                auto control = new QPushButton(assertFlag ? "A" : "B", cell);
+                control->setObjectName((assertFlag ? "assertStep" : "blockStep") + step.number);
+                control->setCheckable(true); control->setFixedSize(24, 14);
+                control->setStyleSheet("QPushButton{background:#292c2e;border:1px solid #404346;"
+                    "padding:0px;min-height:0px;border-radius:2px;font-size:9px;}"
+                    "QPushButton:checked{background:#314c44;border-color:#6e9b8c;color:#ebfff6;}");
+                control->setStatusTip(assertFlag ? "Assert: take back this step's tracked values when it plays."
+                    : "Block: protect this step's tracked values against upstream edits.");
+                layout->addWidget(control, 0, Qt::AlignHCenter);
+                connect(control, &QPushButton::clicked, this, [this, sequenceNumber = sequence.number, id = step.number, assertFlag](bool checked) {
+                    for (int s = 0; s < engine.sequences.size(); ++s)
+                        if (engine.sequences[s].number == sequenceNumber)
+                            for (int index = 0; index < engine.sequences[s].cues.size(); ++index)
+                                if (engine.sequences[s].cues[index].number == id) {
+                                    if (s == selectedSequence) cues->selectRow(index);
+                                    if (assertFlag) engine.sequences[s].cues[index].asserted = checked;
+                                    else engine.setBlock(s, index, checked);
+                                    changed(); return;
+                                }
+                });
             }
-            std::optional<double> f, h;
-            for (auto pair : {qMakePair(&follow, &f), qMakePair(&hang, &h)})
-                if (!pair.first->text().isEmpty()) {
-                    bool ok;
-                    double n = pair.first->text().toDouble(&ok);
-                    if (!ok || !std::isfinite(n) || (pair.first == &follow && n < 0)) {
-                        error.setText("Invalid timing value");
-                        return;
-                    }
-                    *pair.second = n;
-                }
-            for (auto target : {execute.text(), after.text()})
-                if (!target.isEmpty()) {
-                    auto parts = target.split('/');
-                    int seq = selectedSequence;
-                    QString number = target;
-                    if (parts.size() == 2) {
-                        seq = -1;
-                        number = parts[1];
-                        for (int i = 0; i < engine.sequences.size(); ++i)
-                            if (engine.sequences[i].number == parts[0].toInt())
-                                seq = i;
-                    }
-                    bool found = false;
-                    if (seq >= 0)
-                        for (const auto &c : engine.sequences[seq].cues)
-                            if (c.number == number)
-                                found = true;
-                    if (!found) {
-                        error.setText("Trigger target does not exist");
-                        return;
-                    }
-                }
-            cue.follow = f;
-            cue.hang = h;
-            cue.execute = execute.text();
-            cue.after = after.text();
-            changed();
-            d.accept();
-        });
-        d.exec();
+            cues->setCellWidget(row, 14, cell);
+        }
+        cell->findChild<QPushButton *>("blockStep" + step.number)->setChecked(step.block);
+        cell->findChild<QPushButton *>("assertStep" + step.number)->setChecked(step.asserted);
+    }
+    void removeSelectedStep() {
+        if (engine.removeStep(selectedSequence, cues->currentRow())) { changed(); libraryPanel->reload(); }
     }
     void editSubmaster(int index) {
         QDialog dialog(this);
@@ -584,10 +596,7 @@ class Console : public QMainWindow {
             {"SET NEXT", "Queue the selected step for the next GO without changing live output or stored links."},
             {"GO TO", "Play the selected step now, including its tracked values."},
             {"Insert cue…", "Insert a stored cue before the selected step, or append if no step is selected."},
-            {"Cue library", "Browse, edit and reuse stored cues independently of sequence order."},
             {"Link to step…", "Choose the exact sequence and step to play next; repeated cues have different step IDs."},
-            {"↑", "Move the selected step earlier. Its ID and all links remain unchanged."},
-            {"↓", "Move the selected step later. Its ID and all links remain unchanged."},
             {"Remove step", "Remove this occurrence from the sequence. Its stored cue remains in the library."},
             {"▶  GO", "Play the pending step of the selected sequence. Shortcut: Ctrl+Space."},
             {"↶ BACK", "Play the preceding step of the selected sequence."},
@@ -597,7 +606,7 @@ class Console : public QMainWindow {
             {"CAPTURE", "Protect selected manual channels from playback changes. Click again to release capture."},
             {"PARK", "Lock selected channel outputs. Park bypasses master and blackout and is excluded from recording."},
             {"UNPARK", "Remove Park from selected channels."},
-            {"All", "Select all channels on the current page. Selection on other pages is retained."},
+            {"Select all", "Select all displayed channels on the current page. Hidden channel selections are retained."},
             {"+ Page", "Add the next 120 channels and assign unused DMX addresses."},
             {"0", "Set selected channels to zero."}, {"FULL", "Set selected channels to 100 percent."},
             {"BLACKOUT", "Toggle blackout. Parked channels retain their parked output."},
@@ -682,7 +691,7 @@ class Console : public QMainWindow {
  QLabel#title{font-size:23px;font-weight:700;letter-spacing:2px;color:#fafafa;}
  QLabel#section{color:#96999d;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 0;}
  QLabel#playback{background:#242628;border-left:3px solid #b7cfc1;padding:14px;color:#c2e5d3;font-size:15px;font-weight:600;}
- QPushButton{background:#292c2e;border:1px solid #404346;border-radius:4px;padding:9px 13px;}
+ QPushButton{background:#292c2e;border:1px solid #404346;border-radius:4px;padding:6px 9px;}
  QPushButton:hover{background:#35393b;border-color:#9cb8af;} QPushButton:checked{background:#314c44;}
  QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#222426;border:1px solid #393c3f;border-radius:3px;padding:7px;selection-background-color:#3c665e;}
  QTabBar::tab{background:#292c2e;padding:9px;border:1px solid #404346;} QTabBar::tab:selected{background:#303a36;color:#f3fff9;}
@@ -762,21 +771,38 @@ class Console : public QMainWindow {
         auto stageLayout = new QVBoxLayout(stage);
         stageLayout->setContentsMargins(0, 0, 8, 0);
         auto bar = new QHBoxLayout;
-        bar->addWidget(label("CHANNELS · LIVE OUTPUT"));
+        bar->addWidget(label("CHANNELS"));
+        auto viewModes = new QButtonGroup(this);
+        const QStringList modeNames{"ALL", "USED", "EDIT"};
+        const QStringList modeHelp{
+            "Show every patched channel, in pages of 120.",
+            "Show only channels whose live output is above zero, including manual, cue and submaster output.",
+            "Show channels stored in the selected step or library cue, including zero levels and local overrides."
+        };
+        for (int mode = 0; mode < modeNames.size(); ++mode) {
+            auto control = button(modeNames[mode], bar, [this, mode] {
+                channelView = static_cast<ChannelView>(mode); channelPage = 0; refresh();
+            });
+            control->setObjectName("channelView" + modeNames[mode]); control->setCheckable(true);
+            control->setStatusTip(modeHelp[mode]); viewModes->addButton(control, mode);
+            if (mode == 0) control->setChecked(true);
+        }
         bar->addStretch();
         channelPages = new QComboBox;
         channelPages->setObjectName("channelPages");
         bar->addWidget(channelPages);
         connect(channelPages, &QComboBox::currentIndexChanged, this, [this](int page) {
             if (page < 0) return;
-            channelPage = page; rebuild();
+            channelPage = page; refresh();
         });
         button("+ Page", bar, [this] {
             int page = engine.addChannelPage();
             if (page < 0) { message("Channel limit reached"); return; }
+            channelView = AllChannels;
+            findChild<QPushButton *>("channelViewALL")->setChecked(true);
             channelPage = page; changed(); rebuild(); patchPanel->reload();
         })->setObjectName("addChannelPageButton");
-        button("All", bar, [this] { channels->selectAll(); });
+        button("Select all", bar, [this] { channels->selectAll(); });
         stageLayout->addLayout(bar);
         channels = new QListWidget;
         channels->setObjectName("channelList");
@@ -810,6 +836,7 @@ class Console : public QMainWindow {
             engine.parkSelection(false);
             refresh();
         });
+        overrides->addStretch();
         stageLayout->addLayout(overrides);
         auto levels = new QHBoxLayout;
         levels->addWidget(label("LEVEL"));
@@ -877,15 +904,38 @@ class Console : public QMainWindow {
                 engine.sequences[selectedSequence].priority, 1, 10, 1, &ok);
             if (ok) { engine.sequences[selectedSequence].priority = priority; changed(); }
         });
-        cues = new QTableWidget(0, 10);
+        cues = new StepTable;
+        cues->reorder = [this](int source, int destination) {
+            if (engine.moveStep(selectedSequence, source, destination)) {
+                changed(); cues->selectRow(destination);
+                message("Step reordered · IDs, links and active playback preserved");
+            }
+        };
         cues->setObjectName("cueSheet");
         cues->setItemDelegate(new TableDelegate(cues));
         cues->verticalHeader()->setDefaultSectionSize(32);
         cues->setHorizontalHeaderLabels(
-            {"STEP", "CUE", "NAME", "UP s", "DOWN s", "WAIT s", "LINK STEP", "VALUES", "INDIV.", "STATE"});
+            {"STEP", "CUE", "NAME", "UP", "DOWN", "WAIT", "LINK", "VALUES", "INDIV.", "STATE", "FOLLOW", "HANG", "EXEC", "AFTER", "B/A"});
         cues->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
         cues->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
-        cues->verticalHeader()->hide();
+        cues->horizontalHeader()->setSectionResizeMode(14, QHeaderView::Fixed); cues->setColumnWidth(14, 30);
+        cues->horizontalHeader()->moveSection(14, 0);
+        cues->horizontalHeader()->viewport()->setStatusTip("Times are in seconds. Follow/Hang are mutually exclusive. Link, Execute and After target step IDs.");
+        cues->hideColumn(7); cues->hideColumn(8); // Counts remain in row help, leaving space for editable triggers.
+        cues->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(cues, &QTableWidget::customContextMenuRequested, this, [this](QPoint point) {
+            const int row = cues->rowAt(point.y()); if (row < 0) return;
+            cues->selectRow(row);
+            QMenu menu(cues); menu.setObjectName("stepContextMenu");
+            auto remove = menu.addAction("Remove step");
+            remove->setStatusTip("Remove this occurrence and its incoming links. Its stored cue remains available. Undo restores it.");
+            connect(&menu, &QMenu::hovered, this, [this](QAction *action) { hoverHelp->setText(action->statusTip()); });
+            if (menu.exec(cues->viewport()->mapToGlobal(point)) == remove) removeSelectedStep();
+        });
+        auto removeKey = new QShortcut(QKeySequence::Delete, cues);
+        removeKey->setContext(Qt::WidgetShortcut);
+        connect(removeKey, &QShortcut::activated, this, [this] { removeSelectedStep(); });
+        cues->verticalHeader()->show();
         cues->setAlternatingRowColors(true);
         cues->setSelectionBehavior(QAbstractItemView::SelectRows);
         cues->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
@@ -906,19 +956,12 @@ class Console : public QMainWindow {
                 refresh();
             }
         })->setObjectName("gotoButton");
+        edit->addStretch();
         sequenceLayout->addLayout(edit);
         auto steps = new QHBoxLayout;
         button("Insert cue…", steps, [this] { chooseCue(); })->setObjectName("insertCueButton");
-        button("Cue library", steps, [this] { workspaceTabs->setCurrentWidget(libraryPanel); });
-        button("↑", steps, [this] {
-            int row = cues->currentRow();
-            if (engine.moveStep(selectedSequence, row, row - 1)) { changed(); cues->selectRow(row - 1); }
-        })->setObjectName("moveStepUpButton");
-        button("↓", steps, [this] {
-            int row = cues->currentRow();
-            if (engine.moveStep(selectedSequence, row, row + 1)) { changed(); cues->selectRow(row + 1); }
-        })->setObjectName("moveStepDownButton");
         button("Link to step…", steps, [this] { linkStep(); })->setObjectName("linkStepButton");
+        steps->addStretch();
         sequenceLayout->addLayout(steps);
         auto modes = new QHBoxLayout;
         cueOnly = new QCheckBox("Cue Only");
@@ -928,29 +971,11 @@ class Console : public QMainWindow {
             BlindDialog dialog(engine, selectedSequence, [this] { changed(); }, this);
             dialog.exec();
         });
+        modes->addStretch();
         sequenceLayout->addLayout(modes);
         auto extra = new QHBoxLayout;
         button("Channel timing…", extra, [this] { channelTiming(); });
-        button("Triggers…", extra, [this] { cueTriggers(); });
-        button("Block", extra, [this] {
-            int i = cues->currentRow();
-            if (i >= 0) {
-                engine.setBlock(selectedSequence, i,
-                                !engine.sequences[selectedSequence].cues[i].block);
-                changed();
-            }
-        });
-        button("Assert", extra, [this] {
-            int i = cues->currentRow();
-            if (i >= 0) {
-                auto &c = engine.sequences[selectedSequence].cues[i];
-                c.asserted = !c.asserted;
-                changed();
-            }
-        });
-        button("Remove step", extra, [this] {
-            if (engine.removeStep(selectedSequence, cues->currentRow())) { changed(); libraryPanel->reload(); }
-        })->setObjectName("removeStepButton");
+        extra->addStretch();
         sequenceLayout->addLayout(extra);
         auto subPage = new QWidget;
         auto subLayout = new QVBoxLayout(subPage);
@@ -1015,7 +1040,7 @@ class Console : public QMainWindow {
                 engine.go(selectedSequence);
                 refresh();
             },
-            "background:#b7cfc1;color:#171819;font-size:21px;font-weight:bold;padding:16px 70px;");
+            "background:#b7cfc1;color:#171819;font-size:19px;font-weight:bold;padding:12px 38px;");
         go->setObjectName("goButton");
         go->setShortcut(QKeySequence("Ctrl+Space"));
         workspace->addLayout(transport);
@@ -1045,6 +1070,27 @@ class Console : public QMainWindow {
         connect(cues, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
             int row = item->row();
             const int column = item->column();
+            if (row < 0 || row >= engine.sequences[selectedSequence].cues.size()) return;
+            if (column >= 10 && column <= 13) {
+                auto &step = engine.sequences[selectedSequence].cues[row];
+                const QString text = item->text().trimmed();
+                if (column <= 11) {
+                    std::optional<double> value;
+                    if (!text.isEmpty()) {
+                        bool ok; const double seconds = text.toDouble(&ok);
+                        if (!ok || !std::isfinite(seconds) || (column == 10 && seconds < 0)) {
+                            message("Follow must be non-negative; Hang may be negative. Enter seconds or clear the cell."); refresh(); return;
+                        }
+                        value = seconds;
+                    }
+                    if (column == 10) { step.follow = value; if (value) step.hang.reset(); }
+                    else { step.hang = value; if (value) step.follow.reset(); }
+                } else {
+                    if (!validStepTarget(text)) { message("Target must be an existing step ID or sequence/step ID"); refresh(); return; }
+                    if (column == 12) step.execute = text; else step.after = text;
+                }
+                changed(); return;
+            }
             int col = column == 1 ? 9 : column == 0 ? 0 : column - 1;
             if (row < 0 || row >= engine.sequences[selectedSequence].cues.size() || col >= 6)
                 return;
@@ -1127,6 +1173,10 @@ class Console : public QMainWindow {
             changed();
         });
         connect(command, &QLineEdit::returnPressed, this, [this] { execute(); });
+        connect(cues, &QTableWidget::currentCellChanged, this, [this] { refresh(); });
+        connect(workspaceTabs, &QTabWidget::currentChanged, this, [this] { refresh(); });
+        connect(libraryPanel->findChild<QTableWidget *>("storedCueTable"), &QTableWidget::itemSelectionChanged,
+            this, [this] { refresh(); });
         connect(channels, &QListWidget::itemSelectionChanged, this, [this] {
             for (int row = 0; row < channels->count(); ++row)
                 engine.selection.remove(channels->item(row)->data(Qt::UserRole).toInt());
