@@ -91,7 +91,7 @@ def main():
             for framework in (bundle / 'Contents/Frameworks').glob('*.framework'):
                 binaries.append(framework / framework.stem)
             for binary in binaries:
-                run('lipo', '-verify_arch', 'arm64', 'x86_64', binary)
+                run('lipo', binary, '-verify_arch', 'arm64', 'x86_64')
         # Ad-hoc signatures support launching on Apple Silicon; these are not notarization.
         run('codesign', '--force', '--deep', '--sign', '-', bundle)
         run('codesign', '--verify', '--deep', '--strict', bundle)
