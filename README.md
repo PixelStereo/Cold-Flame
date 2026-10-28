@@ -7,6 +7,10 @@ Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
 
 ![Patch overview](patch-preview.png)
 
+## Downloads and automated releases
+
+Each published GitHub release triggers native application builds for macOS Apple Silicon and Intel, Linux x86_64, and Windows x86_64. Downloads include bundled Qt libraries, native platform plugins and SHA-256 checksums. Windows includes an installer `.exe` and portable ZIP; macOS includes `.app` ZIPs and DMGs; Linux includes a runnable archive. See [release instructions and signing status](docs/RELEASING.md).
+
 ## macOS: install, build and launch
 
 From Terminal, in the repository root:
@@ -28,7 +32,7 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 
 Run `build/cold-flame` (Windows multi-configuration: `build/Release/cold-flame.exe`).
-Bundle the Qt libraries when distributing the application. Development executables are not yet installers. CI is configured to build and test on all three operating systems; only observed results count as validation.
+Native release packaging is enabled with `-DCOLD_FLAME_DEPLOY=ON`; it deploys the required Qt runtime and plugins. CI builds and tests all target operating systems; a configured job is not evidence of success until it has run.
 
 ## Your first show
 

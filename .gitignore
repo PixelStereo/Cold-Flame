@@ -57,3 +57,7 @@ compile_commands.json
 
 /build*/
 *.user
+
+/dist/
+
+__pycache__/

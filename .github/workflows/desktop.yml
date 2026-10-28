@@ -1,0 +1,99 @@
+name: Desktop build, test and package
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  desktop:
+    name: ${{ matrix.platform }} / ${{ matrix.arch }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x86_64
+            qt_arch: linux_gcc_64
+          - os: macos-14
+            platform: macos
+            arch: arm64
+            qt_arch: clang_64
+          - os: macos-15-intel
+            platform: macos
+            arch: x86_64
+            qt_arch: clang_64
+          - os: windows-2022
+            platform: windows
+            arch: x86_64
+            qt_arch: win64_msvc2022_64
+    runs-on: ${{ matrix.os }}
+    env:
+      PACKAGE_VERSION: ${{ inputs.version }}
+      PACKAGE_PLATFORM: ${{ matrix.platform }}
+      PACKAGE_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Linux graphics and build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build zlib1g-dev libgl1-mesa-dev libegl1 libopengl0 libxkbcommon-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xinput0 xvfb
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.9.3'
+          arch: ${{ matrix.qt_arch }}
+          cache: true
+      - name: Windows zlib and installer tooling
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          vcpkg install zlib:x64-windows-static-md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) {
+            choco install nsis --no-progress -y
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          'C:\Program Files (x86)\NSIS' | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake -S . -B build -A x64 -DCOLD_FLAME_DEPLOY=ON
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+      - name: Configure macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCOLD_FLAME_DEPLOY=ON
+          -DCMAKE_OSX_ARCHITECTURES="$PACKAGE_ARCH" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+      - name: Configure Linux
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib -DCOLD_FLAME_DEPLOY=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package and launch deployed app
+        shell: bash
+        run: python scripts/package.py --platform "$PACKAGE_PLATFORM" --arch "$PACKAGE_ARCH" --version "$PACKAGE_VERSION"
+      - name: Upload packaged downloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: ColdFlame-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,58 @@
+# Native dependency deployment is enabled only for CI/release packaging.
+option(COLD_FLAME_DEPLOY "Bundle Qt runtime dependencies on install" OFF)
+if(COLD_FLAME_DEPLOY)
+    if(Qt6_VERSION VERSION_LESS 6.8)
+        message(FATAL_ERROR "Release deployment requires Qt 6.8 or later")
+    endif()
+    include(GNUInstallDirs)
+    # Explicit platform plugins also support distro Qt installations without GuiPlugins.cmake.
+    set(platform_plugins QOffscreenIntegrationPlugin)
+    if(APPLE)
+        list(APPEND platform_plugins QCocoaIntegrationPlugin)
+    elseif(WIN32)
+        list(APPEND platform_plugins QWindowsIntegrationPlugin)
+    else()
+        list(APPEND platform_plugins QXcbIntegrationPlugin)
+    endif()
+    foreach(plugin IN LISTS platform_plugins)
+        find_package(Qt6${plugin} CONFIG REQUIRED PATHS "${Qt6Gui_DIR}")
+        qt_import_plugins(cold-flame INCLUDE Qt6::${plugin})
+    endforeach()
+    if(UNIX AND NOT APPLE)
+        set_target_properties(cold-flame PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+    endif()
+    if(UNIX AND NOT APPLE)
+        set(plugin_modules "")
+        foreach(plugin IN LISTS platform_plugins)
+            install(FILES "$<TARGET_FILE:Qt6::${plugin}>" DESTINATION plugins/platforms)
+            string(APPEND plugin_modules " \"$<TARGET_FILE:Qt6::${plugin}>\"")
+        endforeach()
+        qt_generate_deploy_script(TARGET cold-flame OUTPUT_SCRIPT cold_flame_deploy_script
+            CONTENT "
+qt_deploy_runtime_dependencies(
+    EXECUTABLE \"$<TARGET_FILE:cold-flame>\"
+    ADDITIONAL_MODULES ${plugin_modules}
+    GENERATE_QT_CONF
+    NO_TRANSLATIONS
+    PRE_EXCLUDE_REGEXES \"^libc[.]so.*\" \"^libm[.]so.*\" \"^libpthread[.]so.*\" \"^libdl[.]so.*\" \"^librt[.]so.*\" \"^ld-linux.*\"
+)")
+    else()
+        qt_generate_deploy_app_script(TARGET cold-flame OUTPUT_SCRIPT cold_flame_deploy_script NO_TRANSLATIONS)
+    endif()
+    install(SCRIPT ${cold_flame_deploy_script})
+    install(FILES ${PROJECT_SOURCE_DIR}/LICENSE DESTINATION licenses/ColdFlame)
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/examples/ DESTINATION examples)
+endif()
+
+set(CPACK_PACKAGE_NAME "Cold Flame")
+set(CPACK_PACKAGE_VENDOR "Pixel Stereo")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Cold Flame lighting console")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Cold Flame")
+set(CPACK_PACKAGE_EXECUTABLES "cold-flame" "Cold Flame")
+set(CPACK_NSIS_DISPLAY_NAME "Cold Flame")
+set(CPACK_NSIS_PACKAGE_NAME "Cold Flame")
+set(CPACK_NSIS_EXECUTABLES_DIRECTORY "bin")
+set(CPACK_NSIS_MODIFY_PATH OFF)
+include(CPack)

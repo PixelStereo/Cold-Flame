@@ -9,10 +9,19 @@ target_link_libraries(flame PUBLIC Qt6::Core Qt6::Network ZLIB::ZLIB)
 target_include_directories(flame PUBLIC src)
 add_library(flame-ui src/patchdialog.cpp src/patchdialog.h src/blinddialog.cpp src/blinddialog.h)
 target_link_libraries(flame-ui PUBLIC flame Qt6::Widgets)
-add_executable(cold-flame src/main.cpp)
+qt_add_executable(cold-flame src/main.cpp)
 target_link_libraries(cold-flame PRIVATE flame-ui Qt6::Widgets)
+if(WIN32)
+    set_target_properties(cold-flame PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 if(APPLE)
-    set_target_properties(cold-flame PROPERTIES MACOSX_BUNDLE TRUE MACOSX_BUNDLE_GUI_IDENTIFIER "org.pixelstereo.coldflame" MACOSX_BUNDLE_BUNDLE_NAME "Cold Flame")
+    set_target_properties(cold-flame PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.pixelstereo.coldflame"
+        MACOSX_BUNDLE_BUNDLE_NAME "Cold Flame"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    )
 endif()
 enable_testing()
 add_executable(engine-tests tests/engine_test.cpp)
@@ -30,4 +39,10 @@ if(UNIX)
     if(Python3_Interpreter_FOUND)
         add_test(NAME macos-build-script COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/build_script_test.py)
     endif()
+endif()
+
+include(cmake/Packaging.cmake)
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME release-packaging COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/package_test.py)
 endif()
