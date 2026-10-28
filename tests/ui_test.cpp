@@ -129,7 +129,8 @@ class UiTests : public QObject {
         for (auto label : window.findChildren<QLabel *>())
             QVERIFY(label->text() != "COLD FLAME");
         auto button = window.findChild<QPushButton *>("setNextButton");
-        QEvent enter(QEvent::Enter); QApplication::sendEvent(button, &enter);
+        QEnterEvent enter(QPointF(2, 2), QPointF(2, 2), button->mapToGlobal(QPoint(2, 2)));
+        QApplication::sendEvent(button, &enter);
         auto help = window.findChild<QLabel *>("hoverHelp");
         QVERIFY(window.findChild<QSpinBox *>("dmxOutputUniverse")->property("numberDragInstalled").toBool());
         QVERIFY(help->text().contains("next GO"));
