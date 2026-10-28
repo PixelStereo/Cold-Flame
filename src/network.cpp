@@ -89,15 +89,14 @@ void Network::send(const Engine &e) {
     if (!enabled)
         return;
     QMap<int, QByteArray> universes;
-    for (auto i = e.patch.begin(); i != e.patch.end(); ++i) {
-        int u = (i.value() - 1) / 512;
-        if (!universes.contains(u))
-            universes[u] = QByteArray(512, '\0');
-    }
     auto values = e.output();
-    for (auto i = e.patch.begin(); i != e.patch.end(); ++i)
-        universes[(i.value() - 1) / 512][(i.value() - 1) % 512] =
-            char(qRound(values.value(i.key()) * 2.55));
+    for (int channel : e.channels.keys())
+        for (int absolute : e.dmxAddresses(channel)) {
+            int u = (absolute - 1) / 512;
+            if (!universes.contains(u))
+                universes[u] = QByteArray(512, '\0');
+            universes[u][(absolute - 1) % 512] = char(qRound(values.value(channel) * 2.55));
+        }
     ++serial;
     if (serial == 0)
         ++serial;

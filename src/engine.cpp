@@ -8,8 +8,15 @@ Engine::Engine() {
         patch[i] = i;
     }
     Sequence s;
-    s.name = "Main cue list";
+    s.name = "sequence-10";
     sequences << s;
+}
+QList<int> Engine::dmxAddresses(int channel) const {
+    QList<int> result;
+    if (patch.contains(channel))
+        result << patch.value(channel);
+    result.append(additionalPatch.value(channel));
+    return result;
 }
 double Engine::resolve(int channel, Value v) const {
     return v.palette ? palettes.value(v.palette).value(channel, v.level) : v.level;
@@ -24,23 +31,32 @@ Values Engine::tracked(int s, int c) const {
             out[it.key()] = resolve(it.key(), it.value());
     return out;
 }
-Values Engine::output() const {
+Values Engine::output(bool mastered) const {
     Values out;
     QMap<int, QPair<int, quint64>> owners;
-    for (const auto &s : sequences)
+    auto compose = [&](const Sequence &s) {
         for (auto it = s.output.begin(); it != s.output.end(); ++it) {
-            auto rank = qMakePair(s.priority, s.stamp);
+            auto rank = qMakePair(s.priority, s.ownership.value(it.key(), s.stamp));
             if (!owners.contains(it.key()) || rank > owners[it.key()]) {
                 owners[it.key()] = rank;
                 out[it.key()] = it.value();
             }
         }
+    };
+    for (const auto &s : sequences)
+        compose(s);
+    for (const auto &s : linkedPlaybacks)
+        compose(s);
+    for (const auto &sub : submasters)
+        for (auto it = sub.values.begin(); it != sub.values.end(); ++it)
+            out[it.key()] = qMax(out.value(it.key()), it.value() * sub.level);
     for (auto it = pixels.begin(); it != pixels.end(); ++it)
         out[it.key()] = it.value();
     for (auto it = manual.begin(); it != manual.end(); ++it)
         out[it.key()] = resolve(it.key(), it.value());
-    for (auto it = out.begin(); it != out.end(); ++it)
-        it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
+    if (mastered)
+        for (auto it = out.begin(); it != out.end(); ++it)
+            it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
     return out;
 }
 void Engine::level(double p) {
@@ -92,23 +108,157 @@ void Engine::record(int s, QString number, QString label, double time, bool only
     if (!exists && sequences[s].current >= idx)
         ++sequences[s].current;
 }
-void Engine::go(int s, int idx) {
+void Engine::recordLook(int s, QString number, QString label, double time) {
     if (s < 0 || s >= sequences.size())
         return;
+    auto live = output(false);
+    auto saved = manual;
+    for (auto it = channels.begin(); it != channels.end(); ++it)
+        if (!manual.contains(it.key()))
+            manual[it.key()] = {live.value(it.key()), 0};
+    bool replacing = false;
+    for (const auto &c : sequences[s].cues)
+        if (c.number == number)
+            replacing = true;
+    record(s, number, label, time);
+    if (!replacing) {
+        auto &list = sequences[s].cues;
+        int index = 0;
+        while (index < list.size() && list[index].number != number)
+            ++index;
+        if (index > 0 && index < list.size()) {
+            auto previous = tracked(s, index - 1);
+            auto &values = list[index].values;
+            for (auto it = values.begin(); it != values.end();) {
+                if (!it->palette && previous.contains(it.key()) &&
+                    qAbs(previous[it.key()] - it->level) < 1e-9)
+                    it = values.erase(it);
+                else
+                    ++it;
+            }
+        }
+    }
+    manual = saved;
+}
+QString Engine::nextCueNumber(int s) const {
+    if (s < 0 || s >= sequences.size() || sequences[s].cues.isEmpty())
+        return "10";
+    return QString::number(sequences[s].cues.last().number.toDouble() + 10, 'g', 12);
+}
+int Engine::addSequence() {
+    int number = 0;
+    for (const auto &s : sequences)
+        number = qMax(number, s.number);
+    Sequence s;
+    s.number = number + 10;
+    s.name = QString("sequence-%1").arg(s.number);
+    sequences << s;
+    return sequences.size() - 1;
+}
+void Engine::recordSubmaster() {
+    Submaster s;
+    s.name = QString("sub-%1").arg((submasters.size() + 1) * 10);
+    auto live = output(false);
+    if (selection.isEmpty())
+        s.values = live;
+    else
+        for (int c : selection)
+            s.values[c] = live.value(c);
+    submasters << s;
+}
+QPair<int, int> Engine::cueTarget(QString text, int owner) const {
+    int source = owner;
+    QString number = text;
+    if (text.contains('/')) {
+        auto parts = text.split('/');
+        if (parts.size() != 2)
+            return {-1, -1};
+        source = -1;
+        number = parts[1];
+        for (int i = 0; i < sequences.size(); ++i)
+            if (sequences[i].number == parts[0].toInt())
+                source = i;
+    }
+    if (source < 0 || source >= sequences.size())
+        return {-1, -1};
+    for (int i = 0; i < sequences[source].cues.size(); ++i)
+        if (sequences[source].cues[i].number.toDouble() == number.toDouble())
+            return {source, i};
+    return {-1, -1};
+}
+void Engine::go(int s, int idx) {
+    if (s < 0 || s >= sequences.size() || triggerDepth >= 32)
+        return;
+    bool assertAll = idx >= 0 || sequences[s].current < 0;
+    if (idx < 0) {
+        auto &seq = sequences[s];
+        if (seq.current >= 0 && !seq.cues[seq.current].link.isEmpty()) {
+            auto target = cueTarget(seq.cues[seq.current].link, s);
+            if (target.first < 0)
+                return;
+            s = target.first;
+            idx = target.second;
+            assertAll = true;
+        } else
+            idx = seq.current + 1;
+    }
     auto &seq = sequences[s];
-    if (idx < 0)
-        idx = seq.current + 1;
     if (idx < 0 || idx >= seq.cues.size())
         return;
+    beginPlayback(seq, idx, tracked(s, idx), assertAll);
+    seq.linkPending = !seq.cues[idx].after.isEmpty();
+    seq.autoPending = seq.cues[idx].follow.has_value() || seq.cues[idx].hang.has_value();
+    QString execute = seq.cues[idx].execute;
+    if (!execute.isEmpty()) {
+        auto target = cueTarget(execute, s);
+        if (target.first >= 0) {
+            ++triggerDepth;
+            go(target.first, target.second);
+            --triggerDepth;
+        }
+    }
+    if (!ticking && triggerDepth == 0)
+        tick(0);
+}
+void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll) {
+    auto live = output(false);
     seq.current = idx;
-    seq.start = seq.output;
-    seq.target = tracked(s, idx);
-    seq.duration = seq.cues[idx].time;
+    const auto &cue = seq.cues[idx];
+    seq.stamp = ++clock;
+    if (assertAll) {
+        seq.releasing.clear();
+        for (auto it = seq.output.begin(); it != seq.output.end(); ++it)
+            if (!target.contains(it.key())) {
+                target[it.key()] = 0;
+                seq.releasing.insert(it.key());
+            }
+        seq.target.clear();
+        seq.timings.clear();
+        seq.channelElapsed.clear();
+    }
+    for (auto it = target.begin(); it != target.end(); ++it) {
+        if (!assertAll && !cue.values.contains(it.key()))
+            continue;
+        if (cue.values.contains(it.key()))
+            seq.releasing.remove(it.key());
+        seq.start[it.key()] = live.value(it.key());
+        seq.target[it.key()] = it.value();
+        seq.timings[it.key()] = cue.channelTimes.value(
+            it.key(), ChannelTiming{cue.time, cue.down < 0 ? cue.time : cue.down, cue.wait});
+        seq.channelElapsed[it.key()] = 0;
+        seq.ownership[it.key()] = seq.stamp;
+        manual.remove(it.key());
+        seq.output[it.key()] = live.value(it.key());
+    }
+    seq.duration = 0;
+    for (auto it = seq.target.begin(); it != seq.target.end(); ++it) {
+        auto t = seq.timings.value(it.key());
+        double fade = it.value() >= seq.start.value(it.key()) ? t.up : t.down;
+        seq.duration =
+            qMax(seq.duration, qMax(0., t.wait + fade - seq.channelElapsed.value(it.key())));
+    }
     seq.elapsed = 0;
     seq.paused = false;
-    seq.stamp = ++clock;
-    if (seq.duration == 0)
-        seq.output = seq.target;
 }
 void Engine::back(int s) {
     if (s >= 0 && s < sequences.size()) {
@@ -126,18 +276,94 @@ void Engine::release(int s) {
         q.start.clear();
         q.current = -1;
         q.duration = 0;
+        q.timings.clear();
+        q.channelElapsed.clear();
+        q.ownership.clear();
+        q.releasing.clear();
+        q.linkPending = false;
+        q.autoPending = false;
+        linkedPlaybacks.remove(s);
     }
 }
 void Engine::tick(double dt) {
-    for (auto &s : sequences) {
-        if (s.paused || s.duration <= 0)
-            continue;
-        s.elapsed = qMin(s.duration, s.elapsed + qMax(0., dt));
-        double f = s.elapsed / s.duration;
-        for (auto it = s.target.begin(); it != s.target.end(); ++it)
-            s.output[it.key()] =
-                s.start.value(it.key()) + (it.value() - s.start.value(it.key())) * f;
+    if (ticking)
+        return;
+    ticking = true;
+    auto advance = [](Sequence &s, double dt) {
+        if (s.paused || s.current < 0)
+            return;
+        s.elapsed += dt;
+        for (auto it = s.target.begin(); it != s.target.end(); ++it) {
+            auto t = s.timings.value(it.key());
+            s.channelElapsed[it.key()] += dt;
+            double elapsed = s.channelElapsed[it.key()];
+            double start = s.start.value(it.key()), fade = it.value() >= start ? t.up : t.down;
+            double f =
+                elapsed < t.wait ? 0 : (fade <= 0 ? 1 : qBound(0., (elapsed - t.wait) / fade, 1.));
+            s.output[it.key()] = start + (it.value() - start) * f;
+        }
+        if (s.elapsed >= s.duration)
+            for (int c : s.releasing)
+                s.output.remove(c);
+    };
+    auto autoTime = [](const Sequence &s) {
+        const auto &c = s.cues[s.current];
+        return c.follow.value_or(s.duration + c.hang.value_or(0));
+    };
+    double remaining = qMax(0., dt);
+    for (int pass = 0; pass < 256; ++pass) {
+        double step = remaining;
+        for (const auto &s : sequences) {
+            if (s.paused || s.current < 0)
+                continue;
+            if (s.linkPending)
+                step = qMin(step, qMax(0., s.duration - s.elapsed));
+            if (s.autoPending)
+                step = qMin(step, qMax(0., autoTime(s) - s.elapsed));
+        }
+        for (auto &s : sequences)
+            advance(s, step);
+        for (auto &s : linkedPlaybacks)
+            advance(s, step);
+        remaining = qMax(0., remaining - step);
+        bool fired = false;
+        for (int owner = 0; owner < sequences.size(); ++owner) {
+            auto &s = sequences[owner];
+            if (s.paused || s.current < 0)
+                continue;
+            if (s.linkPending && s.elapsed + 1e-9 >= s.duration) {
+                s.linkPending = false;
+                auto target = cueTarget(s.cues[s.current].after, owner);
+                if (target.first >= 0) {
+                    Sequence side;
+                    side.name = QString("After %1/%2")
+                                    .arg(sequences[target.first].number)
+                                    .arg(sequences[target.first].cues[target.second].number);
+                    side.priority = sequences[target.first].priority;
+                    side.cues = sequences[target.first].cues;
+                    beginPlayback(side, target.second, tracked(target.first, target.second));
+                    advance(side, 0);
+                    linkedPlaybacks[owner] = side;
+                }
+                fired = true;
+            }
+            if (s.autoPending && s.elapsed + 1e-9 >= qMax(0., autoTime(s))) {
+                s.autoPending = false;
+                go(owner);
+                fired = true;
+            }
+        }
+        if (!fired && remaining <= 1e-9)
+            break;
+        if (pass == 255) {
+            for (auto &s : sequences)
+                if (s.autoPending) {
+                    s.paused = true;
+                    s.autoPending = false;
+                }
+        }
     }
+    ticking = false;
 }
 bool Engine::command(QString text, QString *error) {
     auto fail = [&](QString e) {
@@ -167,12 +393,18 @@ bool Engine::command(QString text, QString *error) {
             return true;
         }
         if (type == "sequence") {
-            if (id < 1 || id > sequences.size())
-                return fail("Sequence not found");
-            go(id - 1);
-            return true;
+            for (int i = 0; i < sequences.size(); ++i)
+                if (sequences[i].number == id) {
+                    go(i);
+                    return true;
+                }
+            return fail("Sequence not found");
         }
-        int seq = target.captured(3).isEmpty() ? 0 : id - 1;
+        int seq = target.captured(3).isEmpty() ? 0 : -1;
+        if (!target.captured(3).isEmpty())
+            for (int i = 0; i < sequences.size(); ++i)
+                if (sequences[i].number == id)
+                    seq = i;
         QString num = target.captured(3).isEmpty() ? target.captured(2) : target.captured(3);
         if (seq < 0 || seq >= sequences.size())
             return fail("Sequence not found");
@@ -213,9 +445,15 @@ QJsonObject Engine::json() const {
     root["format"] = "cold-flame";
     root["version"] = 1;
     QJsonArray ch, ps, gs, ss;
-    for (auto it = channels.begin(); it != channels.end(); ++it)
-        ch.append(QJsonObject{
-            {"id", it.key()}, {"name", it.value()}, {"address", patch.value(it.key())}});
+    for (auto it = channels.begin(); it != channels.end(); ++it) {
+        QJsonArray addresses;
+        for (int a : dmxAddresses(it.key()))
+            addresses.append(a);
+        ch.append(QJsonObject{{"id", it.key()},
+                              {"name", it.value()},
+                              {"address", patch.value(it.key())},
+                              {"addresses", addresses}});
+    }
     auto saveValues = [](const QMap<int, Values> &source) {
         QJsonArray a;
         for (auto i = source.begin(); i != source.end(); ++i) {
@@ -233,15 +471,38 @@ QJsonObject Engine::json() const {
             for (auto i = c.values.begin(); i != c.values.end(); ++i)
                 vs[QString::number(i.key())] =
                     QJsonObject{{"level", i->level}, {"palette", i->palette}};
-            cs.append(QJsonObject{
-                {"number", c.number}, {"label", c.label}, {"time", c.time}, {"values", vs}});
+            QJsonObject times;
+            for (auto it = c.channelTimes.begin(); it != c.channelTimes.end(); ++it)
+                times[QString::number(it.key())] =
+                    QJsonObject{{"up", it->up}, {"down", it->down}, {"wait", it->wait}};
+            cs.append(QJsonObject{{"number", c.number},
+                                  {"label", c.label},
+                                  {"time", c.time},
+                                  {"down", c.down},
+                                  {"wait", c.wait},
+                                  {"link", c.link},
+                                  {"execute", c.execute},
+                                  {"after", c.after},
+                                  {"follow", c.follow ? QJsonValue(*c.follow) : QJsonValue()},
+                                  {"hang", c.hang ? QJsonValue(*c.hang) : QJsonValue()},
+                                  {"channelTimes", times},
+                                  {"values", vs}});
         }
-        ss.append(QJsonObject{{"name", s.name}, {"priority", s.priority}, {"cues", cs}});
+        ss.append(QJsonObject{
+            {"number", s.number}, {"name", s.name}, {"priority", s.priority}, {"cues", cs}});
     }
     root["channels"] = ch;
     root["palettes"] = saveValues(palettes);
     root["groups"] = saveValues(groups);
     root["sequences"] = ss;
+    QJsonArray subs;
+    for (const auto &sub : submasters) {
+        QJsonObject values;
+        for (auto it = sub.values.begin(); it != sub.values.end(); ++it)
+            values[QString::number(it.key())] = it.value();
+        subs.append(QJsonObject{{"name", sub.name}, {"values", values}});
+    }
+    root["submasters"] = subs;
     return root;
 }
 bool Engine::load(const QJsonObject &r, QString *error) {
@@ -260,12 +521,30 @@ bool Engine::load(const QJsonObject &r, QString *error) {
     QSet<int> addresses;
     for (auto x : r["channels"].toArray()) {
         auto o = x.toObject();
-        int id = o["id"].toInt(), a = o["address"].toInt();
-        if (id < 1 || a < 1 || a > 512 * 63999 || e.channels.contains(id) || addresses.contains(a))
+        int id = o["id"].toInt();
+        if (id < 1 || e.channels.contains(id))
             return fail();
+        QList<int> targets;
+        if (o.contains("addresses")) {
+            if (!o["addresses"].isArray() || o["addresses"].toArray().isEmpty())
+                return fail();
+            for (auto value : o["addresses"].toArray()) {
+                int a = value.toInt(-1);
+                if (a < 1 || a > 512 * 63999 || addresses.contains(a))
+                    return fail();
+                addresses.insert(a);
+                targets << a;
+            }
+        } else {
+            int a = o["address"].toInt();
+            if (a < 1 || a > 512 * 63999 || addresses.contains(a))
+                return fail();
+            addresses.insert(a);
+            targets << a;
+        }
         e.channels[id] = o["name"].toString();
-        e.patch[id] = a;
-        addresses.insert(a);
+        e.patch[id] = targets.takeFirst();
+        e.additionalPatch[id] = targets;
     }
     for (QString key : {"palettes", "groups"})
         for (auto x : r[key].toArray()) {
@@ -284,6 +563,12 @@ bool Engine::load(const QJsonObject &r, QString *error) {
         auto o = x.toObject();
         Sequence s;
         s.name = o["name"].toString();
+        s.number = o["number"].toInt((e.sequences.size() + 1) * 10);
+        for (const auto &existing : e.sequences)
+            if (existing.number == s.number)
+                return fail();
+        if (s.number < 1)
+            return fail();
         s.priority = o["priority"].toInt(4);
         double prev = -1;
         for (auto y : o["cues"].toArray()) {
@@ -296,6 +581,42 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             c.time = co["time"].toDouble(-1);
             if (!ok || n <= prev || c.time < 0 || !std::isfinite(c.time))
                 return fail();
+            c.down = co["down"].toDouble(-1);
+            c.wait = co["wait"].toDouble(0);
+            c.link = co["link"].toString();
+            c.execute = co["execute"].toString();
+            c.after = co["after"].toString();
+            if (co.contains("follow") && !co["follow"].isNull()) {
+                double f = co["follow"].toDouble(-1);
+                if (!std::isfinite(f) || f < 0)
+                    return fail();
+                c.follow = f;
+            }
+            if (co.contains("hang") && !co["hang"].isNull()) {
+                double h = co["hang"].toDouble(std::numeric_limits<double>::quiet_NaN());
+                if (!std::isfinite(h) || c.follow)
+                    return fail();
+                c.hang = h;
+            }
+            if (!std::isfinite(c.down) || c.down < -1 || !std::isfinite(c.wait) || c.wait < 0)
+                return fail();
+            if (!c.link.isEmpty()) {
+                bool valid;
+                double target = c.link.section('/', -1).toDouble(&valid);
+                if (!valid || target <= 0)
+                    return fail();
+            }
+            auto times = co["channelTimes"].toObject();
+            for (auto it = times.begin(); it != times.end(); ++it) {
+                auto o = it.value().toObject();
+                ChannelTiming t{o["up"].toDouble(-1), o["down"].toDouble(-1),
+                                o["wait"].toDouble(-1)};
+                if (!e.channels.contains(it.key().toInt()) || t.up < 0 || t.down < 0 ||
+                    t.wait < 0 || !std::isfinite(t.up) || !std::isfinite(t.down) ||
+                    !std::isfinite(t.wait))
+                    return fail();
+                c.channelTimes[it.key().toInt()] = t;
+            }
             prev = n;
             auto vs = co["values"].toObject();
             for (auto it = vs.begin(); it != vs.end(); ++it) {
@@ -310,6 +631,19 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             s.cues << c;
         }
         e.sequences << s;
+    }
+    for (auto x : r["submasters"].toArray()) {
+        auto o = x.toObject();
+        Submaster sub;
+        sub.name = o["name"].toString();
+        auto values = o["values"].toObject();
+        for (auto it = values.begin(); it != values.end(); ++it) {
+            double v = it.value().toDouble(-1);
+            if (!e.channels.contains(it.key().toInt()) || v < 0 || v > 100)
+                return fail();
+            sub.values[it.key().toInt()] = v;
+        }
+        e.submasters << sub;
     }
     *this = e;
     return true;

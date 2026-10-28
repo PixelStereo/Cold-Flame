@@ -1,0 +1,1162 @@
+{
+  "format": "cold-flame",
+  "version": 1,
+  "channels": [
+    {
+      "id": 1,
+      "name": "Front warm 1",
+      "address": 1
+    },
+    {
+      "id": 2,
+      "name": "Front warm 2",
+      "address": 2
+    },
+    {
+      "id": 3,
+      "name": "Front warm 3",
+      "address": 3
+    },
+    {
+      "id": 4,
+      "name": "Front warm 4",
+      "address": 4
+    },
+    {
+      "id": 5,
+      "name": "Front warm 5",
+      "address": 5
+    },
+    {
+      "id": 6,
+      "name": "Front warm 6",
+      "address": 6
+    },
+    {
+      "id": 7,
+      "name": "Front warm 7",
+      "address": 7
+    },
+    {
+      "id": 8,
+      "name": "Front warm 8",
+      "address": 8
+    },
+    {
+      "id": 9,
+      "name": "Front cool 1",
+      "address": 9
+    },
+    {
+      "id": 10,
+      "name": "Front cool 2",
+      "address": 10
+    },
+    {
+      "id": 11,
+      "name": "Front cool 3",
+      "address": 11
+    },
+    {
+      "id": 12,
+      "name": "Front cool 4",
+      "address": 12
+    },
+    {
+      "id": 13,
+      "name": "Front cool 5",
+      "address": 13
+    },
+    {
+      "id": 14,
+      "name": "Front cool 6",
+      "address": 14
+    },
+    {
+      "id": 15,
+      "name": "Front cool 7",
+      "address": 15
+    },
+    {
+      "id": 16,
+      "name": "Front cool 8",
+      "address": 16
+    },
+    {
+      "id": 17,
+      "name": "Side left 1",
+      "address": 17
+    },
+    {
+      "id": 18,
+      "name": "Side left 2",
+      "address": 18
+    },
+    {
+      "id": 19,
+      "name": "Side left 3",
+      "address": 19
+    },
+    {
+      "id": 20,
+      "name": "Side left 4",
+      "address": 20
+    },
+    {
+      "id": 21,
+      "name": "Side left 5",
+      "address": 21
+    },
+    {
+      "id": 22,
+      "name": "Side left 6",
+      "address": 22
+    },
+    {
+      "id": 23,
+      "name": "Side left 7",
+      "address": 23
+    },
+    {
+      "id": 24,
+      "name": "Side left 8",
+      "address": 24
+    },
+    {
+      "id": 25,
+      "name": "Side right 1",
+      "address": 25
+    },
+    {
+      "id": 26,
+      "name": "Side right 2",
+      "address": 26
+    },
+    {
+      "id": 27,
+      "name": "Side right 3",
+      "address": 27
+    },
+    {
+      "id": 28,
+      "name": "Side right 4",
+      "address": 28
+    },
+    {
+      "id": 29,
+      "name": "Side right 5",
+      "address": 29
+    },
+    {
+      "id": 30,
+      "name": "Side right 6",
+      "address": 30
+    },
+    {
+      "id": 31,
+      "name": "Side right 7",
+      "address": 31
+    },
+    {
+      "id": 32,
+      "name": "Side right 8",
+      "address": 32
+    },
+    {
+      "id": 33,
+      "name": "Backlight 1",
+      "address": 33
+    },
+    {
+      "id": 34,
+      "name": "Backlight 2",
+      "address": 34
+    },
+    {
+      "id": 35,
+      "name": "Backlight 3",
+      "address": 35
+    },
+    {
+      "id": 36,
+      "name": "Backlight 4",
+      "address": 36
+    },
+    {
+      "id": 37,
+      "name": "Backlight 5",
+      "address": 37
+    },
+    {
+      "id": 38,
+      "name": "Backlight 6",
+      "address": 38
+    },
+    {
+      "id": 39,
+      "name": "Backlight 7",
+      "address": 39
+    },
+    {
+      "id": 40,
+      "name": "Backlight 8",
+      "address": 40
+    },
+    {
+      "id": 41,
+      "name": "Specials 1",
+      "address": 41
+    },
+    {
+      "id": 42,
+      "name": "Specials 2",
+      "address": 42
+    },
+    {
+      "id": 43,
+      "name": "Specials 3",
+      "address": 43
+    },
+    {
+      "id": 44,
+      "name": "Specials 4",
+      "address": 44
+    },
+    {
+      "id": 45,
+      "name": "Specials 5",
+      "address": 45
+    },
+    {
+      "id": 46,
+      "name": "Specials 6",
+      "address": 46
+    },
+    {
+      "id": 47,
+      "name": "Specials 7",
+      "address": 47
+    },
+    {
+      "id": 48,
+      "name": "Specials 8",
+      "address": 48
+    }
+  ],
+  "palettes": [
+    {
+      "id": 1,
+      "values": {
+        "1": 60,
+        "2": 60,
+        "3": 60,
+        "4": 60,
+        "5": 60,
+        "6": 60,
+        "7": 60,
+        "8": 60,
+        "9": 60,
+        "10": 60,
+        "11": 60,
+        "12": 60,
+        "13": 60,
+        "14": 60,
+        "15": 60,
+        "16": 60
+      }
+    },
+    {
+      "id": 2,
+      "values": {
+        "17": 80,
+        "18": 80,
+        "19": 80,
+        "20": 80,
+        "21": 80,
+        "22": 80,
+        "23": 80,
+        "24": 80,
+        "25": 80,
+        "26": 80,
+        "27": 80,
+        "28": 80,
+        "29": 80,
+        "30": 80,
+        "31": 80,
+        "32": 80
+      }
+    }
+  ],
+  "groups": [],
+  "sequences": [
+    {
+      "number": 10,
+      "name": "Theatre / dance",
+      "priority": 4,
+      "cues": [
+        {
+          "number": "10",
+          "label": "Opening",
+          "time": 3,
+          "down": -1,
+          "wait": 0,
+          "link": "",
+          "channelTimes": {},
+          "values": {
+            "1": {
+              "level": 65,
+              "palette": 0
+            },
+            "2": {
+              "level": 65,
+              "palette": 0
+            },
+            "3": {
+              "level": 65,
+              "palette": 0
+            },
+            "4": {
+              "level": 65,
+              "palette": 0
+            },
+            "5": {
+              "level": 65,
+              "palette": 0
+            },
+            "6": {
+              "level": 65,
+              "palette": 0
+            },
+            "7": {
+              "level": 65,
+              "palette": 0
+            },
+            "8": {
+              "level": 65,
+              "palette": 0
+            },
+            "9": {
+              "level": 15,
+              "palette": 0
+            },
+            "10": {
+              "level": 15,
+              "palette": 0
+            },
+            "11": {
+              "level": 15,
+              "palette": 0
+            },
+            "12": {
+              "level": 15,
+              "palette": 0
+            },
+            "13": {
+              "level": 15,
+              "palette": 0
+            },
+            "14": {
+              "level": 15,
+              "palette": 0
+            },
+            "15": {
+              "level": 15,
+              "palette": 0
+            },
+            "16": {
+              "level": 15,
+              "palette": 0
+            },
+            "17": {
+              "level": 35,
+              "palette": 0
+            },
+            "18": {
+              "level": 35,
+              "palette": 0
+            },
+            "19": {
+              "level": 35,
+              "palette": 0
+            },
+            "20": {
+              "level": 35,
+              "palette": 0
+            },
+            "21": {
+              "level": 35,
+              "palette": 0
+            },
+            "22": {
+              "level": 35,
+              "palette": 0
+            },
+            "23": {
+              "level": 35,
+              "palette": 0
+            },
+            "24": {
+              "level": 35,
+              "palette": 0
+            },
+            "25": {
+              "level": 35,
+              "palette": 0
+            },
+            "26": {
+              "level": 35,
+              "palette": 0
+            },
+            "27": {
+              "level": 35,
+              "palette": 0
+            },
+            "28": {
+              "level": 35,
+              "palette": 0
+            },
+            "29": {
+              "level": 35,
+              "palette": 0
+            },
+            "30": {
+              "level": 35,
+              "palette": 0
+            },
+            "31": {
+              "level": 35,
+              "palette": 0
+            },
+            "32": {
+              "level": 35,
+              "palette": 0
+            },
+            "33": {
+              "level": 20,
+              "palette": 0
+            },
+            "34": {
+              "level": 20,
+              "palette": 0
+            },
+            "35": {
+              "level": 20,
+              "palette": 0
+            },
+            "36": {
+              "level": 20,
+              "palette": 0
+            },
+            "37": {
+              "level": 20,
+              "palette": 0
+            },
+            "38": {
+              "level": 20,
+              "palette": 0
+            },
+            "39": {
+              "level": 20,
+              "palette": 0
+            },
+            "40": {
+              "level": 20,
+              "palette": 0
+            },
+            "41": {
+              "level": 0,
+              "palette": 0
+            },
+            "42": {
+              "level": 0,
+              "palette": 0
+            },
+            "43": {
+              "level": 0,
+              "palette": 0
+            },
+            "44": {
+              "level": 0,
+              "palette": 0
+            },
+            "45": {
+              "level": 0,
+              "palette": 0
+            },
+            "46": {
+              "level": 0,
+              "palette": 0
+            },
+            "47": {
+              "level": 0,
+              "palette": 0
+            },
+            "48": {
+              "level": 0,
+              "palette": 0
+            }
+          }
+        },
+        {
+          "number": "20",
+          "label": "Dance / side light",
+          "time": 3,
+          "down": -1,
+          "wait": 0,
+          "link": "",
+          "channelTimes": {
+            "17": {
+              "up": 6,
+              "down": 4,
+              "wait": 1
+            }
+          },
+          "values": {
+            "1": {
+              "level": 25,
+              "palette": 0
+            },
+            "2": {
+              "level": 25,
+              "palette": 0
+            },
+            "3": {
+              "level": 25,
+              "palette": 0
+            },
+            "4": {
+              "level": 25,
+              "palette": 0
+            },
+            "5": {
+              "level": 25,
+              "palette": 0
+            },
+            "6": {
+              "level": 25,
+              "palette": 0
+            },
+            "7": {
+              "level": 25,
+              "palette": 0
+            },
+            "8": {
+              "level": 25,
+              "palette": 0
+            },
+            "9": {
+              "level": 10,
+              "palette": 0
+            },
+            "10": {
+              "level": 10,
+              "palette": 0
+            },
+            "11": {
+              "level": 10,
+              "palette": 0
+            },
+            "12": {
+              "level": 10,
+              "palette": 0
+            },
+            "13": {
+              "level": 10,
+              "palette": 0
+            },
+            "14": {
+              "level": 10,
+              "palette": 0
+            },
+            "15": {
+              "level": 10,
+              "palette": 0
+            },
+            "16": {
+              "level": 10,
+              "palette": 0
+            },
+            "17": {
+              "level": 75,
+              "palette": 0
+            },
+            "18": {
+              "level": 75,
+              "palette": 0
+            },
+            "19": {
+              "level": 75,
+              "palette": 0
+            },
+            "20": {
+              "level": 75,
+              "palette": 0
+            },
+            "21": {
+              "level": 75,
+              "palette": 0
+            },
+            "22": {
+              "level": 75,
+              "palette": 0
+            },
+            "23": {
+              "level": 75,
+              "palette": 0
+            },
+            "24": {
+              "level": 75,
+              "palette": 0
+            },
+            "25": {
+              "level": 30,
+              "palette": 0
+            },
+            "26": {
+              "level": 30,
+              "palette": 0
+            },
+            "27": {
+              "level": 30,
+              "palette": 0
+            },
+            "28": {
+              "level": 30,
+              "palette": 0
+            },
+            "29": {
+              "level": 30,
+              "palette": 0
+            },
+            "30": {
+              "level": 30,
+              "palette": 0
+            },
+            "31": {
+              "level": 30,
+              "palette": 0
+            },
+            "32": {
+              "level": 30,
+              "palette": 0
+            },
+            "33": {
+              "level": 50,
+              "palette": 0
+            },
+            "34": {
+              "level": 50,
+              "palette": 0
+            },
+            "35": {
+              "level": 50,
+              "palette": 0
+            },
+            "36": {
+              "level": 50,
+              "palette": 0
+            },
+            "37": {
+              "level": 50,
+              "palette": 0
+            },
+            "38": {
+              "level": 50,
+              "palette": 0
+            },
+            "39": {
+              "level": 50,
+              "palette": 0
+            },
+            "40": {
+              "level": 50,
+              "palette": 0
+            },
+            "41": {
+              "level": 0,
+              "palette": 0
+            },
+            "42": {
+              "level": 0,
+              "palette": 0
+            },
+            "43": {
+              "level": 0,
+              "palette": 0
+            },
+            "44": {
+              "level": 0,
+              "palette": 0
+            },
+            "45": {
+              "level": 0,
+              "palette": 0
+            },
+            "46": {
+              "level": 0,
+              "palette": 0
+            },
+            "47": {
+              "level": 0,
+              "palette": 0
+            },
+            "48": {
+              "level": 0,
+              "palette": 0
+            }
+          }
+        },
+        {
+          "number": "30",
+          "label": "Solo / backlight",
+          "time": 3,
+          "down": -1,
+          "wait": 0,
+          "link": "",
+          "channelTimes": {},
+          "values": {
+            "1": {
+              "level": 5,
+              "palette": 0
+            },
+            "2": {
+              "level": 5,
+              "palette": 0
+            },
+            "3": {
+              "level": 5,
+              "palette": 0
+            },
+            "4": {
+              "level": 5,
+              "palette": 0
+            },
+            "5": {
+              "level": 5,
+              "palette": 0
+            },
+            "6": {
+              "level": 5,
+              "palette": 0
+            },
+            "7": {
+              "level": 5,
+              "palette": 0
+            },
+            "8": {
+              "level": 5,
+              "palette": 0
+            },
+            "9": {
+              "level": 5,
+              "palette": 0
+            },
+            "10": {
+              "level": 5,
+              "palette": 0
+            },
+            "11": {
+              "level": 5,
+              "palette": 0
+            },
+            "12": {
+              "level": 5,
+              "palette": 0
+            },
+            "13": {
+              "level": 5,
+              "palette": 0
+            },
+            "14": {
+              "level": 5,
+              "palette": 0
+            },
+            "15": {
+              "level": 5,
+              "palette": 0
+            },
+            "16": {
+              "level": 5,
+              "palette": 0
+            },
+            "17": {
+              "level": 20,
+              "palette": 0
+            },
+            "18": {
+              "level": 20,
+              "palette": 0
+            },
+            "19": {
+              "level": 20,
+              "palette": 0
+            },
+            "20": {
+              "level": 20,
+              "palette": 0
+            },
+            "21": {
+              "level": 20,
+              "palette": 0
+            },
+            "22": {
+              "level": 20,
+              "palette": 0
+            },
+            "23": {
+              "level": 20,
+              "palette": 0
+            },
+            "24": {
+              "level": 20,
+              "palette": 0
+            },
+            "25": {
+              "level": 60,
+              "palette": 0
+            },
+            "26": {
+              "level": 60,
+              "palette": 0
+            },
+            "27": {
+              "level": 60,
+              "palette": 0
+            },
+            "28": {
+              "level": 60,
+              "palette": 0
+            },
+            "29": {
+              "level": 60,
+              "palette": 0
+            },
+            "30": {
+              "level": 60,
+              "palette": 0
+            },
+            "31": {
+              "level": 60,
+              "palette": 0
+            },
+            "32": {
+              "level": 60,
+              "palette": 0
+            },
+            "33": {
+              "level": 80,
+              "palette": 0
+            },
+            "34": {
+              "level": 80,
+              "palette": 0
+            },
+            "35": {
+              "level": 80,
+              "palette": 0
+            },
+            "36": {
+              "level": 80,
+              "palette": 0
+            },
+            "37": {
+              "level": 80,
+              "palette": 0
+            },
+            "38": {
+              "level": 80,
+              "palette": 0
+            },
+            "39": {
+              "level": 80,
+              "palette": 0
+            },
+            "40": {
+              "level": 80,
+              "palette": 0
+            },
+            "41": {
+              "level": 45,
+              "palette": 0
+            },
+            "42": {
+              "level": 45,
+              "palette": 0
+            },
+            "43": {
+              "level": 45,
+              "palette": 0
+            },
+            "44": {
+              "level": 45,
+              "palette": 0
+            },
+            "45": {
+              "level": 45,
+              "palette": 0
+            },
+            "46": {
+              "level": 45,
+              "palette": 0
+            },
+            "47": {
+              "level": 45,
+              "palette": 0
+            },
+            "48": {
+              "level": 45,
+              "palette": 0
+            }
+          }
+        },
+        {
+          "number": "40",
+          "label": "Blackout",
+          "time": 5,
+          "down": -1,
+          "wait": 0,
+          "link": "",
+          "channelTimes": {},
+          "values": {
+            "1": {
+              "level": 0,
+              "palette": 0
+            },
+            "2": {
+              "level": 0,
+              "palette": 0
+            },
+            "3": {
+              "level": 0,
+              "palette": 0
+            },
+            "4": {
+              "level": 0,
+              "palette": 0
+            },
+            "5": {
+              "level": 0,
+              "palette": 0
+            },
+            "6": {
+              "level": 0,
+              "palette": 0
+            },
+            "7": {
+              "level": 0,
+              "palette": 0
+            },
+            "8": {
+              "level": 0,
+              "palette": 0
+            },
+            "9": {
+              "level": 0,
+              "palette": 0
+            },
+            "10": {
+              "level": 0,
+              "palette": 0
+            },
+            "11": {
+              "level": 0,
+              "palette": 0
+            },
+            "12": {
+              "level": 0,
+              "palette": 0
+            },
+            "13": {
+              "level": 0,
+              "palette": 0
+            },
+            "14": {
+              "level": 0,
+              "palette": 0
+            },
+            "15": {
+              "level": 0,
+              "palette": 0
+            },
+            "16": {
+              "level": 0,
+              "palette": 0
+            },
+            "17": {
+              "level": 0,
+              "palette": 0
+            },
+            "18": {
+              "level": 0,
+              "palette": 0
+            },
+            "19": {
+              "level": 0,
+              "palette": 0
+            },
+            "20": {
+              "level": 0,
+              "palette": 0
+            },
+            "21": {
+              "level": 0,
+              "palette": 0
+            },
+            "22": {
+              "level": 0,
+              "palette": 0
+            },
+            "23": {
+              "level": 0,
+              "palette": 0
+            },
+            "24": {
+              "level": 0,
+              "palette": 0
+            },
+            "25": {
+              "level": 0,
+              "palette": 0
+            },
+            "26": {
+              "level": 0,
+              "palette": 0
+            },
+            "27": {
+              "level": 0,
+              "palette": 0
+            },
+            "28": {
+              "level": 0,
+              "palette": 0
+            },
+            "29": {
+              "level": 0,
+              "palette": 0
+            },
+            "30": {
+              "level": 0,
+              "palette": 0
+            },
+            "31": {
+              "level": 0,
+              "palette": 0
+            },
+            "32": {
+              "level": 0,
+              "palette": 0
+            },
+            "33": {
+              "level": 0,
+              "palette": 0
+            },
+            "34": {
+              "level": 0,
+              "palette": 0
+            },
+            "35": {
+              "level": 0,
+              "palette": 0
+            },
+            "36": {
+              "level": 0,
+              "palette": 0
+            },
+            "37": {
+              "level": 0,
+              "palette": 0
+            },
+            "38": {
+              "level": 0,
+              "palette": 0
+            },
+            "39": {
+              "level": 0,
+              "palette": 0
+            },
+            "40": {
+              "level": 0,
+              "palette": 0
+            },
+            "41": {
+              "level": 0,
+              "palette": 0
+            },
+            "42": {
+              "level": 0,
+              "palette": 0
+            },
+            "43": {
+              "level": 0,
+              "palette": 0
+            },
+            "44": {
+              "level": 0,
+              "palette": 0
+            },
+            "45": {
+              "level": 0,
+              "palette": 0
+            },
+            "46": {
+              "level": 0,
+              "palette": 0
+            },
+            "47": {
+              "level": 0,
+              "palette": 0
+            },
+            "48": {
+              "level": 0,
+              "palette": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "submasters": [
+    {
+      "name": "sub-10 \u00b7 Front",
+      "values": {
+        "1": 80,
+        "2": 80,
+        "3": 80,
+        "4": 80,
+        "5": 80,
+        "6": 80,
+        "7": 80,
+        "8": 80,
+        "9": 80,
+        "10": 80,
+        "11": 80,
+        "12": 80,
+        "13": 80,
+        "14": 80,
+        "15": 80,
+        "16": 80
+      }
+    },
+    {
+      "name": "sub-20 \u00b7 Sides",
+      "values": {
+        "17": 80,
+        "18": 80,
+        "19": 80,
+        "20": 80,
+        "21": 80,
+        "22": 80,
+        "23": 80,
+        "24": 80,
+        "25": 80,
+        "26": 80,
+        "27": 80,
+        "28": 80,
+        "29": 80,
+        "30": 80,
+        "31": 80,
+        "32": 80
+      }
+    }
+  ]
+}

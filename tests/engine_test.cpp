@@ -7,6 +7,282 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void recordedLookRecallWithoutRelease() {
+        Engine e;
+        e.selection = {1};
+        e.level(20);
+        e.recordLook(0, "10", "cue-10", 2);
+        e.level(80);
+        e.recordLook(0, "20", "cue-20", 2);
+        e.go(0, 0);
+        e.tick(2);
+        QCOMPARE(e.output()[1], 20.);
+        QVERIFY(!e.manual.contains(1));
+        e.go(0);
+        e.tick(2);
+        QCOMPARE(e.output()[1], 80.);
+        e.back(0);
+        e.tick(2);
+        QCOMPARE(e.output()[1], 20.);
+    }
+    void backReleasesLaterChannels() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.selection = {2};
+        e.level(90);
+        e.record(0, "20", "", 0);
+        e.go(0, 1);
+        QCOMPARE(e.output()[2], 90.);
+        e.back(0);
+        QCOMPARE(e.output().value(2), 0.);
+    }
+    void splitTimesWaitAndChannelOverride() {
+        Engine e;
+        e.selection = {1, 2, 3};
+        e.level(100);
+        e.recordLook(0, "10", "", 0);
+        e.go(0);
+        e.selection = {1, 2};
+        e.level(0);
+        e.selection = {3};
+        e.level(100);
+        e.recordLook(0, "20", "", 2);
+        auto &cue = e.sequences[0].cues[1];
+        cue.down = 4;
+        cue.wait = 1;
+        cue.channelTimes[2] = {2, 2, 2};
+        e.manual.clear(); // Return to cue 10 before starting the timed transfer.
+        e.go(0);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 100.);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 75.);
+        QCOMPARE(e.output()[2], 100.);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 50.);
+        QCOMPARE(e.output()[2], 50.);
+        e.tick(2);
+        QCOMPARE(e.output()[1], 0.);
+        QCOMPARE(e.output()[2], 0.);
+    }
+    void linkedPendingAndDefaults() {
+        Engine e;
+        QCOMPARE(e.sequences[0].number, 10);
+        QCOMPARE(e.nextCueNumber(0), QString("10"));
+        e.recordLook(0, "10", "cue-10", 0);
+        QCOMPARE(e.nextCueNumber(0), QString("20"));
+        e.recordLook(0, "20", "cue-20", 0);
+        e.recordLook(0, "30", "cue-30", 0);
+        e.sequences[0].cues[0].after = "30";
+        e.go(0);
+        QCOMPARE(e.sequences[0].current, 0);
+        QVERIFY(e.linkedPlaybacks.contains(0));
+        QCOMPARE(e.linkedPlaybacks[0].current, 2);
+        auto stamp = e.linkedPlaybacks[0].stamp;
+        e.tick(1);
+        QCOMPARE(e.linkedPlaybacks[0].stamp, stamp);
+        e.go(0);
+        QCOMPARE(e.sequences[0].current, 1);
+        int s = e.addSequence();
+        QCOMPARE(e.sequences[s].number, 20);
+        QCOMPARE(e.sequences[s].name, QString("sequence-20"));
+    }
+    void submasterHtpAndPersistence() {
+        Engine e;
+        e.selection = {1};
+        e.level(80);
+        e.recordSubmaster();
+        e.manual.clear();
+        e.submasters[0].level = .5;
+        QCOMPARE(e.output()[1], 40.);
+        e.master = .5;
+        QCOMPARE(e.output()[1], 20.);
+        Engine restored;
+        QVERIFY(restored.load(e.json()));
+        QCOMPARE(restored.submasters.size(), 1);
+        QCOMPARE(restored.submasters[0].values[1], 80.);
+        QCOMPARE(restored.submasters[0].level, 0.);
+    }
+    void advancedPersistence() {
+        Engine e;
+        e.recordLook(0, "10", "cue-10", 2);
+        auto &c = e.sequences[0].cues[0];
+        c.down = 3;
+        c.wait = 1;
+        c.link = "10";
+        c.channelTimes[1] = {4, 5, 6};
+        Engine copy;
+        QVERIFY(copy.load(e.json()));
+        QCOMPARE(copy.json(), e.json());
+    }
+    void multiPatchOutputAndRoundtrip() {
+        Engine e;
+        e.patch[12] = (22 - 1) * 512 + 13;
+        e.additionalPatch[12] = {(3 - 1) * 512 + 18, (3 - 1) * 512 + 512};
+        Engine restored;
+        QVERIFY(restored.load(e.json()));
+        QCOMPARE(restored.dmxAddresses(12), e.dmxAddresses(12));
+        QUdpSocket receiver;
+        QVERIFY(receiver.bind(QHostAddress::LocalHost, 5568));
+        e.selection = {12};
+        e.level(100);
+        Network n;
+        n.enabled = true;
+        n.protocol = "sACN";
+        n.firstUniverse = 1;
+        n.send(e);
+        QVERIFY(receiver.waitForReadyRead(1000));
+        QMap<int, QByteArray> frames;
+        while (receiver.hasPendingDatagrams()) {
+            auto p = receiver.receiveDatagram().data();
+            int universe = (quint8(p[113]) << 8) | quint8(p[114]);
+            frames[universe] = p.mid(126);
+        }
+        QVERIFY(frames.contains(22));
+        QVERIFY(frames.contains(3));
+        QCOMPARE(quint8(frames[22][12]), 255);
+        QCOMPARE(quint8(frames[3][17]), 255);
+        QCOMPARE(quint8(frames[3][511]), 255);
+        e.blackout = true;
+        n.send(e);
+        QVERIFY(receiver.waitForReadyRead(1000));
+        while (receiver.hasPendingDatagrams()) {
+            auto p = receiver.receiveDatagram().data();
+            QCOMPARE(quint8(p[138]), 0);
+            QCOMPARE(quint8(p[143]), 0);
+            QCOMPARE(quint8(p[637]), 0);
+        }
+    }
+    void automaticLinkKeepsMainCursor() {
+        Engine e;
+        e.selection = {1};
+        e.level(10);
+        e.recordLook(0, "10", "cue-10", 2);
+        e.level(20);
+        e.recordLook(0, "20", "cue-20", 0);
+        e.level(90);
+        e.recordLook(0, "30", "cue-30", 1);
+        e.sequences[0].cues[0].after = "30";
+        e.manual.clear();
+        e.go(0);
+        e.tick(1);
+        QVERIFY(e.linkedPlaybacks.isEmpty());
+        e.sequences[0].paused = true;
+        e.tick(5);
+        QVERIFY(e.linkedPlaybacks.isEmpty());
+        e.sequences[0].paused = false;
+        e.tick(1);
+        QCOMPARE(e.sequences[0].current, 0);
+        QCOMPARE(e.linkedPlaybacks[0].current, 2);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 90.);
+        e.go(0);
+        QCOMPARE(e.sequences[0].current, 1);
+        QCOMPARE(e.output()[1], 20.);
+        e.release(0);
+        QVERIFY(e.linkedPlaybacks.isEmpty());
+    }
+    void eosLinkAndFollow() {
+        Engine e;
+        e.selection = {1};
+        for (int i = 1; i <= 3; ++i) {
+            e.level(i * 20);
+            e.recordLook(0, QString::number(i * 10), "", 1);
+        }
+        e.manual.clear();
+        e.sequences[0].cues[0].link = "30";
+        e.go(0);
+        e.tick(1);
+        QCOMPARE(e.sequences[0].current, 0);
+        QVERIFY(e.linkedPlaybacks.isEmpty());
+        e.go(0);
+        QCOMPARE(e.sequences[0].current, 2);
+        e.sequences[0].cues[0].follow = .5;
+        e.go(0, 0);
+        e.tick(.5);
+        QCOMPARE(e.sequences[0].current, 2);
+    }
+    void eosHangAndExecute() {
+        Engine e;
+        e.recordLook(0, "10", "", 2);
+        e.recordLook(0, "20", "", 0);
+        e.sequences[0].cues[0].hang = 1;
+        e.go(0);
+        e.tick(2.9);
+        QCOMPARE(e.sequences[0].current, 0);
+        e.tick(.1);
+        QCOMPARE(e.sequences[0].current, 1);
+        int s = e.addSequence();
+        e.recordLook(s, "10", "", 0);
+        e.sequences[0].cues[0].execute = "20/10";
+        e.go(0, 0);
+        QCOMPARE(e.sequences[0].current, 0);
+        QCOMPARE(e.sequences[s].current, 0);
+    }
+    void eosTrackedManualAndOwnership() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.selection = {2};
+        e.level(70);
+        e.record(0, "20", "", 0);
+        e.manual.clear();
+        e.go(0);
+        e.selection = {1};
+        e.level(50);
+        e.go(0);
+        QCOMPARE(e.output()[1], 50.);
+        QVERIFY(e.manual.contains(1));
+        e.go(0, 1);
+        QCOMPARE(e.output()[1], 30.);
+        QVERIFY(!e.manual.contains(1));
+    }
+    void sequentialGoDoesNotStealTrackedChannels() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.selection = {2};
+        e.level(70);
+        e.record(0, "20", "", 0);
+        e.manual.clear();
+        int side = e.addSequence();
+        e.selection = {1};
+        e.level(80);
+        e.record(side, "10", "", 0);
+        e.manual.clear();
+        e.go(0);
+        e.go(side);
+        QCOMPARE(e.output()[1], 80.);
+        e.go(0);
+        QCOMPARE(e.output()[1], 80.);
+        e.go(0, 1);
+        QCOMPARE(e.output()[1], 30.);
+    }
+    void unchangedFadeContinuesAcrossNextCue() {
+        Engine e;
+        e.selection = {1};
+        e.level(100);
+        e.record(0, "10", "", 4);
+        e.manual.clear();
+        e.selection = {2};
+        e.level(100);
+        e.record(0, "20", "", 0);
+        e.manual.clear();
+        e.go(0);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 25.);
+        e.go(0);
+        e.tick(1);
+        QCOMPARE(e.output()[1], 50.);
+        QCOMPARE(e.output()[2], 100.);
+    }
     void command() {
         Engine e;
         QString err;
