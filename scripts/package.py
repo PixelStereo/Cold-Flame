@@ -18,7 +18,7 @@ def run(*args, **kwargs):
     subprocess.run([str(arg) for arg in args], check=True, **kwargs)
 
 
-def smoke_environment():
+def smoke_environment(platform="linux"):
     # Test the deployed payload, not Qt supplied by the build machine's environment.
     env = os.environ.copy()
     for key in ('QT_PLUGIN_PATH', 'QT_QPA_PLATFORM_PLUGIN_PATH', 'QML_IMPORT_PATH',
@@ -28,7 +28,7 @@ def smoke_environment():
     roots = [Path(env[key]).resolve() for key in ('QT_ROOT_DIR', 'QT_HOST_PATH') if env.get(key)]
     env['PATH'] = os.pathsep.join(p for p in env.get('PATH', '').split(os.pathsep)
                                   if p and not any(Path(p).resolve().is_relative_to(root) for root in roots))
-    env['QT_QPA_PLATFORM'] = 'offscreen'
+    env['QT_QPA_PLATFORM'] = {'macos': 'cocoa', 'windows': 'windows'}.get(platform, 'offscreen')
     return env
 
 
@@ -85,7 +85,7 @@ def main():
         # Ad-hoc signatures support launching on Apple Silicon; these are not notarization.
         run('codesign', '--force', '--deep', '--sign', '-', bundle)
         run('codesign', '--verify', '--deep', '--strict', bundle)
-        run(executable, '--smoke-test', env=smoke_environment(), timeout=30)
+        run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         destination = output / f'{name}.zip'
         run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', bundle, destination)
         assets.append(destination)
@@ -100,7 +100,7 @@ def main():
             '-ov', '-format', 'UDZO', destination)
         assets.append(destination)
     elif args.platform == 'windows':
-        run(executable, '--smoke-test', env=smoke_environment(), timeout=30)
+        run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         destination = output / f'{name}-portable.zip'
         zip_payload(stage, destination, name)
         assets.append(destination)

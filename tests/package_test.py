@@ -39,6 +39,10 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(env['PATH'], str(system))
             self.assertEqual(env['QT_QPA_PLATFORM'], 'offscreen')
 
+    def test_native_smoke_uses_deployed_platform_plugins(self):
+        self.assertEqual(package.smoke_environment('macos')['QT_QPA_PLATFORM'], 'cocoa')
+        self.assertEqual(package.smoke_environment('windows')['QT_QPA_PLATFORM'], 'windows')
+
     def test_portable_zip_keeps_dlls_next_to_executable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
