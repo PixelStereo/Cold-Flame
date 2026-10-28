@@ -3,12 +3,12 @@
 #include <cmath>
 namespace Flame {
 Engine::Engine() {
-    for (int i = 1; i <= 48; ++i) {
+    for (int i = 1; i <= 60; ++i) {
         channels[i] = QString("Channel %1").arg(i);
         patch[i] = i;
     }
     Sequence s;
-    s.name = "sequence-10";
+    s.name = "sequence-1";
     sequences << s;
 }
 QList<int> Engine::dmxAddresses(int channel) const {
@@ -206,19 +206,72 @@ QString Engine::nextCueNumber(int s) const {
         return "10";
     return QString::number(sequences[s].cues.last().number.toDouble() + 10, 'g', 12);
 }
+int Engine::addChannelPage() {
+    const int page = channels.isEmpty() ? 0 : (channels.lastKey() - 1) / 60 + 1;
+    const int first = page * 60 + 1;
+    if (first + 59 > 10000) return -1;
+    QSet<int> used;
+    for (int channel : channels.keys())
+        for (int address : dmxAddresses(channel)) used.insert(address);
+    int address = 1;
+    for (int channel = first; channel < first + 60; ++channel) {
+        while (used.contains(address)) ++address;
+        channels[channel] = QString("Channel %1").arg(channel);
+        patch[channel] = address;
+        used.insert(address++);
+    }
+    return page;
+}
 int Engine::addSequence() {
     int number = 0;
     for (const auto &s : sequences)
         number = qMax(number, s.number);
     Sequence s;
-    s.number = number + 10;
+    s.number = number + 1;
     s.name = QString("sequence-%1").arg(s.number);
     sequences << s;
     return sequences.size() - 1;
 }
+bool Engine::removeSequence(int index) {
+    if (index < 0 || index >= sequences.size() || sequences.size() == 1) return false;
+    const QString prefix = QString::number(sequences[index].number) + "/";
+    release(index);
+    sequences.removeAt(index);
+    for (auto &seq : sequences)
+        for (auto &cue : seq.cues)
+            for (auto field : {&cue.link, &cue.execute, &cue.after})
+                if (field->startsWith(prefix)) field->clear();
+    QMap<int, Sequence> remapped;
+    for (auto it = linkedPlaybacks.begin(); it != linkedPlaybacks.end(); ++it)
+        if (it.key() != index) remapped[it.key() > index ? it.key() - 1 : it.key()] = it.value();
+    linkedPlaybacks = remapped;
+    commandSequence = qBound(0, commandSequence > index ? commandSequence - 1 : commandSequence,
+                             int(sequences.size()) - 1);
+    commandCue = -1;
+    return true;
+}
+int Engine::nextCueIndex(int s) const {
+    if (s < 0 || s >= sequences.size()) return -1;
+    const auto &seq = sequences[s];
+    if (!seq.pendingCue.isEmpty())
+        for (int i = 0; i < seq.cues.size(); ++i)
+            if (seq.cues[i].number == seq.pendingCue) return i;
+    if (seq.current >= 0 && !seq.cues[seq.current].link.isEmpty()) {
+        auto target = cueTarget(seq.cues[seq.current].link, s);
+        return target.first == s ? target.second : -1;
+    }
+    return seq.current + 1 < seq.cues.size() ? seq.current + 1 : -1;
+}
+bool Engine::setNextCue(int s, int cue) {
+    if (s < 0 || s >= sequences.size() || cue < 0 || cue >= sequences[s].cues.size()) return false;
+    sequences[s].pendingCue = sequences[s].cues[cue].number;
+    return true;
+}
 void Engine::recordSubmaster() {
     Submaster s;
-    s.name = QString("sub-%1").arg((submasters.size() + 1) * 10);
+    for (const auto &existing : submasters)
+        s.number = qMax(s.number, existing.number + 1);
+    s.name = QString("sub-%1").arg(s.number);
     auto live = output(false, false);
     if (selection.isEmpty())
         s.values = live;
@@ -253,7 +306,11 @@ void Engine::go(int s, int idx) {
     bool assertAll = idx >= 0 || sequences[s].current < 0;
     if (idx < 0) {
         auto &seq = sequences[s];
-        if (seq.current >= 0 && !seq.cues[seq.current].link.isEmpty()) {
+        if (!seq.pendingCue.isEmpty()) {
+            idx = nextCueIndex(s);
+            seq.pendingCue.clear();
+            assertAll = true;
+        } else if (seq.current >= 0 && !seq.cues[seq.current].link.isEmpty()) {
             auto target = cueTarget(seq.cues[seq.current].link, s);
             if (target.first < 0)
                 return;
@@ -266,6 +323,7 @@ void Engine::go(int s, int idx) {
     auto &seq = sequences[s];
     if (idx < 0 || idx >= seq.cues.size())
         return;
+    seq.pendingCue.clear();
     beginPlayback(seq, idx, tracked(s, idx), assertAll);
     seq.linkPending = !seq.cues[idx].after.isEmpty();
     seq.autoPending = seq.cues[idx].follow.has_value() || seq.cues[idx].hang.has_value();
@@ -347,6 +405,7 @@ void Engine::release(int s) {
         q.target.clear();
         q.start.clear();
         q.current = -1;
+        q.pendingCue.clear();
         q.duration = 0;
         q.timings.clear();
         q.channelElapsed.clear();
@@ -737,7 +796,7 @@ QJsonObject Engine::json() const {
         QJsonObject values;
         for (auto it = sub.values.begin(); it != sub.values.end(); ++it)
             values[QString::number(it.key())] = it.value();
-        subs.append(QJsonObject{{"name", sub.name}, {"values", values}});
+        subs.append(QJsonObject{{"number", sub.number}, {"name", sub.name}, {"values", values}});
     }
     root["submasters"] = subs;
     return root;
@@ -800,7 +859,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
         auto o = x.toObject();
         Sequence s;
         s.name = o["name"].toString();
-        s.number = o["number"].toInt((e.sequences.size() + 1) * 10);
+        s.number = o["number"].toInt(e.sequences.size() + 1);
         for (const auto &existing : e.sequences)
             if (existing.number == s.number)
                 return fail();
@@ -884,6 +943,10 @@ bool Engine::load(const QJsonObject &r, QString *error) {
     for (auto x : r["submasters"].toArray()) {
         auto o = x.toObject();
         Submaster sub;
+        sub.number = o["number"].toInt(e.submasters.size() + 1);
+        if (sub.number < 1) return fail();
+        for (const auto &existing : e.submasters)
+            if (existing.number == sub.number) return fail();
         sub.name = o["name"].toString();
         auto values = o["values"].toObject();
         for (auto it = values.begin(); it != values.end(); ++it) {

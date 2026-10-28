@@ -1,14 +1,18 @@
+#include "tabledelegate.h"
 #include "patchdialog.h"
-PatchDialog::PatchDialog(Flame::Engine &e, QWidget *parent) : QDialog(parent), engine(e) {
+PatchDialog::PatchDialog(Flame::Engine &e, QWidget *parent, bool embedded, std::function<void()> onApply)
+    : QDialog(parent), engine(e), embedded(embedded), onApply(std::move(onApply)) {
+    if (embedded) setWindowFlags(Qt::Widget);
     setWindowTitle("Patch · Channel overview");
     setObjectName("patchDialog");
-    resize(1340, 880);
+    resize(1340, 1000);
     auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(24, 20, 24, 20);
-    layout->setSpacing(12);
+    layout->setContentsMargins(embedded ? 6 : 24, embedded ? 6 : 20, embedded ? 6 : 24, embedded ? 6 : 20);
+    layout->setSpacing(embedded ? 5 : 12);
     auto title = new QLabel("PATCH  /  CHANNEL OVERVIEW");
     title->setObjectName("title");
     layout->addWidget(title);
+    title->setVisible(!embedded);
     summary = new QLabel;
     layout->addWidget(summary);
     auto toolbar = new QHBoxLayout;
@@ -17,37 +21,62 @@ PatchDialog::PatchDialog(Flame::Engine &e, QWidget *parent) : QDialog(parent), e
     toolbar->addWidget(filter);
     auto hint =
         new QLabel("Double-click a cell to edit  ·  Addressing is 1-based within each universe");
-    toolbar->addWidget(hint);
+    if (!embedded) toolbar->addWidget(hint);
+    else hint->deleteLater();
     layout->addLayout(toolbar);
+    if (embedded) {
+        auto expand = new QPushButton("Full view…");
+        toolbar->addWidget(expand);
+        connect(expand, &QPushButton::clicked, this, [this] {
+            PatchDialog dialog(engine, this);
+            if (dialog.exec() == QDialog::Accepted) {
+                reload();
+                if (this->onApply) this->onApply();
+            }
+        });
+    }
     auto sheets = new QHBoxLayout;
     layout->addLayout(sheets, 1);
-    for (int b = 0; b < 2; ++b) {
+    for (int b = 0; b < 1; ++b) {
         auto table = new QTableWidget(0, 5);
+        table->setItemDelegate(new TableDelegate(table));
         table->setObjectName(QString("patchBank%1").arg(b));
         table->setHorizontalHeaderLabels({"CH", "Label", "DMX targets*", "Fixture", "Output"});
         table->verticalHeader()->hide();
         table->verticalHeader()->setMinimumSectionSize(20);
-        table->verticalHeader()->setDefaultSectionSize(22);
+        table->verticalHeader()->setDefaultSectionSize(embedded ? 20 : 22);
+        if (embedded) table->setStyleSheet("QTableWidget::item{padding:0px 3px;}");
         table->setAlternatingRowColors(true);
         table->setSelectionBehavior(QAbstractItemView::SelectRows);
         table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
         table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
         table->setColumnWidth(1, 110);
+        if (embedded) {
+            table->hideColumn(3); table->hideColumn(4);
+            table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+            table->setColumnWidth(1, 140);
+            table->horizontalHeader()->setMinimumSectionSize(35);
+        }
         banks << table;
         sheets->addWidget(table);
         connect(table, &QTableWidget::itemChanged, this, [this] { validate(); });
     }
-    auto note = new QLabel("* Use universe.address lists: 22.013, 3.018, 3.512. Universe 1 is the "
-                           "first configured output universe. Fixture support: 8-bit dimmers.");
+    auto note = new QLabel("* Use universe.address lists: 22.013, 3.018, 3.512. Universes are mapped to network outputs in the Network tab. Fixture support: 8-bit dimmers.");
     note->setWordWrap(true);
-    layout->addWidget(note);
-    auto batch = new QHBoxLayout;
+    if (!embedded) layout->addWidget(note);
+    else { filter->setToolTip(note->text()); note->deleteLater(); }
+    auto batchWidget = new QWidget;
+    auto batch = new QGridLayout(batchWidget);
+    int field = 0;
     auto spin = [&](QString label, int lo, int hi, int value) {
-        batch->addWidget(new QLabel(label));
+        int col = embedded ? field % 2 : field;
+        int row = embedded ? field / 2 : 0;
+        batch->addWidget(new QLabel(label), row, col * 2);
         auto s = new QSpinBox;
         s->setRange(lo, hi);
         s->setValue(value);
-        batch->addWidget(s);
+        batch->addWidget(s, row, col * 2 + 1);
+        ++field;
         return s;
     };
     first = spin("First channel", 1, 10000, e.channels.isEmpty() ? 1 : e.channels.lastKey() + 1);
@@ -55,8 +84,14 @@ PatchDialog::PatchDialog(Flame::Engine &e, QWidget *parent) : QDialog(parent), e
     universe = spin("Universe", 1, 32768, 1);
     address = spin("Address", 1, 512, 1);
     auto add = new QPushButton("Add / repatch range");
-    batch->addWidget(add);
-    layout->addLayout(batch);
+    batch->addWidget(add, embedded ? 2 : 0, embedded ? 0 : 8, 1, embedded ? 4 : 1);
+    layout->addWidget(batchWidget);
+    if (embedded) {
+        batchWidget->hide();
+        auto toggle = new QPushButton("Batch…");
+        toolbar->addWidget(toggle);
+        connect(toggle, &QPushButton::clicked, batchWidget, [batchWidget] { batchWidget->setVisible(!batchWidget->isVisible()); });
+    }
     connect(add, &QPushButton::clicked, this, [this] {
         if (first->value() + count->value() - 1 > 10000 ||
             (universe->value() - 1) * 512 + address->value() + count->value() - 1 > 32768 * 512) {
@@ -78,23 +113,31 @@ PatchDialog::PatchDialog(Flame::Engine &e, QWidget *parent) : QDialog(parent), e
                         found = true;
                     }
             if (!found)
-                appendRow(banks[0]->rowCount() <= banks[1]->rowCount() ? banks[0] : banks[1], id,
+                appendRow(banks[0], id,
                           QString("Channel %1").arg(id), absolute);
         }
         validate();
     });
     error = new QLabel;
     error->setObjectName("patchError");
-    error->setStyleSheet("color:#ffba76;");
+    error->setStyleSheet("color:#e0c998;");
+    error->setWordWrap(true);
+    summary->setWordWrap(true);
     layout->addWidget(error);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     buttons->button(QDialogButtonBox::Save)->setText("Apply patch");
     layout->addWidget(buttons);
+    buttons->button(QDialogButtonBox::Save)->setObjectName("applyPatchButton");
+    if (embedded) buttons->button(QDialogButtonBox::Cancel)->setText("Revert draft");
     connect(buttons, &QDialogButtonBox::accepted, this, [this] {
-        if (apply())
-            accept();
+        if (apply()) {
+            if (this->onApply) this->onApply();
+            if (!this->embedded) accept();
+        }
     });
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::rejected, this, [this] {
+        if (this->embedded) reload(); else reject();
+    });
     connect(filter, &QLineEdit::textChanged, this, [this](QString text) {
         for (auto table : banks)
             for (int r = 0; r < table->rowCount(); ++r) {
@@ -127,10 +170,14 @@ void PatchDialog::appendRow(QTableWidget *t, int id, QString name, int absolute)
         t->setItem(r, c, item);
     }
 }
+void PatchDialog::reload() {
+    for (auto table : banks) { QSignalBlocker block(table); table->setRowCount(0); }
+    filter->clear();
+    populate(); validate();
+}
 void PatchDialog::populate() {
-    int index = 0, split = (engine.channels.size() + 1) / 2;
     for (auto i = engine.channels.begin(); i != engine.channels.end(); ++i)
-        appendRow(banks[index++ < split ? 0 : 1], i.key(), i.value(), engine.patch.value(i.key()));
+        appendRow(banks[0], i.key(), i.value(), engine.patch.value(i.key()));
 }
 static QList<int> parseTargets(QString text, bool &ok) {
     QList<int> result;
@@ -177,7 +224,7 @@ void PatchDialog::validate() {
             }
             for (int c = 0; c < 3; ++c)
                 table->item(r, c)->setBackground(issue.isEmpty() ? QBrush()
-                                                                 : QBrush(QColor("#603727")));
+                                                                 : QBrush(QColor("#443c2c")));
             if (!issue.isEmpty())
                 errors << issue;
         }
@@ -189,7 +236,7 @@ void PatchDialog::validate() {
             .arg(universes.size())
             .arg(errors.size()));
     error->setText(errors.isEmpty()
-                       ? "Patch valid · changes apply together when you click Apply patch."
+                       ? (embedded ? "" : "Patch valid · changes apply together when you click Apply patch.")
                        : errors.first());
     error->setProperty("valid", errors.isEmpty());
 }

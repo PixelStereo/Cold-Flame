@@ -16,34 +16,36 @@ class ChannelDelegate : public QStyledItemDelegate {
         double value = i.data(Qt::UserRole + 1).toDouble();
         bool manual = i.data(Qt::UserRole + 2).toBool();
         p->setRenderHint(QPainter::Antialiasing);
-        p->setBrush(QColor(selected ? "#283d4c" : "#1c252f"));
-        p->setPen(QPen(QColor(selected ? "#efbc72" : "#34414d"), selected ? 2 : 1));
+        p->setBrush(QColor(selected ? "#303a36" : "#1d1f20"));
+        p->setPen(QPen(QColor(selected ? "#b7cfc1" : "#383d3a"), selected ? 2 : 1));
         p->drawRoundedRect(r, 5, 5);
         QFont font = o.font;
-        font.setPointSize(12);
+        font.setPixelSize(14);
         font.setBold(true);
         p->setFont(font);
-        p->setPen(QColor("#e8edf2"));
-        p->drawText(r.adjusted(9, 4, -7, -26), Qt::AlignLeft | Qt::AlignVCenter,
-                    i.data(Qt::UserRole).toString());
-        font.setPointSize(10);
+        p->setPen(QColor("#f0f4f1"));
+        p->drawText(QRect(r.left() + 5, r.top() + 2, r.width() - 10, 19),
+                    Qt::AlignLeft | Qt::AlignVCenter, i.data(Qt::UserRole).toString());
+        font.setPixelSize(12);
         p->setFont(font);
-        p->setPen(QColor(value > 0 ? "#efbc72" : "#748494"));
-        p->drawText(r.adjusted(4, 4, -8, -26), Qt::AlignRight | Qt::AlignVCenter,
-                    QString::number(value, 'f', 0));
-        font.setPointSize(8);
+        p->setPen(QColor(value > 0 ? "#b7cfc1" : "#909995"));
+        p->drawText(QRect(r.left() + 4, r.top() + 21, r.width() - 9, 17),
+                    Qt::AlignRight | Qt::AlignVCenter, QString::number(value, 'f', 0));
+        font.setPixelSize(9);
         font.setBold(false);
         p->setFont(font);
-        p->setPen(QColor(manual ? "#f0b780" : "#8b9eac"));
-        p->drawText(r.adjusted(8, 24, -6, -6), Qt::AlignLeft | Qt::AlignVCenter,
-                    !i.data(Qt::UserRole + 4).toString().isEmpty()
-                        ? i.data(Qt::UserRole + 4).toString()
-                    : manual ? "MANUAL"
-                             : i.data(Qt::UserRole + 3).toString());
+        p->setPen(QColor(manual ? "#e0c998" : "#a3b0a8"));
+        const QString flag = i.data(Qt::UserRole + 4).toString();
+        if (!flag.isEmpty())
+            p->drawText(QRect(r.left() + 4, r.top() + 22, r.width() - 8, 15), Qt::AlignLeft, flag == "PARK" ? "P" : "C");
+        else if (manual) {
+            p->setBrush(QColor("#e0c998")); p->setPen(Qt::NoPen);
+            p->drawEllipse(QPointF(r.right() - 7, r.top() + 10), 2, 2);
+        }
         QRectF track(r.left() + 8, r.bottom() - 6, r.width() - 16, 2);
-        p->fillRect(track, QColor("#34414d"));
+        p->fillRect(track, QColor("#383d3a"));
         track.setWidth(track.width() * value / 100.);
-        p->fillRect(track, QColor("#efbc72"));
+        p->fillRect(track, QColor("#b7cfc1"));
         p->restore();
     }
 };

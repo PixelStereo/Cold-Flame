@@ -17,7 +17,7 @@
 | Link | Change the pending cue. Follow/Hang can trigger that pending cue automatically. | `eosLinkAndFollow` tests pending Link and automatic Follow. Cross-sequence fader selection is simplified. Loop counts and Go After Loop are missing. |
 | Follow / Hang | Follow counts from start; Hang from completion. Negative Hang permits overlap. | Positive Hang and Follow tested; negative Hang is accepted. All timing edge cases, multipart interactions and loop behavior are not exhaustively validated. |
 | Execute | Trigger a cue at source playback. Another list runs concurrently; the same list jumps. | One target supported. `eosHangAndExecute` tests another list. Multiple targets, macros, snapshots and external trigger actions are missing. |
-| Submasters | HTP by default, with additive/inhibitive/effect modes and many configurable properties. | Additive HTP intensity faders only. Recording, scaling and persistence tested. Other modes, timed bump, priorities and shielded behavior are absent. |
+| Submasters | HTP by default, with additive/inhibitive/effect modes and many configurable properties. | Additive HTP intensity faders only. Recording, scaling, stable numbering, card controls, stored channel/level editing, Update/Delete and persistence implemented. Cold Flame’s editor requires Save rather than Eos’s immediate Blind storage. Other modes, timed bump, priorities and shielded behavior are absent. |
 | Intensity palettes | References allow shared changes across cues. | Basic references tested. Other palette categories, by-type/default/discrete values, locked/absolute modes and full Update behavior are missing. |
 
 Additional verified intensity cases in 0.3:

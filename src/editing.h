@@ -35,8 +35,9 @@ class EditHistory {
                         next.linkPending = false;
                     }
                 }
-        for (int i = 0; i < definitions.submasters.size() && i < engine.submasters.size(); ++i)
-            definitions.submasters[i].level = engine.submasters[i].level;
+        for (auto &sub : definitions.submasters)
+            for (const auto &live : engine.submasters)
+                if (sub.number == live.number) sub.level = live.level;
         engine.channels = definitions.channels;
         engine.patch = definitions.patch;
         engine.additionalPatch = definitions.additionalPatch;

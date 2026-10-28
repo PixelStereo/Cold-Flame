@@ -11,6 +11,7 @@ struct ChannelTiming {
     double up = 2, down = 2, wait = 0;
 };
 struct Submaster {
+    int number = 1;
     QString name;
     Values values;
     double level = 0;
@@ -28,10 +29,11 @@ struct Cue {
 };
 struct Sequence {
     QString name;
-    int number = 10;
+    int number = 1;
     int priority = 4;
     QList<Cue> cues;
     int current = -1;
+    QString pendingCue; // One-shot next GO override; never changes stored links.
     Values output, start, target;
     QMap<int, double> channelElapsed;
     QMap<int, quint64> ownership;
@@ -70,7 +72,11 @@ class Engine {
     void setBlock(int sequence, int cue, bool enabled);
     void editBlind(int sequence, int cue, int channel, Value value, bool cueOnly = false);
     QString nextCueNumber(int sequence) const;
+    int addChannelPage();
     int addSequence();
+    bool removeSequence(int sequence);
+    int nextCueIndex(int sequence) const;
+    bool setNextCue(int sequence, int cue);
     void recordSubmaster();
     void level(double percent);
     void applyPalette(int id);

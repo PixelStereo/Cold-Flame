@@ -8,14 +8,12 @@ class UiTests : public QObject {
         Engine e;
         PatchDialog dialog(e);
         auto a = dialog.findChild<QTableWidget *>("patchBank0");
-        auto b = dialog.findChild<QTableWidget *>("patchBank1");
         QVERIFY(a);
-        QVERIFY(b);
-        QCOMPARE(a->rowCount() + b->rowCount(), 48);
+        QCOMPARE(a->rowCount(), 60);
+        QCOMPARE(dialog.findChildren<QTableWidget *>().size(), 1);
         dialog.show();
         QCoreApplication::processEvents();
-        QVERIFY(a->visualItemRect(a->item(23, 0)).bottom() < a->viewport()->height());
-        QVERIFY(b->visualItemRect(b->item(23, 0)).bottom() < b->viewport()->height());
+        QVERIFY(a->columnWidth(2) > a->columnWidth(1));
         a->item(0, 2)->setText("1.002");
         QVERIFY(!dialog.apply());
         QCOMPARE(e.patch[1], 1);
@@ -60,9 +58,114 @@ class UiTests : public QObject {
         window.findChild<QPushButton *>("gotoButton")->click();
         QVERIFY(list->item(0)->text().contains("80 %"));
         window.findChild<QPushButton *>("newSequenceButton")->click();
-        auto sequences = window.findChild<QListWidget *>("sequenceList");
-        QVERIFY(sequences->item(1)->text().contains("sequence-20"));
+        auto sequences = window.findChild<QTabBar *>("sequenceTabs");
+        QVERIFY(sequences->tabText(1).contains("sequence-2"));
+        sequences->moveTab(1, 0);
+        sequences->setCurrentIndex(1);
+        QCOMPARE(table->rowCount(), 2);
+        table->selectRow(0);
+        window.findChild<QPushButton *>("setNextButton")->click();
+        QVERIFY(table->item(0, 8)->text().contains("NEXT"));
+        window.findChild<QPushButton *>("goButton")->click();
+        QVERIFY(list->item(0)->text().contains("20 %"));
+        window.findChild<QPushButton *>("deleteSequenceButton")->click();
+        QCOMPARE(sequences->count(), 1);
         // Avoid the unsaved-show prompt during test teardown.
+    }
+    void submasterContentEditorAndFader() {
+        Console window;
+        window.show();
+        QLineEdit *command = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel")) command = edit;
+        QVERIFY(command);
+        command->setText("1 at 80"); window.execute();
+        auto tabs = window.findChild<QTabWidget *>("workspaceTabs");
+        tabs->setCurrentIndex(1);
+        window.findChild<QPushButton *>("recordSubmasterButton")->click();
+        for (auto button : window.findChildren<QPushButton *>())
+            if (button->text() == "RELEASE MANUAL") button->click();
+        auto fader = window.findChild<QSlider *>("subFader1");
+        fader->setValue(50);
+        auto channels = window.findChild<QListWidget *>("channelList");
+        QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 40.);
+        QTimer::singleShot(0, &window, [&] {
+            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog) return;
+            auto editor = dialog->findChild<QTableWidget *>("submasterEditor");
+            if (!editor) { dialog->reject(); return; }
+            editor->item(0, 2)->setText("60");
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        });
+        for (auto button : window.findChildren<QPushButton *>())
+            if (button->text() == "Edit…") { button->click(); break; }
+        QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 30.);
+    }
+    void channelPagesContainSixtyChannels() {
+        Console window;
+        window.show();
+        auto list = window.findChild<QListWidget *>("channelList");
+        auto pages = window.findChild<QComboBox *>("channelPages");
+        QCOMPARE(list->count(), 60); QCOMPARE(pages->count(), 1);
+        window.findChild<QPushButton *>("addChannelPageButton")->click();
+        QCOMPARE(pages->count(), 2); QCOMPARE(list->count(), 60);
+        QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 61);
+        QCOMPARE(list->item(59)->data(Qt::UserRole).toInt(), 120);
+        pages->setCurrentIndex(0);
+        QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 1);
+        QCOMPARE(list->count(), 60);
+        QVERIFY(!list->item(0)->toolTip().contains("DMX"));
+        auto tabs = window.findChild<QTabWidget *>("channelTabs");
+        QCOMPARE(tabs->tabText(0), QString("Channels"));
+        QCOMPARE(tabs->tabText(1), QString("Patch"));
+        QCOMPARE(tabs->tabText(2), QString("Network"));
+    }
+    void outputPanelConfiguration() {
+        Network network; Engine engine;
+        int changes = 0;
+        OutputPanel panel(network, engine, [&] { ++changes; });
+        panel.show();
+        panel.findChild<QPushButton *>("addDmxOutput")->click();
+        auto table = panel.findChild<QTableWidget *>("dmxOutputsTable");
+        QCOMPARE(table->rowCount(), 1);
+        auto addresses = panel.findChild<QLineEdit *>("dmxOutputAddresses");
+        addresses->setText("bad address");
+        QVERIFY(!panel.apply()); QCOMPARE(changes, 0);
+        addresses->setText("127.0.0.1");
+        panel.findChild<QSpinBox *>("dmxOutputUniverse")->setValue(42);
+        QVERIFY(panel.apply()); QCOMPARE(network.outputs[0].firstUniverse, 42);
+        QVERIFY(!network.enabled);
+        panel.findChild<QPushButton *>("addDmxOutput")->click();
+        QCOMPARE(table->rowCount(), 2);
+        panel.findChild<QPushButton *>("removeDmxOutput")->click();
+        QVERIFY(panel.apply()); QCOMPARE(network.outputs.size(), 1);
+        QCOMPARE(network.outputs[0].firstUniverse, 42);
+    }
+    void tableEditorsAndSubmasterBank() {
+        Console window;
+        window.show();
+        QCoreApplication::processEvents();
+        auto tabs = window.findChild<QTabWidget *>("workspaceTabs");
+        QVERIFY(tabs->isMovable());
+        tabs->setCurrentIndex(1);
+        window.findChild<QPushButton *>("recordSubmasterButton")->click();
+        auto fader = window.findChild<QSlider *>("subFader1");
+        QVERIFY(fader);
+        fader->setValue(60);
+        QCOMPARE(fader->value(), 60);
+        Engine engine;
+        PatchDialog patch(engine, &window);
+        patch.show();
+        QCoreApplication::processEvents();
+        auto table = patch.findChild<QTableWidget *>("patchBank0");
+        table->editItem(table->item(0, 1));
+        QCoreApplication::processEvents();
+        auto editor = table->findChild<QLineEdit *>();
+        QVERIFY(editor);
+        QStyleOptionFrame option;
+        option.initFrom(editor);
+        const auto contents = editor->style()->subElementRect(QStyle::SE_LineEditContents, &option, editor);
+        QVERIFY2(contents.height() >= editor->fontMetrics().height(), "Editor clips its text vertically");
     }
     void blindSpreadsheetEditsStoredOnly() {
         Engine e;
@@ -164,7 +267,7 @@ class UiTests : public QObject {
         QTest::keyClick(command, Qt::Key_Return);
         bool selection = false;
         for (auto list : window.findChildren<QListWidget *>())
-            if (list->count() == 48) {
+            if (list->count() == 60) {
                 QCOMPARE(list->selectedItems().size(), 4);
                 QVERIFY(list->item(0)->text().contains("50 %"));
                 selection = true;
@@ -174,7 +277,7 @@ class UiTests : public QObject {
             if (b->text() == "RELEASE MANUAL")
                 QTest::mouseClick(b, Qt::LeftButton);
         for (auto list : window.findChildren<QListWidget *>())
-            if (list->count() == 48)
+            if (list->count() == 60)
                 QVERIFY(list->item(0)->text().contains("0 %"));
     }
 };

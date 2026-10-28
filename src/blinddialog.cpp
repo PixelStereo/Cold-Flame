@@ -1,3 +1,4 @@
+#include "tabledelegate.h"
 #include "blinddialog.h"
 #include <cmath>
 BlindDialog::BlindDialog(Flame::Engine &engine, int sequence, std::function<void()> change,
@@ -14,13 +15,14 @@ BlindDialog::BlindDialog(Flame::Engine &engine, int sequence, std::function<void
     layout->addWidget(title);
     auto note =
         new QLabel("Double-click a level to edit stored data. Changes save immediately; live "
-                   "output is not recalled. Gold = blocked · blue = move · grey = tracked.");
+                   "output is not recalled. Warm = blocked · sage = move · grey = tracked.");
     note->setWordWrap(true);
     layout->addWidget(note);
     cueOnly = new QCheckBox("Cue Only · keep the next cue unchanged");
     layout->addWidget(cueOnly);
     sheet = new QTableWidget;
     sheet->setObjectName("blindSheet");
+    sheet->setItemDelegate(new TableDelegate(sheet));
     sheet->setAlternatingRowColors(true);
     sheet->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     sheet->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
@@ -64,9 +66,9 @@ void BlindDialog::populate() {
             }
             item->setText(QString::number(values.value(channel), 'g', 6));
             item->setData(Qt::UserRole, channel);
-            item->setForeground(QColor(seq.cues[col].blocked.contains(channel)  ? "#efbc72"
-                                       : seq.cues[col].values.contains(channel) ? "#8bc7f7"
-                                                                                : "#8a9baa"));
+            item->setForeground(QColor(seq.cues[col].blocked.contains(channel)  ? "#e0c998"
+                                       : seq.cues[col].values.contains(channel) ? "#b7cfc1"
+                                                                                : "#909995"));
             ++row;
         }
     }

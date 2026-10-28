@@ -71,7 +71,7 @@ class Tests : public QObject {
     }
     void linkedPendingAndDefaults() {
         Engine e;
-        QCOMPARE(e.sequences[0].number, 10);
+        QCOMPARE(e.sequences[0].number, 1);
         QCOMPARE(e.nextCueNumber(0), QString("10"));
         e.recordLook(0, "10", "cue-10", 0);
         QCOMPARE(e.nextCueNumber(0), QString("20"));
@@ -88,8 +88,44 @@ class Tests : public QObject {
         e.go(0);
         QCOMPARE(e.sequences[0].current, 1);
         int s = e.addSequence();
-        QCOMPARE(e.sequences[s].number, 20);
-        QCOMPARE(e.sequences[s].name, QString("sequence-20"));
+        QCOMPARE(e.sequences[s].number, 2);
+        QCOMPARE(e.sequences[s].name, QString("sequence-2"));
+    }
+    void nextCueOverrideAndSequenceDeletion() {
+        Engine e;
+        e.selection = {1};
+        for (int i = 1; i <= 3; ++i) {
+            e.level(i * 20);
+            e.recordLook(0, QString::number(i * 10), "", 0);
+        }
+        e.manual.clear();
+        e.go(0);
+        QCOMPARE(e.output()[1], 20.);
+        e.sequences[0].cues[0].link = "20";
+        QVERIFY(e.setNextCue(0, 2));
+        QCOMPARE(e.nextCueIndex(0), 2);
+        QCOMPARE(e.output()[1], 20.);
+        e.go(0);
+        QCOMPARE(e.sequences[0].current, 2);
+        QCOMPARE(e.output()[1], 60.);
+        QVERIFY(e.sequences[0].pendingCue.isEmpty());
+        QCOMPARE(e.sequences[0].cues[0].link, QString("20"));
+        int second = e.addSequence();
+        e.recordLook(second, "10", "", 0);
+        e.sequences[0].cues[0].execute = "2/10";
+        QVERIFY(e.removeSequence(second));
+        QVERIFY(e.sequences[0].cues[0].execute.isEmpty());
+        QVERIFY(!e.removeSequence(0));
+        e.recordSubmaster();
+        e.recordSubmaster();
+        QCOMPARE(e.submasters[0].number, 1);
+        QCOMPARE(e.submasters[1].number, 2);
+        e.submasters.removeFirst();
+        e.recordSubmaster();
+        QCOMPARE(e.submasters.last().number, 3);
+        Engine restored;
+        QVERIFY(restored.load(e.json()));
+        QCOMPARE(restored.submasters.last().number, 3);
     }
     void submasterHtpAndPersistence() {
         Engine e;
@@ -218,7 +254,7 @@ class Tests : public QObject {
         QCOMPARE(e.sequences[0].current, 1);
         int s = e.addSequence();
         e.recordLook(s, "10", "", 0);
-        e.sequences[0].cues[0].execute = "20/10";
+        e.sequences[0].cues[0].execute = "2/10";
         e.go(0, 0);
         QCOMPARE(e.sequences[0].current, 0);
         QCOMPARE(e.sequences[s].current, 0);
@@ -541,6 +577,43 @@ class Tests : public QObject {
         QCOMPARE(quint8(s[114]), 1);
         QCOMPARE(quint8(s[126]), 255);
         QVERIFY(sacn(d, 0, 1, id).isEmpty());
+    }
+    void multipleNetworkOutputsAndTermination() {
+        QUdpSocket art, streaming;
+        art.setProxy(QNetworkProxy::NoProxy); streaming.setProxy(QNetworkProxy::NoProxy);
+        QVERIFY(art.bind(QHostAddress::LocalHost, 6454));
+        QVERIFY(streaming.bind(QHostAddress::LocalHost, 5568));
+        Engine e;
+        e.patch[1] = 513;
+        e.selection = {1}; e.level(100);
+        Network n;
+        DmxOutput a, b;
+        a.enabled = true; a.firstPatchUniverse = 2; a.firstUniverse = 7; a.universeCount = 1;
+        a.interfaceAddress = "127.0.0.1";
+        b = a; b.name = "sACN backup"; b.protocol = "sACN"; b.firstUniverse = 22;
+        b.priority = 150; b.sourceName = "Theatre A";
+        QVERIFY(n.applyOutputs({a, b})); n.send(e);
+        QVERIFY(art.waitForReadyRead(1000)); QVERIFY(streaming.waitForReadyRead(1000));
+        auto p = art.receiveDatagram().data();
+        QCOMPARE(quint8(p[14]), 7); QCOMPARE(quint8(p[18]), 255);
+        p = streaming.receiveDatagram().data();
+        QCOMPARE(quint8(p[114]), 22); QCOMPARE(quint8(p[126]), 255);
+        QCOMPARE(quint8(p[108]), 150); QVERIFY(p.mid(44).startsWith("Theatre A"));
+        QCOMPARE(n.state(0).packets, quint64(1)); QCOMPARE(n.state(1).packets, quint64(1));
+        auto bad = b; bad.destinations = "invalid";
+        QVERIFY(!n.applyOutputs({bad})); QVERIFY(n.enabled); // Atomic rejection preserves running routes.
+        Network loaded;
+        QVERIFY(loaded.loadOutputs(n.outputJson()));
+        QVERIFY(!loaded.enabled); QCOMPARE(loaded.outputs[1].firstUniverse, 22);
+        QCOMPARE(loaded.outputs[1].priority, 150);
+        n.stop(); QVERIFY(!n.enabled);
+        QVERIFY(streaming.waitForReadyRead(1000));
+        int terminated = 0;
+        while (streaming.hasPendingDatagrams()) {
+            p = streaming.receiveDatagram().data();
+            QVERIFY(quint8(p[112]) & 0x40); ++terminated;
+        }
+        QCOMPARE(terminated, 3);
     }
     void udpLoopback() {
         QUdpSocket receiver;

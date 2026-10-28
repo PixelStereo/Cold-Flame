@@ -8,17 +8,17 @@ The reference is the Eos family, rather than Element. Documentation review and t
 | Palettes | Intensity, referenced values | Position, color, beam, by-type, locking, nested references |
 | Cues | Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
 | Cue Only | Engine, Record/Update checkbox, Blind level edits | Full parameter filtering and trace |
-| Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
+| Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults, movable tabs, deletion, one-shot Set Next | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
 | Editing | Live, Blind intensity spreadsheet, show-definition Undo/Redo, full-cue Block/Assert | Non-intensity targets, selective/live Undo, tracking change preview |
 | Files | Versioned JSON, atomic save, validated loading | Migration, autosave, recovery, selective merge |
 | Patch | Editable all-channel overview, batch patch, conflict detection, multiple DMX targets per channel, 8-bit channels, multiple universes | Intelligent GDTF patching, 16/24/32-bit parameters, geometry, MVR, fixture replacement |
 | GDTF | ZIP/XML inspection and CRC validation | Full interpretation of functions, units, curves, relations and cells |
-| Network | ArtDmx and sACN, local UDP test | ArtPoll, sACN sync/termination, network interface selection, RDM, redundancy |
+| Network | Multiple ArtDmx/sACN outputs, interface selection, multi-IP unicast/broadcast/multicast, route ranges, rates, sACN priority/source/termination, packet counters, UDP tests | ArtPoll, sACN sync, RDM, redundancy, dedicated output thread |
 | OSC | Float messages and three local receive actions | Full dictionary, feedback, bundles, timing |
 | Effects | 1D intensity wave generator | Absolute/relative/step effects, phases, variables, curves, tempo |
 | Pixel mapping | 1D generator | RGB/RGBW matrices, free geometry, video, masks, layers, GPU |
 | Usability | Channel, palette, sequence and playback views; virtual keypad | Workspaces, interactive magic sheets, touch, accessibility, 3D visualization |
-| Submasters | Record selected/live intensity, HTP faders, names, saved definitions | Inhibitive masters, timed bump/flash, configurable buttons |
+| Submasters | Record selected/live intensity, HTP card bank, channel/level editor, Update/Delete/Out/Full, names, stable numbers, saved definitions | Inhibitive masters, timed bump/flash, configurable buttons |
 | Hardware | On-screen actions, computer keyboard | USB HID/MIDI interface, firmware, mapping, encoders, indicator feedback |
 | Reliability | Unit tests, UDP, Qt interaction test, offscreen launch | Endurance, load, physical rig, network loss, multiple users, backup |
 
@@ -41,6 +41,10 @@ User scenarios to measure: create a 30-cue show; correct a referenced color; ins
 
 ## Workspace references for the 0.2 redesign
 
-The layout uses compact channel tiles, a persistent cue sheet and a spreadsheet patch overview. This is an interpretation informed by the official [grandMA3 Fixture Sheet](https://help2.malighting.com/grandMA3/2.5/HTML/operate_fixture_sheet.html), [grandMA3 DMX Sheet](https://help2.malighting.com/grandMA3/2.1/HTML/patch_dmx_sheet.html) and [Eos Playback Status Display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/04_System_Basics/04_Playback_Status_Display_%28PSD%29_%5BTab_2%5D/PLAYBACK_STATUS_DISPLAY_%28PSD%29_%5BTAB_2%5D.htm). No comparative usability superiority has been measured.
+The layout uses compact channel tiles, a persistent cue sheet and a single-column spreadsheet patch overview. This is an interpretation informed by the official [grandMA3 Fixture Sheet](https://help2.malighting.com/grandMA3/2.5/HTML/operate_fixture_sheet.html), [grandMA3 DMX Sheet](https://help2.malighting.com/grandMA3/2.1/HTML/patch_dmx_sheet.html) and [Eos Playback Status Display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/04_System_Basics/04_Playback_Status_Display_%28PSD%29_%5BTab_2%5D/PLAYBACK_STATUS_DISPLAY_%28PSD%29_%5BTAB_2%5D.htm). No comparative usability superiority has been measured.
 
 Record stores changed intensity values from the live look while unchanged values track. Full recording filters, update propagation preview and comprehensive palette reference handling remain necessary for full Eos-style editing.
+
+## Workspace and submaster references
+
+The tabbed target views and explicit stored-content editor are informed by ETC’s [Submasters display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submasters_%5BTab_15%5D.htm) and [Submaster Properties](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submaster_Properties.htm). Cold Flame uses an explicit Save in its submaster editor; Eos Blind edits store immediately. Only additive HTP intensity is implemented here, without Eos’s other submaster modes and timing options. No comparative usability superiority has been measured.
