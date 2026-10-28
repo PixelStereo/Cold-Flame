@@ -64,6 +64,22 @@ class UiTests : public QObject {
         QVERIFY(sequences->item(1)->text().contains("sequence-20"));
         // Avoid the unsaved-show prompt during test teardown.
     }
+    void blindSpreadsheetEditsStoredOnly() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.go(0);
+        int changes = 0;
+        BlindDialog dialog(e, 0, [&] { ++changes; });
+        auto table = dialog.findChild<QTableWidget *>("blindSheet");
+        QVERIFY(table);
+        table->item(0, 0)->setText("80");
+        QCOMPARE(changes, 1);
+        QCOMPARE(e.tracked(0, 0)[1], 80.);
+        QCOMPARE(e.output()[1], 30.);
+    }
     void commandAndSelection() {
         Console window;
         window.show();

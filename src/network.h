@@ -14,7 +14,11 @@ class Network : public QObject {
     bool enabled = false;
     QString protocol = "Art-Net", host = "127.0.0.1", lastError;
     int firstUniverse = 1;
-    explicit Network(QObject *parent = nullptr) : QObject(parent) {}
+    explicit Network(QObject *parent = nullptr) : QObject(parent) {
+        // Lighting UDP transports use direct LAN addresses, never HTTP/SOCKS proxy discovery.
+        sender.setProxy(QNetworkProxy::NoProxy);
+        receiver.setProxy(QNetworkProxy::NoProxy);
+    }
     void send(const Engine &engine);
 };
 } // namespace Flame

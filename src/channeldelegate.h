@@ -30,7 +30,10 @@ class ChannelDelegate : public QStyledItemDelegate {
         p->setFont(font);
         p->setPen(QColor(manual ? "#f0b780" : "#8b9eac"));
         p->drawText(r.adjusted(8, 24, -6, -6), Qt::AlignLeft | Qt::AlignVCenter,
-                    manual ? "MANUAL" : i.data(Qt::UserRole + 3).toString());
+                    !i.data(Qt::UserRole + 4).toString().isEmpty()
+                        ? i.data(Qt::UserRole + 4).toString()
+                    : manual ? "MANUAL"
+                             : i.data(Qt::UserRole + 3).toString());
         QRectF track(r.left() + 8, r.bottom() - 6, r.width() - 16, 2);
         p->fillRect(track, QColor("#34414d"));
         track.setWidth(track.width() * value / 100.);

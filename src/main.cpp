@@ -1,4 +1,6 @@
+#include "blinddialog.h"
 #include "channeldelegate.h"
+#include "editing.h"
 #include "engine.h"
 #include "gdtf.h"
 #include "network.h"
@@ -8,6 +10,8 @@
 using namespace Flame;
 class Console : public QMainWindow {
     Engine engine;
+    EditHistory history;
+    QCheckBox *cueOnly;
     Network network;
     QTimer timer;
     QElapsedTimer elapsed;
@@ -37,6 +41,7 @@ class Console : public QMainWindow {
         return b;
     }
     void changed() {
+        history.commit(engine);
         dirty = true;
         setWindowModified(true);
         refresh();
@@ -55,6 +60,9 @@ class Console : public QMainWindow {
                               .arg(v, 0, 'f', 0));
             item->setData(Qt::UserRole + 1, v);
             item->setData(Qt::UserRole + 2, engine.manual.contains(id));
+            item->setData(Qt::UserRole + 4, engine.parked.contains(id)     ? "PARK"
+                                            : engine.captured.contains(id) ? "CAPTURE"
+                                                                           : "");
             item->setData(Qt::UserRole + 3,
                           QString("%1.%2")
                               .arg((engine.patch.value(id) - 1) / 512 + 1)
@@ -99,6 +107,10 @@ class Console : public QMainWindow {
                 flags << "Exec " + c.execute;
             if (!c.after.isEmpty())
                 flags << "After " + c.after;
+            if (c.block)
+                flags << "B";
+            if (c.asserted)
+                flags << "A";
             if (!flags.isEmpty())
                 vals[8] += " · " + flags.join(" · ");
             for (int j = 0; j < vals.size(); ++j) {
@@ -161,9 +173,14 @@ class Console : public QMainWindow {
         fitChannels();
         refresh();
     }
-    void record() {
+    void record(bool manualOnly = false) {
         QString number = engine.nextCueNumber(selectedSequence);
-        engine.recordLook(selectedSequence, number, "cue-" + number, fade->value());
+        if (manualOnly)
+            engine.record(selectedSequence, number, "cue-" + number, fade->value(),
+                          cueOnly->isChecked());
+        else
+            engine.recordLook(selectedSequence, number, "cue-" + number, fade->value(),
+                              cueOnly->isChecked());
         changed();
         cues->selectRow(engine.sequences[selectedSequence].cues.size() - 1);
         message("Recorded cue-" + number + " · double-click the cue sheet to edit name or timing");
@@ -341,7 +358,11 @@ class Console : public QMainWindow {
         auto release = new QPushButton("Release manual values");
         layout.addWidget(release);
         connect(release, &QPushButton::clicked, this, [this] {
-            engine.manual.clear();
+            for (auto it = engine.manual.begin(); it != engine.manual.end();)
+                if (!engine.captured.contains(it.key()))
+                    it = engine.manual.erase(it);
+                else
+                    ++it;
             refresh();
         });
         connect(record, &QPushButton::clicked, &d, [&] {
@@ -399,6 +420,7 @@ class Console : public QMainWindow {
         dirty = false;
         setWindowModified(false);
         selectedSequence = 0;
+        history.reset(engine);
         rebuild();
         message("Show loaded · outputs disabled");
     }
@@ -474,6 +496,29 @@ class Console : public QMainWindow {
  QSlider::groove:horizontal{height:5px;background:#3a4855;} QSlider::handle:horizontal{background:#efbc72;width:15px;margin:-6px 0;border-radius:3px;}
  QProgressBar{border:0;background:#26333f;max-height:4px;} QProgressBar::chunk{background:#efbc72;} QScrollBar{background:#1b2733;}
  )");
+        auto editMenu = menuBar()->addMenu("Edit");
+        editMenu
+            ->addAction("Undo show edit", this,
+                        [this] {
+                            if (history.undo(engine)) {
+                                dirty = true;
+                                setWindowModified(true);
+                                rebuild();
+                                message("Show edit undone · live transport preserved");
+                            }
+                        })
+            ->setShortcut(QKeySequence::Undo);
+        editMenu
+            ->addAction("Redo show edit", this,
+                        [this] {
+                            if (history.redo(engine)) {
+                                dirty = true;
+                                setWindowModified(true);
+                                rebuild();
+                                message("Show edit restored · live transport preserved");
+                            }
+                        })
+            ->setShortcut(QKeySequence::Redo);
         auto file = menuBar()->addMenu("Show");
         file->addAction("Open…", this, [this] { open(); })->setShortcut(QKeySequence::Open);
         file->addAction("Save", this, [this] { save(); })->setShortcut(QKeySequence::Save);
@@ -582,6 +627,20 @@ class Console : public QMainWindow {
         stageLayout->addWidget(channels, 1);
         selection = new QLabel;
         stageLayout->addWidget(selection);
+        auto overrides = new QHBoxLayout;
+        button("CAPTURE", overrides, [this] {
+            engine.toggleCapture();
+            refresh();
+        });
+        button("PARK", overrides, [this] {
+            engine.parkSelection(true);
+            refresh();
+        });
+        button("UNPARK", overrides, [this] {
+            engine.parkSelection(false);
+            refresh();
+        });
+        stageLayout->addLayout(overrides);
         auto levels = new QHBoxLayout;
         levels->addWidget(label("LEVEL"));
         level = new QSlider(Qt::Horizontal);
@@ -597,7 +656,11 @@ class Console : public QMainWindow {
         });
         stageLayout->addLayout(levels);
         button("RELEASE MANUAL", stageLayout, [this] {
-            engine.manual.clear();
+            for (auto it = engine.manual.begin(); it != engine.manual.end();)
+                if (!engine.captured.contains(it.key()))
+                    it = engine.manual.erase(it);
+                else
+                    ++it;
             refresh();
         });
         split->addWidget(stage);
@@ -629,7 +692,7 @@ class Console : public QMainWindow {
             if (i < 0)
                 return;
             auto c = engine.sequences[selectedSequence].cues[i];
-            engine.record(selectedSequence, c.number, c.label, c.time);
+            engine.record(selectedSequence, c.number, c.label, c.time, cueOnly->isChecked());
             changed();
         });
         button("GO TO", edit, [this] {
@@ -640,9 +703,34 @@ class Console : public QMainWindow {
             }
         })->setObjectName("gotoButton");
         cueLayout->addLayout(edit);
+        auto modes = new QHBoxLayout;
+        cueOnly = new QCheckBox("Cue Only");
+        modes->addWidget(cueOnly);
+        button("Record Only", modes, [this] { record(true); });
+        button("BLIND", modes, [this] {
+            BlindDialog dialog(engine, selectedSequence, [this] { changed(); }, this);
+            dialog.exec();
+        });
+        cueLayout->addLayout(modes);
         auto extra = new QHBoxLayout;
         button("Channel timing…", extra, [this] { channelTiming(); });
         button("Triggers…", extra, [this] { cueTriggers(); });
+        button("Block", extra, [this] {
+            int i = cues->currentRow();
+            if (i >= 0) {
+                engine.setBlock(selectedSequence, i,
+                                !engine.sequences[selectedSequence].cues[i].block);
+                changed();
+            }
+        });
+        button("Assert", extra, [this] {
+            int i = cues->currentRow();
+            if (i >= 0) {
+                auto &c = engine.sequences[selectedSequence].cues[i];
+                c.asserted = !c.asserted;
+                changed();
+            }
+        });
         button("Delete cue", extra, [this] {
             int i = cues->currentRow();
             if (i < 0)
@@ -651,9 +739,14 @@ class Console : public QMainWindow {
                 auto number = engine.sequences[selectedSequence].cues[i].number;
                 engine.release(selectedSequence);
                 engine.sequences[selectedSequence].cues.removeAt(i);
-                for (auto &cue : engine.sequences[selectedSequence].cues)
-                    if (cue.link == number)
-                        cue.link.clear();
+                auto qualified =
+                    QString::number(engine.sequences[selectedSequence].number) + "/" + number;
+                for (int source = 0; source < engine.sequences.size(); ++source)
+                    for (auto &cue : engine.sequences[source].cues)
+                        for (auto field : {&cue.link, &cue.execute, &cue.after})
+                            if (*field == qualified ||
+                                (source == selectedSequence && *field == number))
+                                field->clear();
                 changed();
             }
         });
@@ -809,6 +902,14 @@ class Console : public QMainWindow {
         });
         // OSC is opt-in, bound only to loopback. Enable from the menu.
         auto tools = menuBar()->addMenu("Programming");
+        tools->addAction("Select active channels", this, [this] {
+            command->setText("select active");
+            execute();
+        });
+        tools->addAction("Select manual channels", this, [this] {
+            command->setText("select manual");
+            execute();
+        });
         tools->addAction("Record group…", this, [this] {
             bool ok;
             int id = QInputDialog::getInt(this, "Group", "Number", 1, 1, 9999, 1, &ok);
@@ -855,7 +956,11 @@ class Console : public QMainWindow {
                     else if (key == "Record")
                         record();
                     else if (key == "Release") {
-                        engine.manual.clear();
+                        for (auto it = engine.manual.begin(); it != engine.manual.end();)
+                            if (!engine.captured.contains(it.key()))
+                                it = engine.manual.erase(it);
+                            else
+                                ++it;
                         refresh();
                     } else if (key == "Update") {
                         int row = cues->currentRow();
@@ -967,6 +1072,7 @@ class Console : public QMainWindow {
             else
                 message("Could not load show: " + error);
         }
+        history.reset(engine);
         rebuild();
         elapsed.start();
         timer.setInterval(23);
@@ -990,7 +1096,17 @@ class Console : public QMainWindow {
     }
     void execute() {
         QString error;
+        auto before = engine.json();
+        engine.commandSequence = selectedSequence;
+        engine.defaultFade = fade->value();
+        engine.cueOnlyMode = cueOnly->isChecked();
         if (engine.command(command->text(), &error)) {
+            if (engine.json() != before)
+                changed();
+            selectedSequence = engine.commandSequence;
+            sequences->setCurrentRow(selectedSequence);
+            if (engine.commandCue >= 0)
+                cues->selectRow(engine.commandCue);
             {
                 QSignalBlocker block(channels);
                 for (int i = 0; i < channels->count(); ++i)

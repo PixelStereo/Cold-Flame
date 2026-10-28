@@ -1,3 +1,4 @@
+#include "editing.h"
 #include "engine.h"
 #include "gdtf.h"
 #include "network.h"
@@ -282,6 +283,145 @@ class Tests : public QObject {
         e.tick(1);
         QCOMPARE(e.output()[1], 50.);
         QCOMPARE(e.output()[2], 100.);
+    }
+    void parkBypassesMastersAndIsNotRecorded() {
+        Engine e;
+        e.selection = {1};
+        e.level(65);
+        e.parkSelection(true);
+        e.level(20);
+        e.master = .1;
+        e.blackout = true;
+        QCOMPARE(e.output()[1], 65.);
+        e.recordLook(0, "10", "", 0);
+        QCOMPARE(e.tracked(0, 0)[1], 20.);
+        e.recordSubmaster();
+        QCOMPARE(e.submasters[0].values[1], 20.);
+        e.parkSelection(false);
+        QCOMPARE(e.output()[1], 0.);
+    }
+    void captureSurvivesPlayback() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.level(80);
+        e.toggleCapture();
+        e.go(0);
+        QCOMPARE(e.output()[1], 80.);
+        e.level(50);
+        QCOMPARE(e.output()[1], 50.);
+        e.toggleCapture();
+        QVERIFY(!e.captured.contains(1));
+        e.go(0, 0);
+        QCOMPARE(e.output()[1], 30.);
+    }
+    void blockIsEditingAndAssertIsPlayback() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.record(0, "20", "", 0);
+        e.setBlock(0, 1, true);
+        e.editBlind(0, 0, 1, {70, 0});
+        QCOMPARE(e.tracked(0, 1)[1], 30.);
+        e.go(0);
+        QCOMPARE(e.output()[1], 70.);
+        e.go(0);
+        QCOMPARE(e.output()[1], 30.);
+        e.editBlind(0, 0, 1, {30, 0});
+        e.go(0, 0);
+        e.selection = {1};
+        e.level(80);
+        e.go(0);
+        QCOMPARE(e.output()[1], 80.);
+        e.sequences[0].cues[1].asserted = true;
+        e.go(0, 0);
+        e.level(80);
+        e.go(0);
+        QCOMPARE(e.output()[1], 30.);
+        Engine copy;
+        QVERIFY(copy.load(e.json()));
+        QCOMPARE(copy.json(), e.json());
+    }
+    void blindEditsDoNotRecallLive() {
+        Engine e;
+        e.selection = {1};
+        e.level(30);
+        e.record(0, "10", "", 0);
+        e.manual.clear();
+        e.record(0, "20", "", 0);
+        e.go(0);
+        e.editBlind(0, 0, 1, {70, 0}, true);
+        QCOMPARE(e.output()[1], 30.);
+        QCOMPARE(e.tracked(0, 0)[1], 70.);
+        QCOMPARE(e.tracked(0, 1)[1], 30.);
+    }
+    void editUndoDoesNotRewindTransport() {
+        Engine e;
+        e.selection = {1};
+        e.level(100);
+        e.record(0, "10", "", 4);
+        e.manual.clear();
+        EditHistory history;
+        history.reset(e);
+        e.editBlind(0, 0, 1, {50, 0});
+        history.commit(e);
+        e.go(0);
+        e.tick(1);
+        double live = e.output()[1];
+        QVERIFY(history.undo(e));
+        QCOMPARE(e.tracked(0, 0)[1], 100.);
+        QCOMPARE(e.output()[1], live);
+        QCOMPARE(e.sequences[0].elapsed, 1.);
+        QVERIFY(history.redo(e));
+        QCOMPARE(e.tracked(0, 0)[1], 50.);
+        QCOMPARE(e.output()[1], live);
+    }
+    void commandProgrammingDoesNotAccidentallyFire() {
+        Engine e;
+        e.defaultFade = 0;
+        QVERIFY(e.command("1 thru 4 + 8 - 2 at 50"));
+        QCOMPARE(e.selection, QSet<int>({1, 3, 4, 8}));
+        QVERIFY(e.command("record cue 10"));
+        QCOMPARE(e.sequences[0].cues[0].label, QString("cue-10"));
+        e.manual.clear();
+        QVERIFY(e.command("cue 10"));
+        QCOMPARE(e.output().value(1), 0.);
+        QVERIFY(e.command("go to cue 10"));
+        QCOMPARE(e.output()[1], 50.);
+        QVERIFY(e.command("at + 10") == false);
+        QVERIFY(e.command("at +10"));
+        QCOMPARE(e.output()[1], 60.);
+        QVERIFY(e.command("record only cue 20"));
+        QCOMPARE(e.sequences[0].cues[1].values[1].level, 60.);
+    }
+    void followOverlapPreservesUnchangedFade() {
+        Engine e;
+        e.selection = {1};
+        e.level(100);
+        e.record(0, "10", "", 10);
+        e.manual.clear();
+        e.selection = {2};
+        e.level(100);
+        e.record(0, "20", "", 4);
+        e.manual.clear();
+        e.sequences[0].cues[0].follow = 2;
+        e.go(0);
+        e.tick(3);
+        QCOMPARE(e.sequences[0].current, 1);
+        QCOMPARE(e.output()[1], 30.);
+        QCOMPARE(e.output()[2], 25.);
+    }
+    void zeroTimeLoopIsBounded() {
+        Engine e;
+        e.recordLook(0, "10", "", 0);
+        e.sequences[0].cues[0].link = "10";
+        e.sequences[0].cues[0].follow = 0;
+        e.go(0);
+        QVERIFY(e.sequences[0].paused);
+        QVERIFY(e.clock < 300);
     }
     void command() {
         Engine e;

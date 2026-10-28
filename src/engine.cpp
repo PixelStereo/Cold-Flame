@@ -26,12 +26,15 @@ Values Engine::tracked(int s, int c) const {
     if (s < 0 || s >= sequences.size())
         return out;
     const auto &seq = sequences[s];
-    for (int i = 0; i <= c && i < seq.cues.size(); ++i)
+    for (int i = 0; i <= c && i < seq.cues.size(); ++i) {
+        for (auto it = seq.cues[i].blocked.begin(); it != seq.cues[i].blocked.end(); ++it)
+            out[it.key()] = resolve(it.key(), it.value());
         for (auto it = seq.cues[i].values.begin(); it != seq.cues[i].values.end(); ++it)
             out[it.key()] = resolve(it.key(), it.value());
+    }
     return out;
 }
-Values Engine::output(bool mastered) const {
+Values Engine::output(bool mastered, bool includePark) const {
     Values out;
     QMap<int, QPair<int, quint64>> owners;
     auto compose = [&](const Sequence &s) {
@@ -57,7 +60,65 @@ Values Engine::output(bool mastered) const {
     if (mastered)
         for (auto it = out.begin(); it != out.end(); ++it)
             it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
+    if (includePark)
+        for (auto it = parked.begin(); it != parked.end(); ++it)
+            out[it.key()] = it.value();
     return out;
+}
+void Engine::toggleCapture() {
+    bool any = false;
+    for (int c : selection)
+        if (captured.contains(c))
+            any = true;
+    auto live = output(false, false);
+    for (int c : selection) {
+        if (any)
+            captured.remove(c);
+        else {
+            captured.insert(c);
+            if (!manual.contains(c))
+                manual[c] = {live.value(c), 0};
+        }
+    }
+}
+void Engine::parkSelection(bool enabled) {
+    auto live = output();
+    for (int c : selection) {
+        if (enabled)
+            parked[c] = live.value(c);
+        else
+            parked.remove(c);
+    }
+}
+void Engine::setBlock(int s, int cue, bool enabled) {
+    if (s < 0 || s >= sequences.size() || cue < 0 || cue >= sequences[s].cues.size())
+        return;
+    auto &c = sequences[s].cues[cue];
+    if (enabled) {
+        QMap<int, Value> refs;
+        for (int i = 0; i <= cue; ++i) {
+            for (auto it = sequences[s].cues[i].blocked.begin();
+                 it != sequences[s].cues[i].blocked.end(); ++it)
+                refs[it.key()] = it.value();
+            for (auto it = sequences[s].cues[i].values.begin();
+                 it != sequences[s].cues[i].values.end(); ++it)
+                refs[it.key()] = it.value();
+        }
+        c.blocked = refs;
+    } else
+        c.blocked.clear();
+    c.block = enabled;
+}
+void Engine::editBlind(int s, int cue, int channel, Value value, bool only) {
+    if (s < 0 || s >= sequences.size() || cue < 0 || cue >= sequences[s].cues.size() ||
+        !channels.contains(channel))
+        return;
+    auto before = tracked(s, cue);
+    auto &list = sequences[s].cues;
+    list[cue].values[channel] = value;
+    if (only && cue + 1 < list.size() && !list[cue + 1].values.contains(channel) &&
+        !list[cue + 1].blocked.contains(channel))
+        list[cue + 1].values[channel] = {before.value(channel), 0};
 }
 void Engine::level(double p) {
     for (int c : selection)
@@ -71,7 +132,7 @@ void Engine::applyPalette(int id) {
             manual[c] = {palettes[id][c], id};
 }
 void Engine::recordPalette(int id) {
-    auto o = output();
+    auto o = output(false, false);
     Values p;
     for (int c : selection)
         p[c] = o.value(c);
@@ -108,10 +169,10 @@ void Engine::record(int s, QString number, QString label, double time, bool only
     if (!exists && sequences[s].current >= idx)
         ++sequences[s].current;
 }
-void Engine::recordLook(int s, QString number, QString label, double time) {
+void Engine::recordLook(int s, QString number, QString label, double time, bool only) {
     if (s < 0 || s >= sequences.size())
         return;
-    auto live = output(false);
+    auto live = output(false, false);
     auto saved = manual;
     for (auto it = channels.begin(); it != channels.end(); ++it)
         if (!manual.contains(it.key()))
@@ -120,7 +181,7 @@ void Engine::recordLook(int s, QString number, QString label, double time) {
     for (const auto &c : sequences[s].cues)
         if (c.number == number)
             replacing = true;
-    record(s, number, label, time);
+    record(s, number, label, time, only);
     if (!replacing) {
         auto &list = sequences[s].cues;
         int index = 0;
@@ -158,7 +219,7 @@ int Engine::addSequence() {
 void Engine::recordSubmaster() {
     Submaster s;
     s.name = QString("sub-%1").arg((submasters.size() + 1) * 10);
-    auto live = output(false);
+    auto live = output(false, false);
     if (selection.isEmpty())
         s.values = live;
     else
@@ -221,9 +282,17 @@ void Engine::go(int s, int idx) {
         tick(0);
 }
 void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll) {
-    auto live = output(false);
+    auto live = output(false, false);
     seq.current = idx;
     const auto &cue = seq.cues[idx];
+    assertAll = assertAll || cue.asserted;
+    Values previous;
+    for (int i = 0; i < idx; ++i) {
+        for (auto it = seq.cues[i].blocked.begin(); it != seq.cues[i].blocked.end(); ++it)
+            previous[it.key()] = resolve(it.key(), it.value());
+        for (auto it = seq.cues[i].values.begin(); it != seq.cues[i].values.end(); ++it)
+            previous[it.key()] = resolve(it.key(), it.value());
+    }
     seq.stamp = ++clock;
     if (assertAll) {
         seq.releasing.clear();
@@ -237,7 +306,9 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
         seq.channelElapsed.clear();
     }
     for (auto it = target.begin(); it != target.end(); ++it) {
-        if (!assertAll && !cue.values.contains(it.key()))
+        bool blockMove =
+            cue.blocked.contains(it.key()) && qAbs(previous.value(it.key()) - it.value()) > 1e-9;
+        if (!assertAll && !cue.values.contains(it.key()) && !blockMove)
             continue;
         if (cue.values.contains(it.key()))
             seq.releasing.remove(it.key());
@@ -247,7 +318,8 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
             it.key(), ChannelTiming{cue.time, cue.down < 0 ? cue.time : cue.down, cue.wait});
         seq.channelElapsed[it.key()] = 0;
         seq.ownership[it.key()] = seq.stamp;
-        manual.remove(it.key());
+        if (!captured.contains(it.key()))
+            manual.remove(it.key());
         seq.output[it.key()] = live.value(it.key());
     }
     seq.duration = 0;
@@ -372,74 +444,232 @@ bool Engine::command(QString text, QString *error) {
         return false;
     };
     text = text.trimmed().toLower();
+    text.remove(QRegularExpression("\\s+enter$"));
+    if (commandSequence < 0 || commandSequence >= sequences.size())
+        commandSequence = 0;
+    if (text == "go") {
+        go(commandSequence);
+        return true;
+    }
+    if (text == "back") {
+        back(commandSequence);
+        return true;
+    }
+    if (text == "pause") {
+        sequences[commandSequence].paused = true;
+        return true;
+    }
+    if (text == "resume") {
+        sequences[commandSequence].paused = false;
+        return true;
+    }
+    if (text == "capture") {
+        toggleCapture();
+        return true;
+    }
+    if (text == "park") {
+        parkSelection(true);
+        return true;
+    }
+    if (text == "unpark") {
+        parkSelection(false);
+        return true;
+    }
+    if (text == "home") {
+        level(0);
+        return true;
+    }
+    if (text == "release") {
+        for (auto it = manual.begin(); it != manual.end();)
+            if (!captured.contains(it.key()) &&
+                (selection.isEmpty() || selection.contains(it.key())))
+                it = manual.erase(it);
+            else
+                ++it;
+        return true;
+    }
+    if (text == "select active" || text == "select manual") {
+        selection.clear();
+        if (text == "select manual") {
+            for (int c : manual.keys())
+                selection.insert(c);
+        } else {
+            auto live = output();
+            for (auto it = live.begin(); it != live.end(); ++it)
+                if (it.value() > 0)
+                    selection.insert(it.key());
+        }
+        return true;
+    }
+    if (text == "block" || text == "assert") {
+        if (commandCue < 0 || commandCue >= sequences[commandSequence].cues.size())
+            return fail("Select a cue first");
+        auto &cue = sequences[commandSequence].cues[commandCue];
+        if (text == "block")
+            setBlock(commandSequence, commandCue, !cue.block);
+        else
+            cue.asserted = !cue.asserted;
+        return true;
+    }
+    auto recordCommand =
+        QRegularExpression(
+            "^(record only|record|update)(?: cue)?(?: (\\d+(?:/\\d+)?(?:\\.\\d+)?))?$")
+            .match(text);
+    if (recordCommand.hasMatch()) {
+        QString action = recordCommand.captured(1), target = recordCommand.captured(2);
+        int seq = commandSequence;
+        QString number = target;
+        if (target.contains('/')) {
+            auto parts = target.split('/');
+            seq = -1;
+            for (int i = 0; i < sequences.size(); ++i)
+                if (sequences[i].number == parts[0].toInt())
+                    seq = i;
+            number = parts[1];
+            if (seq < 0)
+                return fail("Sequence not found");
+        }
+        if (number.isEmpty())
+            number =
+                action == "update" && commandCue >= 0 && commandCue < sequences[seq].cues.size()
+                    ? sequences[seq].cues[commandCue].number
+                    : nextCueNumber(seq);
+        bool ok;
+        double n = number.toDouble(&ok);
+        if (!ok || n <= 0 || n > 9999.999)
+            return fail("Invalid cue number");
+        QString label = "cue-" + number;
+        double time = defaultFade;
+        int existing = -1;
+        for (int i = 0; i < sequences[seq].cues.size(); ++i)
+            if (sequences[seq].cues[i].number.toDouble() == n)
+                existing = i;
+        if (action == "update") {
+            if (existing < 0)
+                return fail("Cue not found");
+            label = sequences[seq].cues[existing].label;
+            time = sequences[seq].cues[existing].time;
+        }
+        if (action == "record")
+            recordLook(seq, number, label, time, cueOnlyMode);
+        else
+            record(seq, number, label, time, cueOnlyMode);
+        commandSequence = seq;
+        for (int i = 0; i < sequences[seq].cues.size(); ++i)
+            if (sequences[seq].cues[i].number.toDouble() == n)
+                commandCue = i;
+        return true;
+    }
     auto target =
-        QRegularExpression("^(group|intensity|sequence|cue)\\s+(\\d+)(?:/(\\d+(?:\\.\\d+)?))?$")
+        QRegularExpression(
+            "^(go to cue|goto "
+            "cue|cue|sequence|group|intensity)\\s+(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?)$")
             .match(text);
     if (target.hasMatch()) {
-        int id = target.captured(2).toInt();
-        auto type = target.captured(1);
+        QString type = target.captured(1), id = target.captured(2);
         if (type == "group") {
-            if (!groups.contains(id))
+            if (!groups.contains(id.toInt()))
                 return fail("Group not found");
             selection.clear();
-            for (auto i = groups[id].begin(); i != groups[id].end(); ++i)
-                selection.insert(i.key());
+            for (int c : groups[id.toInt()].keys())
+                selection.insert(c);
             return true;
         }
         if (type == "intensity") {
-            if (!palettes.contains(id))
+            if (!palettes.contains(id.toInt()))
                 return fail("Palette not found");
-            applyPalette(id);
+            applyPalette(id.toInt());
             return true;
         }
         if (type == "sequence") {
             for (int i = 0; i < sequences.size(); ++i)
-                if (sequences[i].number == id) {
-                    go(i);
+                if (sequences[i].number == id.toInt()) {
+                    commandSequence = i;
+                    commandCue = -1;
                     return true;
                 }
             return fail("Sequence not found");
         }
-        int seq = target.captured(3).isEmpty() ? 0 : -1;
-        if (!target.captured(3).isEmpty())
-            for (int i = 0; i < sequences.size(); ++i)
-                if (sequences[i].number == id)
-                    seq = i;
-        QString num = target.captured(3).isEmpty() ? target.captured(2) : target.captured(3);
-        if (seq < 0 || seq >= sequences.size())
-            return fail("Sequence not found");
-        for (int i = 0; i < sequences[seq].cues.size(); ++i)
-            if (sequences[seq].cues[i].number.toDouble() == num.toDouble()) {
-                go(seq, i);
-                return true;
-            }
-        return fail("Cue not found");
+        auto destination = cueTarget(id, commandSequence);
+        if (destination.first < 0)
+            return fail("Cue not found");
+        commandSequence = destination.first;
+        commandCue = destination.second;
+        if (type != "cue")
+            go(destination.first, destination.second);
+        return true;
     }
-    text = text.trimmed().toLower();
-    text.replace("channel ", "");
-    text.replace("chan ", "");
+    text.remove(QRegularExpression("^(channel|chan)\\s+"));
     text.replace("full", "100");
-    text.replace("enter", "");
-    auto m =
-        QRegularExpression("^(\\d+)(?:\\s+thru\\s+(\\d+))?(?:\\s+at\\s+(\\d+(?:\\.\\d+)?))?\\s*$")
-            .match(text);
-    if (!m.hasMatch())
-        return fail("Syntax: Channel 1 Thru 12 At 50");
-    int a = m.captured(1).toInt(), b = m.captured(2).isEmpty() ? a : m.captured(2).toInt();
-    if (a > b || b - a > 10000)
-        return fail("Invalid channel range");
-    for (int c = a; c <= b; ++c)
-        if (!channels.contains(c))
-            return fail("Channel not patched");
-    if (!m.captured(3).isEmpty() && m.captured(3).toDouble() > 100)
-        return fail("Level must be between 0 and 100");
-    selection.clear();
-    for (int c = a; c <= b; ++c)
-        selection.insert(c);
-    if (!m.captured(3).isEmpty())
-        level(m.captured(3).toDouble());
+    text.replace("out", "0");
+    text.replace('@', " at ");
+    auto parts = text.split(QRegularExpression("\\s*\\bat\\b\\s*"));
+    if (parts.size() > 2)
+        return fail("Use one At value");
+    QString list = parts[0].trimmed();
+    QSet<int> selected = selection;
+    if (!list.isEmpty()) {
+        selected.clear();
+        int offset = 0;
+        bool subtract = false;
+        auto expression = QRegularExpression("\\G\\s*(\\d+)(?:\\s+thru\\s+(\\d+))?\\s*");
+        if (list.startsWith('+') || list.startsWith('-')) {
+            selected = selection;
+            subtract = list[0] == '-';
+            offset = 1;
+        }
+        while (offset < list.size()) {
+            auto match = expression.match(list, offset);
+            if (!match.hasMatch())
+                return fail("Invalid channel selection");
+            int from = match.captured(1).toInt(),
+                to = match.captured(2).isEmpty() ? from : match.captured(2).toInt();
+            if (from > to || to - from > 10000)
+                return fail("Invalid channel range");
+            for (int c = from; c <= to; ++c) {
+                if (!channels.contains(c))
+                    return fail("Channel not patched");
+                if (subtract)
+                    selected.remove(c);
+                else
+                    selected.insert(c);
+            }
+            offset = match.capturedEnd();
+            if (offset < list.size()) {
+                QChar op = list[offset++];
+                if (op != '+' && op != '-')
+                    return fail("Use + or - between channels");
+                subtract = op == '-';
+                if (offset == list.size())
+                    return fail("Missing channel after operator");
+            }
+        }
+    }
+    double levelValue = 0;
+    bool relative = false;
+    if (parts.size() == 2) {
+        QString input = parts[1].trimmed();
+        bool ok;
+        levelValue = input.toDouble(&ok);
+        relative = input.startsWith('+') || input.startsWith('-');
+        if (!ok || !std::isfinite(levelValue) || qAbs(levelValue) > 100 ||
+            (!relative && levelValue < 0))
+            return fail("Level must be between 0 and 100");
+    }
+    if (list.isEmpty() && parts.size() == 1)
+        return fail("Enter a command");
+    auto live = output(false, false);
+    selection = selected;
+    if (parts.size() == 2) {
+        if (relative)
+            for (int c : selection)
+                manual[c] = {qBound(0., live.value(c) + levelValue, 100.), 0};
+        else
+            level(levelValue);
+    }
     return true;
 }
+
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
@@ -475,7 +705,14 @@ QJsonObject Engine::json() const {
             for (auto it = c.channelTimes.begin(); it != c.channelTimes.end(); ++it)
                 times[QString::number(it.key())] =
                     QJsonObject{{"up", it->up}, {"down", it->down}, {"wait", it->wait}};
-            cs.append(QJsonObject{{"number", c.number},
+            QJsonObject blocked;
+            for (auto it = c.blocked.begin(); it != c.blocked.end(); ++it)
+                blocked[QString::number(it.key())] =
+                    QJsonObject{{"level", it->level}, {"palette", it->palette}};
+            cs.append(QJsonObject{{"blocked", blocked},
+                                  {"number", c.number},
+                                  {"block", c.block},
+                                  {"assert", c.asserted},
                                   {"label", c.label},
                                   {"time", c.time},
                                   {"down", c.down},
@@ -578,6 +815,18 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             bool ok;
             double n = c.number.toDouble(&ok);
             c.label = co["label"].toString();
+            c.block = co["block"].toBool();
+            c.asserted = co["assert"].toBool();
+            auto blocked = co["blocked"].toObject();
+            for (auto it = blocked.begin(); it != blocked.end(); ++it) {
+                auto o = it.value().toObject();
+                double level = o["level"].toDouble(-1);
+                int palette = o["palette"].toInt();
+                if (!e.channels.contains(it.key().toInt()) || level < 0 || level > 100 ||
+                    (palette && !e.palettes.contains(palette)))
+                    return fail();
+                c.blocked[it.key().toInt()] = {level, palette};
+            }
             c.time = co["time"].toDouble(-1);
             if (!ok || n <= prev || c.time < 0 || !std::isfinite(c.time))
                 return fail();

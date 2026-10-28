@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.2: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.3: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -40,7 +40,18 @@ Bundle the Qt libraries when distributing the application. Development executabl
 6. Intensity palettes are recorded from the selection and recalled by reference. Editing a palette updates its resolution in cues on their next recall. **Update** changes the selected cue using manual values, retaining its timing.
 7. Save as `.cfl`. Files contain the patch, palettes, groups and sequences, without transient playback states. Opening a show disables outputs.
 
-Additional commands: `Group 1`, `Intensity 2`, `Cue 10/20`, `Sequence 10` (Go for that sequence). The virtual keypad is available under **Programming**. It provides initial access to actions; configurable hardware integration is not yet implemented.
+Commands include `Group 1`, `Intensity 2`, `Cue 10/20` (select without firing), `Go To Cue 10/20` (recall), `Sequence 10` (select the sequence), `Go`, `Back`, `Pause` and `Resume`. Channel selection supports addition and subtraction: `1 Thru 12 + 20 - 5 At 50`. Use `At +10` or `At -10` for relative levels on the current selection. `Record Cue 10/30`, `Record Only Cue 10/40` and `Update Cue 10/30` operate on stored cues. The virtual keypad is available under **Programming**. It provides initial access to actions; configurable hardware integration is not yet implemented.
+
+## Core editing and manual control
+
+- **Record Only** stores manual values; Record includes the changed stage look. **Cue Only** prevents a stored edit from changing the following cue.
+- **Blind** opens a stored cue spreadsheet. Editing a level saves immediately without recalling it on stage. Gold cells are blocked, blue cells are moves and grey cells are tracked. Blind also has a Cue Only option.
+- **Block** protects the selected cue against upstream tracking edits. It does not itself assert playback. **Assert** makes a cue take back its tracked intensity values when played.
+- **Capture** toggles manual protection on selected channels. Playback and submasters cannot override captured channels; manual level changes still work. Release manual leaves captured values alone.
+- **Park** locks selected channel outputs; **Unpark** restores normal output. As in Eos, Park overrides grand master and blackout and is excluded from recordings. The tile displays PARK. These are temporary channel parks; address parks, scaling and park persistence are not implemented.
+- **Edit → Undo/Redo show edit** restores up to 100 stored-definition states, including cue, palette, group and patch edits. It preserves running transport and manual levels. This is not Eos's complete selective Undo system and does not undo Go, live manual changes or hardware effects.
+
+Equivalent selection commands include `Select Active`, `Select Manual`, `Capture`, `Park`, `Unpark`, `Home`, `Release`, `Block` and `Assert` (the last two use the selected cue).
 
 ## Multiple DMX destinations per channel
 

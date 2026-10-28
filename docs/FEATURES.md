@@ -2,14 +2,14 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.2 | Remaining work |
+| Area | Implemented and tested in 0.3 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity, referenced values | Position, color, beam, by-type, locking, nested references |
 | Cues | Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
-| Cue Only | Tested engine operation | UI controls and complex insertion cases |
+| Cue Only | Engine, Record/Update checkbox, Blind level edits | Full parameter filtering and trace |
 | Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
-| Editing | Live programming | Blind, spreadsheet, transactional Undo/Redo, tracking change preview |
+| Editing | Live, Blind intensity spreadsheet, show-definition Undo/Redo, full-cue Block/Assert | Non-intensity targets, selective/live Undo, tracking change preview |
 | Files | Versioned JSON, atomic save, validated loading | Migration, autosave, recovery, selective merge |
 | Patch | Editable all-channel overview, batch patch, conflict detection, multiple DMX targets per channel, 8-bit channels, multiple universes | Intelligent GDTF patching, 16/24/32-bit parameters, geometry, MVR, fixture replacement |
 | GDTF | ZIP/XML inspection and CRC validation | Full interpretation of functions, units, curves, relations and cells |
@@ -43,4 +43,4 @@ User scenarios to measure: create a 30-cue show; correct a referenced color; ins
 
 The layout uses compact channel tiles, a persistent cue sheet and a spreadsheet patch overview. This is an interpretation informed by the official [grandMA3 Fixture Sheet](https://help2.malighting.com/grandMA3/2.5/HTML/operate_fixture_sheet.html), [grandMA3 DMX Sheet](https://help2.malighting.com/grandMA3/2.1/HTML/patch_dmx_sheet.html) and [Eos Playback Status Display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/04_System_Basics/04_Playback_Status_Display_%28PSD%29_%5BTab_2%5D/PLAYBACK_STATUS_DISPLAY_%28PSD%29_%5BTAB_2%5D.htm). No comparative usability superiority has been measured.
 
-Record stores changed intensity values from the live look while unchanged values track. Recording filters, user-visible Record Only, update propagation preview and comprehensive palette reference handling remain necessary for full Eos-style editing.
+Record stores changed intensity values from the live look while unchanged values track. Full recording filters, update propagation preview and comprehensive palette reference handling remain necessary for full Eos-style editing.
