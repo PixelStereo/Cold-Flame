@@ -50,7 +50,7 @@ class Console : public QMainWindow {
             item->setBackground(v > 0 ? QColor::fromHsv(38, 120, 55 + int(v * 1.3))
                                       : QColor("#17232f"));
         }
-        selection->setText(QString("%1 circuits sélectionnés  •  %2 valeurs manuelles")
+        selection->setText(QString("%1 channels selected  •  %2 manual values")
                                .arg(engine.selection.size())
                                .arg(engine.manual.size()));
         auto &s = engine.sequences[selectedSequence];
@@ -58,7 +58,7 @@ class Console : public QMainWindow {
         for (int i = 0; i < s.cues.size(); ++i) {
             auto c = s.cues[i];
             QStringList vals{c.number, c.label, QString::number(c.time, 'f', 1) + " s",
-                             QString::number(c.values.size()), i == s.current ? "● EN COURS" : ""};
+                             QString::number(c.values.size()), i == s.current ? "● RUNNING" : ""};
             for (int j = 0; j < vals.size(); ++j) {
                 auto item = cues->item(i, j);
                 if (!item) {
@@ -88,7 +88,7 @@ class Console : public QMainWindow {
         palettes->clear();
         for (auto i = engine.palettes.begin(); i != engine.palettes.end(); ++i) {
             auto item =
-                new QListWidgetItem(QString("IP %1   ·   %2 circuits").arg(i.key()).arg(i->size()));
+                new QListWidgetItem(QString("IP %1   ·   %2 channels").arg(i.key()).arg(i->size()));
             item->setData(Qt::UserRole, i.key());
             palettes->addItem(item);
         }
@@ -96,13 +96,13 @@ class Console : public QMainWindow {
     }
     void record() {
         bool ok;
-        QString n = QInputDialog::getText(this, "Enregistrer une mémoire", "Numéro (ex. 12.5)",
+        QString n = QInputDialog::getText(this, "Record cue", "Number (e.g. 12.5)",
                                           QLineEdit::Normal, "", &ok);
         if (!ok)
             return;
         double number = n.toDouble(&ok);
         if (!ok || number <= 0 || number > 9999.999) {
-            message("Numéro de mémoire invalide");
+            message("Invalid cue number");
             return;
         }
         n = QString::number(number, 'f', 3);
@@ -111,42 +111,42 @@ class Console : public QMainWindow {
         if (n.endsWith('.'))
             n.chop(1);
         QString label =
-            QInputDialog::getText(this, "Mémoire " + n, "Libellé", QLineEdit::Normal, "", &ok);
+            QInputDialog::getText(this, "Cue " + n, "Label", QLineEdit::Normal, "", &ok);
         if (!ok)
             return;
         engine.record(selectedSequence, n, label, fade->value());
         changed();
-        message("Mémoire enregistrée · Release pour retirer les valeurs manuelles");
+        message("Cue recorded · Release to clear manual values");
     }
     bool save() {
         if (path.isEmpty())
-            path = QFileDialog::getSaveFileName(this, "Sauvegarder le spectacle", {},
-                                                "Spectacle (*.cfl)");
+            path = QFileDialog::getSaveFileName(this, "Save show", {},
+                                                "Show (*.cfl)");
         if (path.isEmpty())
             return false;
         QSaveFile f(path);
         if (!f.open(QIODevice::WriteOnly) || f.write(QJsonDocument(engine.json()).toJson()) < 0 ||
             !f.commit()) {
-            message("Échec de sauvegarde : " + f.errorString());
+            message("Save failed: " + f.errorString());
             return false;
         }
         dirty = false;
         setWindowModified(false);
-        message("Spectacle sauvegardé : " + path);
+        message("Show saved: " + path);
         return true;
     }
     bool discard() {
         if (!dirty)
             return true;
         auto a =
-            QMessageBox::question(this, "Spectacle modifié", "Sauvegarder les modifications ?",
+            QMessageBox::question(this, "Unsaved show", "Save changes?",
                                   QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
         return a == QMessageBox::Discard || (a == QMessageBox::Save && save());
     }
     void open() {
         if (!discard())
             return;
-        QString p = QFileDialog::getOpenFileName(this, "Ouvrir", {}, "Spectacle (*.cfl)");
+        QString p = QFileDialog::getOpenFileName(this, "Open", {}, "Show (*.cfl)");
         if (p.isEmpty())
             return;
         QFile f(p);
@@ -158,7 +158,7 @@ class Console : public QMainWindow {
         auto doc = QJsonDocument::fromJson(f.readAll(), &parse);
         QString error;
         if (parse.error != QJsonParseError::NoError || !engine.load(doc.object(), &error)) {
-            message("Ouverture refusée : " + error);
+            message("Cannot open show: " + error);
             return;
         }
         network.enabled = false;
@@ -168,11 +168,11 @@ class Console : public QMainWindow {
         setWindowModified(false);
         selectedSequence = 0;
         rebuild();
-        message("Spectacle chargé · sorties désactivées");
+        message("Show loaded · outputs disabled");
     }
     void outputSettings() {
         QDialog d(this);
-        d.setWindowTitle("Sorties réseau");
+        d.setWindowTitle("Network outputs");
         QFormLayout l(&d);
         QComboBox proto;
         proto.addItems({"Art-Net", "sACN"});
@@ -181,11 +181,11 @@ class Console : public QMainWindow {
         QSpinBox universe;
         universe.setRange(0, 63999);
         universe.setValue(network.firstUniverse);
-        QCheckBox enable("Activer les sorties (44 Hz)");
+        QCheckBox enable("Enable outputs (44 Hz)");
         enable.setChecked(network.enabled);
-        l.addRow("Protocole", &proto);
-        l.addRow("IP ou multicast (sACN)", &host);
-        l.addRow("Premier univers (Art-Net : base 0)", &universe);
+        l.addRow("Protocol", &proto);
+        l.addRow("IP or multicast (sACN)", &host);
+        l.addRow("First universe (Art-Net: zero-based)", &universe);
         l.addRow(&enable);
         QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
         l.addRow(&buttons);
@@ -196,24 +196,24 @@ class Console : public QMainWindow {
             network.host = host.text();
             network.firstUniverse = universe.value();
             network.enabled = enable.isChecked();
-            message(network.enabled ? "Sorties activées" : "Sorties désactivées");
+            message(network.enabled ? "Outputs enabled" : "Outputs disabled");
         }
     }
     void patch() {
         bool ok;
-        int id = QInputDialog::getInt(this, "Patch", "Circuit", 1, 1, 10000, 1, &ok);
+        int id = QInputDialog::getInt(this, "Patch", "Channel", 1, 1, 10000, 1, &ok);
         if (!ok)
             return;
-        int address = QInputDialog::getInt(this, "Patch", "Adresse absolue (univers 2 = 513)",
+        int address = QInputDialog::getInt(this, "Patch", "Absolute address (second universe starts at 513)",
                                            engine.patch.value(id, 1), 1, 32768 * 512, 1, &ok);
         if (!ok)
             return;
         for (auto i = engine.patch.begin(); i != engine.patch.end(); ++i)
             if (i.key() != id && i.value() == address) {
-                message("Adresse déjà utilisée");
+                message("Address already in use");
                 return;
             }
-        engine.channels[id] = QString("Circuit %1").arg(id);
+        engine.channels[id] = QString("Channel %1").arg(id);
         engine.patch[id] = address;
         changed();
         rebuild();
@@ -248,17 +248,17 @@ class Console : public QMainWindow {
             "QSlider::groove:horizontal{height:6px;background:#2c4050;} "
             "QSlider::handle:horizontal{background:#6ce1be;width:16px;margin:-6px "
             "0;border-radius:8px;} QMenuBar,QMenu{background:#15212d;}");
-        auto file = menuBar()->addMenu("Spectacle");
-        file->addAction("Ouvrir…", this, [this] { open(); })->setShortcut(QKeySequence::Open);
-        file->addAction("Sauvegarder", this, [this] { save(); })->setShortcut(QKeySequence::Save);
-        file->addAction("Enregistrer sous…", this, [this] {
+        auto file = menuBar()->addMenu("Show");
+        file->addAction("Open…", this, [this] { open(); })->setShortcut(QKeySequence::Open);
+        file->addAction("Save", this, [this] { save(); })->setShortcut(QKeySequence::Save);
+        file->addAction("Save as…", this, [this] {
             QString old = path;
             path.clear();
             if (!save())
                 path = old;
         });
         file->addAction("Patch…", this, [this] { patch(); });
-        file->addAction("Sorties réseau…", this, [this] { outputSettings(); });
+        file->addAction("Network outputs…", this, [this] { outputSettings(); });
         auto root = new QWidget;
         setCentralWidget(root);
         auto layout = new QVBoxLayout(root);
@@ -269,20 +269,20 @@ class Console : public QMainWindow {
         title->setObjectName("title");
         top->addWidget(title);
         top->addStretch();
-        top->addWidget(new QLabel("THÉÂTRE  ·  DANSE  ·  CONCERT     /     0.1 DEV"));
-        button("RÉSEAU", top, [this] { outputSettings(); });
+        top->addWidget(new QLabel("THEATRE  ·  DANCE  ·  CONCERT     /     0.1 DEV"));
+        button("NETWORK", top, [this] { outputSettings(); });
         layout->addLayout(top);
         auto body = new QHBoxLayout;
         layout->addLayout(body, 1);
         auto left = new QVBoxLayout;
         body->addLayout(left, 2);
-        left->addWidget(new QLabel("SÉQUENCES / PLAYBACKS"));
+        left->addWidget(new QLabel("SEQUENCES / PLAYBACKS"));
         sequences = new QListWidget;
         sequences->setMaximumHeight(140);
         left->addWidget(sequences);
-        button("+ Nouvelle séquence", left, [this] {
+        button("+ New sequence", left, [this] {
             bool ok;
-            auto name = QInputDialog::getText(this, "Séquence", "Nom", QLineEdit::Normal, "", &ok);
+            auto name = QInputDialog::getText(this, "Sequence", "Name", QLineEdit::Normal, "", &ok);
             if (ok && !name.isEmpty()) {
                 Sequence s;
                 s.name = name;
@@ -292,17 +292,17 @@ class Console : public QMainWindow {
                 rebuild();
             }
         });
-        button("Priorité de la séquence", left, [this] {
+        button("Sequence priority", left, [this] {
             bool ok;
             int p =
-                QInputDialog::getInt(this, "Priorité", "1 = faible / 10 = forte",
+                QInputDialog::getInt(this, "Priority", "1 = lowest / 10 = highest",
                                      engine.sequences[selectedSequence].priority, 1, 10, 1, &ok);
             if (ok) {
                 engine.sequences[selectedSequence].priority = p;
                 changed();
             }
         });
-        left->addWidget(new QLabel("PALETTES D’INTENSITÉ / RÉFÉRENCES"));
+        left->addWidget(new QLabel("INTENSITY PALETTES / REFERENCES"));
         palettes = new QListWidget;
         left->addWidget(palettes, 1);
         paletteId = new QSpinBox;
@@ -313,16 +313,16 @@ class Console : public QMainWindow {
             changed();
             rebuild();
         });
-        button("Appliquer palette", left, [this] {
+        button("Apply palette", left, [this] {
             engine.applyPalette(paletteId->value());
             refresh();
         });
         auto center = new QVBoxLayout;
         body->addLayout(center, 6);
         auto bar = new QHBoxLayout;
-        bar->addWidget(new QLabel("CIRCUITS / SORTIE RÉELLE"));
+        bar->addWidget(new QLabel("CHANNELS / LIVE OUTPUT"));
         bar->addStretch();
-        button("Tout sélectionner", bar, [this] { channels->selectAll(); });
+        button("Select all", bar, [this] { channels->selectAll(); });
         button("Patch +", bar, [this] { patch(); });
         center->addLayout(bar);
         channels = new QListWidget;
@@ -334,7 +334,7 @@ class Console : public QMainWindow {
         selection = new QLabel;
         center->addWidget(selection);
         auto levels = new QHBoxLayout;
-        levels->addWidget(new QLabel("NIVEAU"));
+        levels->addWidget(new QLabel("LEVEL"));
         level = new QSlider(Qt::Horizontal);
         level->setRange(0, 100);
         levels->addWidget(level, 1);
@@ -346,14 +346,14 @@ class Console : public QMainWindow {
             engine.level(100);
             refresh();
         });
-        button("RELEASE MANUEL", levels, [this] {
+        button("RELEASE MANUAL", levels, [this] {
             engine.manual.clear();
             refresh();
         });
         center->addLayout(levels);
-        center->addWidget(new QLabel("MÉMOIRES / TRACKING"));
+        center->addWidget(new QLabel("CUES / TRACKING"));
         cues = new QTableWidget(0, 5);
-        cues->setHorizontalHeaderLabels({"Cue", "Libellé", "Fondu", "Valeurs", "État"});
+        cues->setHorizontalHeaderLabels({"Cue", "Label", "Fade", "Values", "Status"});
         cues->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
         cues->verticalHeader()->hide();
         cues->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -385,7 +385,7 @@ class Console : public QMainWindow {
             int i = cues->currentRow();
             if (i < 0)
                 return;
-            if (QMessageBox::question(this, "Supprimer", "Supprimer la mémoire sélectionnée ?") ==
+            if (QMessageBox::question(this, "Delete", "Delete the selected cue?") ==
                 QMessageBox::Yes) {
                 engine.release(selectedSequence);
                 engine.sequences[selectedSequence].cues.removeAt(i);
@@ -398,10 +398,10 @@ class Console : public QMainWindow {
             engine.back(selectedSequence);
             refresh();
         });
-        button("Ⅱ PAUSE / REPRENDRE", transport, [this] {
+        button("Ⅱ PAUSE / RESUME", transport, [this] {
             auto &s = engine.sequences[selectedSequence];
             s.paused = !s.paused;
-            message(s.paused ? "Séquence en pause" : "Séquence reprise");
+            message(s.paused ? "Sequence paused" : "Sequence resumed");
         });
         auto go = button(
             "▶ GO", transport,
@@ -411,25 +411,25 @@ class Console : public QMainWindow {
             },
             "background:#246e5c;color:white;font-size:20px;font-weight:bold;padding:18px 48px;");
         go->setShortcut(QKeySequence("Ctrl+Space"));
-        button("RELEASE SÉQUENCE", transport, [this] {
+        button("RELEASE SEQUENCE", transport, [this] {
             engine.release(selectedSequence);
             refresh();
         });
         center->addLayout(transport);
         auto bottom = new QHBoxLayout;
         command = new QLineEdit;
-        command->setPlaceholderText("Channel 1 Thru 12 At 50  ·  Entrée pour exécuter");
+        command->setPlaceholderText("Channel 1 Thru 12 At 50  ·  Press Enter to execute");
         bottom->addWidget(command, 1);
-        button("EXÉCUTER", bottom, [this] { execute(); });
+        button("EXECUTE", bottom, [this] { execute(); });
         auto bo = button("BLACKOUT", bottom, [this] {
             engine.blackout = !engine.blackout;
-            message(engine.blackout ? "BLACKOUT ACTIF" : "Blackout retiré");
+            message(engine.blackout ? "BLACKOUT ACTIVE" : "Blackout released");
             refresh();
         });
         bo->setCheckable(true);
         layout->addLayout(bottom);
         status = new QLabel(
-            "Prêt · sorties réseau désactivées · Ctrl+Espace : GO · Ctrl+S : sauvegarder");
+            "Ready · network outputs disabled · Ctrl+Space: GO · Ctrl+S: save");
         layout->addWidget(status);
         connect(command, &QLineEdit::returnPressed, this, [this] { execute(); });
         connect(channels, &QListWidget::itemSelectionChanged, this, [this] {
@@ -454,10 +454,10 @@ class Console : public QMainWindow {
             refresh();
         });
         // OSC is opt-in, bound only to loopback. Enable from the menu.
-        auto tools = menuBar()->addMenu("Programmation");
-        tools->addAction("Enregistrer un groupe…", this, [this] {
+        auto tools = menuBar()->addMenu("Programming");
+        tools->addAction("Record group…", this, [this] {
             bool ok;
-            int id = QInputDialog::getInt(this, "Groupe", "Numéro", 1, 1, 9999, 1, &ok);
+            int id = QInputDialog::getInt(this, "Group", "Number", 1, 1, 9999, 1, &ok);
             if (ok && !engine.selection.isEmpty()) {
                 Values g;
                 for (int c : engine.selection)
@@ -466,9 +466,9 @@ class Console : public QMainWindow {
                 changed();
             }
         });
-        tools->addAction("Appeler un groupe…", this, [this] {
+        tools->addAction("Recall group…", this, [this] {
             bool ok;
-            int id = QInputDialog::getInt(this, "Groupe", "Numéro", 1, 1, 9999, 1, &ok);
+            int id = QInputDialog::getInt(this, "Group", "Number", 1, 1, 9999, 1, &ok);
             if (ok && engine.groups.contains(id)) {
                 QSignalBlocker b(channels);
                 engine.selection.clear();
@@ -480,10 +480,10 @@ class Console : public QMainWindow {
                 refresh();
             }
         });
-        tools->addAction("Clavier de programmation", this, [this] {
+        tools->addAction("Programming keypad", this, [this] {
             auto d = new QDialog(this);
             d->setAttribute(Qt::WA_DeleteOnClose);
-            d->setWindowTitle("Surface de programmation / prototype HID");
+            d->setWindowTitle("Programming surface / HID prototype");
             auto grid = new QGridLayout(d);
             QStringList keys = {"Channel", "Group",   "Intensity", "Cue", "Sequence", "Record",
                                 "Update",  "Release", "1",         "2",   "3",        "Thru",
@@ -518,46 +518,46 @@ class Console : public QMainWindow {
             d->show();
         });
         auto pixels = menuBar()->addMenu("Pixel mapping");
-        pixels->addAction("Démarrer une vague sur la sélection", this, [this] {
+        pixels->addAction("Start wave on selected channels", this, [this] {
             pixelChannels = engine.selection.values();
             std::sort(pixelChannels.begin(), pixelChannels.end());
             if (pixelChannels.isEmpty()) {
-                message("Sélectionner les circuits à mapper");
+                message("Select channels to map");
                 return;
             }
             for (int c : pixelChannels)
                 engine.manual.remove(c);
             pixelPhase = 0;
             pixelRunning = true;
-            message("Mapping intensité 1D actif · ordre des circuits croissant");
+            message("1D intensity mapping active · ascending channel order");
         });
-        pixels->addAction("Vitesse…", this, [this] {
+        pixels->addAction("Speed…", this, [this] {
             bool ok;
-            double v = QInputDialog::getDouble(this, "Mapping", "Cycles par seconde", pixelRate,
+            double v = QInputDialog::getDouble(this, "Mapping", "Cycles per second", pixelRate,
                                                0.01, 20, 2, &ok);
             if (ok)
                 pixelRate = v;
         });
-        pixels->addAction("Répartition…", this, [this] {
+        pixels->addAction("Spread…", this, [this] {
             bool ok;
-            double v = QInputDialog::getDouble(this, "Mapping", "Nombre de vagues sur la sélection",
+            double v = QInputDialog::getDouble(this, "Mapping", "Number of waves across the selection",
                                                pixelSpread, 0, 20, 2, &ok);
             if (ok)
                 pixelSpread = v;
         });
-        pixels->addAction("Arrêter / relâcher", this, [this] {
+        pixels->addAction("Stop / release", this, [this] {
             pixelRunning = false;
             engine.pixels.clear();
             refresh();
         });
         auto fixtures = menuBar()->addMenu("Fixtures");
-        fixtures->addAction("Inspecter un profil GDTF…", this, [this] {
-            QString p = QFileDialog::getOpenFileName(this, "Profil GDTF", {}, "GDTF (*.gdtf)");
+        fixtures->addAction("Inspect GDTF profile…", this, [this] {
+            QString p = QFileDialog::getOpenFileName(this, "GDTF profile", {}, "GDTF (*.gdtf)");
             if (p.isEmpty())
                 return;
             QFile f(p);
             if (!f.open(QIODevice::ReadOnly) || f.size() > 64 * 1024 * 1024) {
-                message("Profil inaccessible ou trop volumineux");
+                message("Profile cannot be read or is too large");
                 return;
             }
             FixtureProfile profile;
@@ -568,14 +568,14 @@ class Console : public QMainWindow {
             }
             QString text = profile.manufacturer + " / " + profile.name + "\n\n";
             for (auto m : profile.modes)
-                text += m.name + " · " + QString::number(m.footprint) + " adresses\n" +
+                text += m.name + " · " + QString::number(m.footprint) + " addresses\n" +
                         m.attributes.join(", ") + "\n\n";
-            text += "Inspection uniquement dans cette version. Le patch intelligent des paramètres "
-                    "reste à développer.";
-            QMessageBox::information(this, "Profil GDTF", text);
+            text += "Inspection only in this version. Intelligent parameter patching "
+                    "is not yet implemented.";
+            QMessageBox::information(this, "GDTF profile", text);
         });
         auto integration = menuBar()->addMenu("Interaction");
-        auto osc = integration->addAction("OSC local :9000");
+        auto osc = integration->addAction("Local OSC :9000");
         osc->setCheckable(true);
         connect(osc, &QAction::toggled, this, [this, osc](bool enabled) {
             if (enabled && !network.receiver.bind(QHostAddress::LocalHost, 9000)) {
@@ -630,7 +630,7 @@ class Console : public QMainWindow {
                     channels->item(i)->setSelected(
                         engine.selection.contains(channels->item(i)->data(Qt::UserRole).toInt()));
             }
-            message("Commande exécutée");
+            message("Command executed");
         } else
             message(error);
         refresh();

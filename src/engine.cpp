@@ -4,11 +4,11 @@
 namespace Flame {
 Engine::Engine() {
     for (int i = 1; i <= 48; ++i) {
-        channels[i] = QString("Circuit %1").arg(i);
+        channels[i] = QString("Channel %1").arg(i);
         patch[i] = i;
     }
     Sequence s;
-    s.name = "Conduite principale";
+    s.name = "Main cue list";
     sequences << s;
 }
 double Engine::resolve(int channel, Value v) const {
@@ -154,7 +154,7 @@ bool Engine::command(QString text, QString *error) {
         auto type = target.captured(1);
         if (type == "group") {
             if (!groups.contains(id))
-                return fail("Groupe absent");
+                return fail("Group not found");
             selection.clear();
             for (auto i = groups[id].begin(); i != groups[id].end(); ++i)
                 selection.insert(i.key());
@@ -162,26 +162,26 @@ bool Engine::command(QString text, QString *error) {
         }
         if (type == "intensity") {
             if (!palettes.contains(id))
-                return fail("Palette absente");
+                return fail("Palette not found");
             applyPalette(id);
             return true;
         }
         if (type == "sequence") {
             if (id < 1 || id > sequences.size())
-                return fail("Séquence absente");
+                return fail("Sequence not found");
             go(id - 1);
             return true;
         }
         int seq = target.captured(3).isEmpty() ? 0 : id - 1;
         QString num = target.captured(3).isEmpty() ? target.captured(2) : target.captured(3);
         if (seq < 0 || seq >= sequences.size())
-            return fail("Séquence absente");
+            return fail("Sequence not found");
         for (int i = 0; i < sequences[seq].cues.size(); ++i)
             if (sequences[seq].cues[i].number.toDouble() == num.toDouble()) {
                 go(seq, i);
                 return true;
             }
-        return fail("Mémoire absente");
+        return fail("Cue not found");
     }
     text = text.trimmed().toLower();
     text.replace("channel ", "");
@@ -192,15 +192,15 @@ bool Engine::command(QString text, QString *error) {
         QRegularExpression("^(\\d+)(?:\\s+thru\\s+(\\d+))?(?:\\s+at\\s+(\\d+(?:\\.\\d+)?))?\\s*$")
             .match(text);
     if (!m.hasMatch())
-        return fail("Syntaxe : Channel 1 Thru 12 At 50");
+        return fail("Syntax: Channel 1 Thru 12 At 50");
     int a = m.captured(1).toInt(), b = m.captured(2).isEmpty() ? a : m.captured(2).toInt();
     if (a > b || b - a > 10000)
-        return fail("Plage de circuits incorrecte");
+        return fail("Invalid channel range");
     for (int c = a; c <= b; ++c)
         if (!channels.contains(c))
-            return fail("Circuit absent du patch");
+            return fail("Channel not patched");
     if (!m.captured(3).isEmpty() && m.captured(3).toDouble() > 100)
-        return fail("Niveau entre 0 et 100");
+        return fail("Level must be between 0 and 100");
     selection.clear();
     for (int c = a; c <= b; ++c)
         selection.insert(c);
@@ -247,7 +247,7 @@ QJsonObject Engine::json() const {
 bool Engine::load(const QJsonObject &r, QString *error) {
     auto fail = [&]() {
         if (error)
-            *error = "Fichier spectacle invalide ou version inconnue";
+            *error = "Invalid show file or unsupported version";
         return false;
     };
     if (r["format"] != "cold-flame" || r["version"].toInt() != 1 || !r["channels"].isArray() ||

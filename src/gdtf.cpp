@@ -13,7 +13,7 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
         return false;
     };
     if (b.size() > 64 * 1024 * 1024)
-        return fail("Archive trop volumineuse");
+        return fail("Archive is too large");
     int end = -1;
     for (int p = b.size() - 22; p >= qMax(0, int(b.size()) - 65557); --p)
         if (b.mid(p, 4) == QByteArray("PK\5\6", 4)) {
@@ -21,29 +21,29 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
             break;
         }
     if (end < 0)
-        return fail("Archive ZIP invalide");
+        return fail("Invalid ZIP archive");
     quint32 pos = u32(b, end + 16);
     QByteArray xml;
     for (int i = 0; i < u16(b, end + 10); ++i) {
         if (quint64(pos) + 46 > quint64(b.size()) || b.mid(pos, 4) != QByteArray("PK\1\2", 4))
-            return fail("Répertoire ZIP invalide");
+            return fail("Invalid ZIP directory");
         int nameLen = u16(b, pos + 28), extra = u16(b, pos + 30), comment = u16(b, pos + 32);
         quint32 compressed = u32(b, pos + 20), size = u32(b, pos + 24), local = u32(b, pos + 42);
         int method = u16(b, pos + 10);
         if (quint64(pos) + 46 + nameLen + extra + comment > quint64(b.size()))
-            return fail("Entrée ZIP tronquée");
+            return fail("Truncated ZIP entry");
         if (b.mid(pos + 46, nameLen) == "description.xml") {
             if (u16(b, pos + 8) & 1)
-                return fail("Archive chiffrée non prise en charge");
+                return fail("Encrypted archives are not supported");
             if (size > 16 * 1024 * 1024 || quint64(local) + 30 > quint64(b.size()) ||
                 b.mid(local, 4) != QByteArray("PK\3\4", 4))
-                return fail("Description invalide");
+                return fail("Invalid description");
             quint64 start = quint64(local) + 30 + u16(b, local + 26) + u16(b, local + 28);
             if (start + compressed > quint64(b.size()))
-                return fail("Description tronquée");
+                return fail("Truncated description");
             if (method == 0) {
                 if (compressed != size)
-                    return fail("Taille ZIP invalide");
+                    return fail("Invalid ZIP size");
                 xml = b.mid(start, size);
             } else if (method == 8) {
                 xml.resize(size);
@@ -53,23 +53,23 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
                 z.next_out = reinterpret_cast<Bytef *>(xml.data());
                 z.avail_out = size;
                 if (inflateInit2(&z, -MAX_WBITS) != Z_OK)
-                    return fail("Initialisation ZIP impossible");
+                    return fail("ZIP initialization failed");
                 int rc = inflate(&z, Z_FINISH);
                 bool valid = rc == Z_STREAM_END && z.total_out == size;
                 inflateEnd(&z);
                 if (!valid)
-                    return fail("Décompression impossible");
+                    return fail("Decompression failed");
             } else
-                return fail("Compression ZIP non prise en charge");
+                return fail("Unsupported ZIP compression");
             if (crc32(0, reinterpret_cast<const Bytef *>(xml.constData()), xml.size()) !=
                 u32(b, pos + 16))
-                return fail("CRC description incorrect");
+                return fail("Description CRC mismatch");
             break;
         }
         pos += 46 + nameLen + extra + comment;
     }
     if (xml.isEmpty())
-        return fail("description.xml absent");
+        return fail("description.xml not found");
     QXmlStreamReader r(xml);
     FixtureProfile profile;
     FixtureMode mode;
@@ -77,7 +77,7 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
     while (!r.atEnd()) {
         r.readNext();
         if (r.isDTD())
-            return fail("DTD interdite");
+            return fail("DTD is not allowed");
         if (r.isStartElement()) {
             auto a = r.attributes();
             if (r.name() == QStringLiteral("FixtureType")) {
@@ -105,7 +105,7 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
         }
     }
     if (r.hasError() || profile.name.isEmpty() || profile.modes.isEmpty())
-        return fail("Description GDTF invalide ou sans mode DMX");
+        return fail("Invalid GDTF description or missing DMX mode");
     result = profile;
     return true;
 }

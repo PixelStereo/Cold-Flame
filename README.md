@@ -1,13 +1,13 @@
 # Cold Flame
 
-Jeu d’orgues de bureau en C++17 / Qt 6 pour macOS, Windows et Linux.
-**Version 0.1 de développement : le périmètre Eos complet reste un objectif, pas une capacité acquise.**
+Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
+**Development version 0.1: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
-## Compiler et tester
+## Build and test
 
-Dépendances : CMake 3.21+, compilateur C++17, Qt 6.2+ (Core, Widgets, Network, Test), zlib.
+Requirements: CMake 3.21+, a C++17 compiler, Qt 6.2+ (Core, Widgets, Network, Test), and zlib.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -15,37 +15,37 @@ cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Lancer `build/cold-flame` (Windows multi-configuration : `build/Release/cold-flame.exe`).
-Installer les bibliothèques Qt avec l’application pour une distribution autonome ; les exécutables de développement ne sont pas encore des installateurs. La CI configure la compilation et les tests sur les trois systèmes ; seuls les résultats effectivement observés sont des validations.
+Run `build/cold-flame` (Windows multi-configuration: `build/Release/cold-flame.exe`).
+Bundle the Qt libraries when distributing the application. Development executables are not yet installers. CI is configured to build and test on all three operating systems; only observed results count as validation.
 
-## Première conduite
+## Your first show
 
-1. Le spectacle vierge contient 48 circuits gradateurs patchés aux adresses 1–48. Le menu **Spectacle → Patch** ajoute ou repatche un circuit.
-2. Sélectionner les circuits à la souris (Ctrl / Maj pour les sélections multiples), ou saisir `Channel 1 Thru 12 At 50` puis Entrée.
-3. Régler le fondu, cliquer **Record**, saisir numéro et libellé. Les valeurs manuelles sont enregistrées dans la séquence sélectionnée. Les paramètres inchangés sont suivis par tracking.
-4. Cliquer **Release manuel**, puis **Go**. Les valeurs manuelles conservent la priorité tant qu’elles ne sont pas relâchées. `Ctrl+Espace` déclenche Go, `Ctrl+S` sauvegarde.
-5. Ajouter d’autres séquences. Chaque séquence conserve son état et son fondu. La priorité la plus haute gagne ; à priorité égale, la dernière séquence déclenchée gagne pour les circuits qu’elle possède. Release séquence restaure les contributions encore actives.
-6. Les palettes d’intensité sont enregistrées depuis la sélection et rappelées par référence. Modifier une palette met à jour sa résolution dans les mémoires lors du prochain rappel. **Update** modifie la mémoire sélectionnée avec les valeurs manuelles et le temps affiché.
-7. Sauvegarder en `.cfl`. Le fichier contient patch, palettes, groupes et séquences, sans les états transitoires de restitution. L’ouverture désactive les sorties.
+1. A new show contains 48 dimmer channels patched to addresses 1–48. **Show → Patch** adds or repatches a channel.
+2. Select channels with the mouse (Ctrl / Shift for multiple selections), or type `Channel 1 Thru 12 At 50` and press Enter.
+3. Set the fade time, click **Record**, then enter a number and label. Manual values are recorded in the selected sequence. Unchanged parameters track forward.
+4. Click **Release manual**, then **Go**. Manual values retain control until released. `Ctrl+Space` triggers Go; `Ctrl+S` saves.
+5. Add more sequences. Each retains its own state and fade. Higher priority wins; at equal priority, the most recently triggered sequence wins for the channels it owns. Release sequence restores other active contributions.
+6. Intensity palettes are recorded from the selection and recalled by reference. Editing a palette updates its resolution in cues on their next recall. **Update** changes the selected cue using manual values and the displayed fade time.
+7. Save as `.cfl`. Files contain the patch, palettes, groups and sequences, without transient playback states. Opening a show disables outputs.
 
-Commandes supplémentaires : `Group 1`, `Intensity 2`, `Cue 2/15`, `Sequence 2` (Go de cette séquence). Le clavier virtuel est accessible dans **Programmation**. Il constitue un premier accès aux actions ; le protocole matériel configurable n’est pas encore implémenté.
+Additional commands: `Group 1`, `Intensity 2`, `Cue 2/15`, `Sequence 2` (Go for that sequence). The virtual keypad is available under **Programming**. It provides initial access to actions; configurable hardware integration is not yet implemented.
 
-## Réseau et interaction
+## Networking and interaction
 
-Les sorties sont **désactivées au lancement**. Configurer protocole, destination et univers initial dans **Réseau**. Art-Net utilise une numérotation base 0 ; sACN accepte 1–63999 et `multicast` comme destination. Les adresses absolues du patch sont découpées par blocs de 512 ; l’univers initial est ajouté à l’index du bloc. Fréquence cible : environ 43,5 Hz. Les fondus, l’interface et les sorties utilisent actuellement la même boucle Qt ; leur séparation en threads reste à faire.
+Outputs are **disabled at startup**. Configure the protocol, destination and first universe under **Network**. Art-Net universe numbering is zero-based; sACN accepts 1–63999 and supports `multicast` as the destination. Absolute patch addresses are split into blocks of 512; the first universe is added to each block index. Target refresh rate: approximately 43.5 Hz. Fades, UI updates and output currently share the Qt event loop; separate engine/output threads remain to be implemented.
 
-OSC est activable dans **Interaction** sur `127.0.0.1:9000`. Messages OSC avec un seul argument float :
+Enable OSC under **Interaction**, bound to `127.0.0.1:9000`. Supported messages use a single float argument:
 
-- `/coldflame/sequence/1/go` avec une valeur positive : Go.
-- `/coldflame/master` de 0 à 1 : grand master.
-- `/coldflame/blackout` : positif active, zéro désactive.
+- `/coldflame/sequence/1/go` with a positive value: Go.
+- `/coldflame/master` from 0 to 1: grand master.
+- `/coldflame/blackout`: positive enables blackout; zero disables it.
 
-Pas encore de bundles OSC, de retours d’état ni de réception distante configurable.
+OSC bundles, feedback and configurable remote reception are not yet supported.
 
-**Pixel mapping** propose une vague sinusoïdale d’intensité sur les circuits sélectionnés, ordonnés par numéro, avec vitesse et répartition réglables. Sa couche passe après les séquences et avant le manuel. C’est un générateur 1D initial ; matrices RGB, couches vidéo, masques et GPU restent à développer.
+**Pixel mapping** provides a sinusoidal intensity wave across selected channels in ascending numerical order, with adjustable speed and spread. Its layer overrides sequences and is overridden by manual values. This is an initial 1D generator; RGB matrices, video layers, masks and GPU processing remain to be developed.
 
-**Fixtures → Inspecter un profil GDTF** lit une archive `.gdtf` (ZIP stocké ou Deflate), contrôle le CRC et affiche fabricant, modes, empreinte et attributs. Cette version ne transforme pas encore ces attributs en paramètres de projecteurs intelligents. Le patch actuel concerne des circuits 8 bits ; aucun support grandMA propriétaire n’est revendiqué.
+**Fixtures → Inspect GDTF profile** reads a `.gdtf` archive (stored or Deflate ZIP), checks its CRC, and displays manufacturer, modes, footprint and attributes. It does not yet convert those attributes into intelligent fixture parameters. The current patch supports 8-bit channels; no proprietary grandMA format support is claimed.
 
-## État et prochaines étapes
+## Status and next steps
 
-Voir [la matrice fonctionnelle](docs/FEATURES.md) et [le projet de surface physique](docs/HARDWARE.md). La présente alpha est destinée à la préparation et à l’expérimentation ; elle n’a pas encore été validée sur un parc réel, en longue durée ou en situation de spectacle.
+See the [feature matrix](docs/FEATURES.md) and [hardware surface proposal](docs/HARDWARE.md). This alpha is intended for preparation and experimentation. It has not yet been validated against a physical lighting rig, through endurance testing, or during a live show.

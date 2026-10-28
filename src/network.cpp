@@ -111,7 +111,7 @@ void Network::send(const Engine &e) {
             destination = QString("239.255.%1.%2").arg(u >> 8).arg(u & 255);
         QHostAddress ip(destination);
         if (b.isEmpty() || ip.isNull()) {
-            lastError = "Univers ou destination invalide";
+            lastError = "Invalid universe or destination";
             continue;
         }
         if (sender.writeDatagram(b, ip, protocol == "Art-Net" ? 6454 : 5568) < 0)

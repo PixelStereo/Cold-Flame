@@ -24,7 +24,7 @@ class UiTests : public QObject {
             }
         QVERIFY(selection);
         for (auto b : window.findChildren<QPushButton *>())
-            if (b->text() == "RELEASE MANUEL")
+            if (b->text() == "RELEASE MANUAL")
                 QTest::mouseClick(b, Qt::LeftButton);
         for (auto list : window.findChildren<QListWidget *>())
             if (list->count() == 48)
