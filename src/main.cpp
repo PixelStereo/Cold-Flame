@@ -137,7 +137,7 @@ class Console : public QMainWindow {
                     item = new QTableWidgetItem;
                     cues->setItem(i, column, item);
                 }
-                item->setToolTip(QString("Follow: %1 · Hang: %2\nExecute: %3\nAfter cue: %4")
+                item->setToolTip(QString("Follow: %1 · Hang: %2\nExecute: %3\nAfter step: %4")
                                      .arg(c.follow ? QString::number(*c.follow) : "—",
                                           c.hang ? QString::number(*c.hang) : "—", c.execute,
                                           c.after));
@@ -282,7 +282,7 @@ class Console : public QMainWindow {
     void channelTiming() {
         int row = cues->currentRow();
         if (row < 0 || engine.selection.isEmpty()) {
-            message("Select a cue and channels to assign individual timing");
+            message("Select a step and channels to assign individual timing");
             return;
         }
         auto &cue = engine.sequences[selectedSequence].cues[row];
@@ -305,7 +305,7 @@ class Console : public QMainWindow {
         form.addRow("Down", &down);
         form.addRow("Wait before fade", &wait);
         QDialogButtonBox buttons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        auto reset = buttons.addButton("Use cue timing", QDialogButtonBox::ResetRole);
+        auto reset = buttons.addButton("Use step timing", QDialogButtonBox::ResetRole);
         form.addRow(&buttons);
         connect(&buttons, &QDialogButtonBox::accepted, &d, &QDialog::accept);
         connect(&buttons, &QDialogButtonBox::rejected, &d, &QDialog::reject);
@@ -324,12 +324,12 @@ class Console : public QMainWindow {
     void cueTriggers() {
         int row = cues->currentRow();
         if (row < 0) {
-            message("Select a cue first");
+            message("Select a step first");
             return;
         }
         auto &cue = engine.sequences[selectedSequence].cues[row];
         QDialog d(this);
-        d.setWindowTitle("Cue triggers · Link / Follow / Hang / Execute");
+        d.setWindowTitle("Step triggers · Link / Follow / Hang / Execute");
         QFormLayout form(&d);
         QLineEdit follow(cue.follow ? QString::number(*cue.follow) : ""),
             hang(cue.hang ? QString::number(*cue.hang) : ""), execute(cue.execute),
@@ -339,8 +339,8 @@ class Console : public QMainWindow {
         form.addRow("Execute · step or sequence/step at start", &execute);
         form.addRow("After · step at completion (extension)", &after);
         auto info = new QLabel(
-            "Follow and Hang are mutually exclusive. Execute uses the destination sequence. After "
-            "cue leaves the main cursor unchanged; it is a Cold Flame extension, not Eos Link.");
+            "Follow and Hang are mutually exclusive. Execute starts the target step when this step "
+            "starts. After plays its target alongside the main sequence at completion, without changing the next step.");
         info->setWordWrap(true);
         form.addRow(info);
         QLabel error;
@@ -627,7 +627,7 @@ class Console : public QMainWindow {
             {"Add / repatch range", "Add or repatch the specified channel range in the patch draft."},
             {"Close", "Close this editor. Changes already saved in Blind remain stored."},
             {"Save", "Validate and save this editor's changes."}, {"Cancel", "Close this editor without applying its changes."},
-            {"OK", "Apply this editor's settings."}, {"Use cue timing", "Remove selected channels' timing overrides."}
+            {"OK", "Apply this editor's settings."}, {"Use step timing", "Remove selected channels' timing overrides."}
         };
         if (descriptions.contains(text)) return descriptions.value(text);
         if (button->isCheckable()) return "Toggle " + text + ".";

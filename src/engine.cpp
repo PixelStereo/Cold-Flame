@@ -668,7 +668,7 @@ bool Engine::command(QString text, QString *error) {
     }
     if (text == "block" || text == "assert") {
         if (commandCue < 0 || commandCue >= sequences[commandSequence].cues.size())
-            return fail("Select a cue first");
+            return fail("Select a step first");
         auto &cue = sequences[commandSequence].cues[commandCue];
         if (text == "block")
             setBlock(commandSequence, commandCue, !cue.block);

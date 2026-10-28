@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.3
+# Eos behavior audit — development version 0.5
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28 October 2026).
 
@@ -7,14 +7,14 @@
 | Topic | Documented Eos behavior | Cold Flame result / evidence |
 |---|---|---|
 | Channel/address relationship | A channel can drive several addresses; each address belongs to only one channel. | Implemented for 8-bit dimmers. `multiPatchOutputAndRoundtrip` receives channel 12 at 22.013, 3.018 and 3.512 over sACN. Patch dialog rejects duplicate addresses. |
-| Record | Store the stage look; unchanged data tracks. Record Only stores manual data. | Record captures changed live intensity and references; Record Only is available in the UI and command line. Full category/parameter recording filters are missing. |
+| Record | Store the stage look; unchanged data tracks. Record Only stores manual data. | Library Record stores a full live intensity snapshot; Record Only stores manual values. The legacy inline recording API tracks unchanged intensities. Full category/parameter recording filters are missing. |
 | Tracking | Unchanged values continue until a new move or block. | Basic intensity tracking, full-cue Block and Cue Only level edits are implemented and tested; channel/parameter Block, trace and complete filtering are missing. |
 | Sequential Go | Tracked channels do not automatically take over manually modified values. | `eosTrackedManualAndOwnership` tests that a tracked channel stays manual; incoming move instructions take over their channels. |
 | Go To Cue | Recall both moves and tracked values for an out-of-sequence jump. | Same intensity test verifies that Go To recalls the tracked recorded value. |
 | Sequence ownership | Playback ownership follows move instructions rather than every Go. | `sequentialGoDoesNotStealTrackedChannels` verifies basic LTP ownership; `unchangedFadeContinuesAcrossNextCue` verifies fade continuity. Full attributes, asserts, background priorities and exclusions remain incomplete. |
 | Common / split intensity time | Up and Down can share a time or use different times. | Shared default and separate Down implemented. Discrete channel up/down/delay tested. Category timings for focus/color/beam are absent. |
 | Delay | Delay precedes a transition; it is distinct from Follow/Hang. | UI currently calls this Wait. One shared cue delay and individual channel delays are implemented; separate category/up/down delays are missing. |
-| Link | Change the pending cue. Follow/Hang can trigger that pending cue automatically. | `eosLinkAndFollow` tests pending Link and automatic Follow. Cross-sequence fader selection is simplified. Loop counts and Go After Loop are missing. |
+| Link | Change the pending cue. Follow/Hang can trigger that pending cue automatically. | Current library sequences link to explicit step IDs; legacy `eosLinkAndFollow` tests pending Link and automatic Follow using inline cue numbers. Cross-sequence fader selection is simplified. Loop counts and Go After Loop are missing. |
 | Follow / Hang | Follow counts from start; Hang from completion. Negative Hang permits overlap. | Positive Hang and Follow tested; negative Hang is accepted. All timing edge cases, multipart interactions and loop behavior are not exhaustively validated. |
 | Execute | Trigger a cue at source playback. Another list runs concurrently; the same list jumps. | One target supported. `eosHangAndExecute` tests another list. Multiple targets, macros, snapshots and external trigger actions are missing. |
 | Submasters | HTP by default, with additive/inhibitive/effect modes and many configurable properties. | Additive HTP intensity faders only. Recording, scaling, stable numbering, card controls, stored channel/level editing, Update/Delete and persistence implemented. Cold Flame’s editor requires Save rather than Eos’s immediate Blind storage. Other modes, timed bump, priorities and shielded behavior are absent. |

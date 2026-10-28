@@ -4,7 +4,7 @@
 BlindDialog::BlindDialog(Flame::Engine &engine, int sequence, std::function<void()> change,
                          QWidget *parent)
     : QDialog(parent), engine(engine), sequence(sequence), onChange(change) {
-    setWindowTitle("Blind · Stored cue spreadsheet");
+    setWindowTitle("Blind · Sequence step intensities");
     setObjectName("blindDialog");
     resize(1100, 780);
     auto layout = new QVBoxLayout(this);
@@ -18,7 +18,7 @@ BlindDialog::BlindDialog(Flame::Engine &engine, int sequence, std::function<void
                    "output is not recalled. Warm = blocked · sage = move · grey = tracked.");
     note->setWordWrap(true);
     layout->addWidget(note);
-    cueOnly = new QCheckBox("Cue Only · keep the next cue unchanged");
+    cueOnly = new QCheckBox("Cue Only · keep the next step unchanged");
     layout->addWidget(cueOnly);
     sheet = new QTableWidget;
     sheet->setObjectName("blindSheet");

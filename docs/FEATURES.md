@@ -2,7 +2,7 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.3 | Remaining work |
+| Area | Implemented and tested in 0.5 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity, referenced values | Position, color, beam, by-type, locking, nested references |
