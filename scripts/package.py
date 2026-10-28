@@ -60,7 +60,7 @@ def zip_payload(stage, destination, folder):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform', required=True, choices=('macos', 'linux', 'windows'))
-    parser.add_argument('--arch', required=True, choices=('arm64', 'x86_64'))
+    parser.add_argument('--arch', required=True, choices=('arm64', 'x86_64', 'universal'))
     parser.add_argument('--version', required=True)
     parser.add_argument('--build-dir', type=Path, default=ROOT / 'build')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'dist')
@@ -68,6 +68,8 @@ def main():
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,80}', args.version):
         parser.error('Version must contain only letters, numbers, dots, underscores and hyphens')
     expected = {'darwin': 'macos', 'linux': 'linux', 'win32': 'windows'}.get(sys.platform)
+    if args.arch == 'universal' and args.platform != 'macos':
+        parser.error('Universal packages are supported only on macOS')
     if expected != args.platform:
         parser.error('Packages must be built on their native operating system')
     build = args.build_dir.resolve()
@@ -82,6 +84,14 @@ def main():
     assets = []
     if args.platform == 'macos':
         bundle = stage / 'cold-flame.app'
+        if args.arch == 'universal':
+            binaries = [executable]
+            binaries.extend((bundle / 'Contents/Frameworks').glob('*.dylib'))
+            binaries.extend((bundle / 'Contents/PlugIns').rglob('*.dylib'))
+            for framework in (bundle / 'Contents/Frameworks').glob('*.framework'):
+                binaries.append(framework / framework.stem)
+            for binary in binaries:
+                run('lipo', '-verify_arch', 'arm64', 'x86_64', binary)
         # Ad-hoc signatures support launching on Apple Silicon; these are not notarization.
         run('codesign', '--force', '--deep', '--sign', '-', bundle)
         run('codesign', '--verify', '--deep', '--strict', bundle)

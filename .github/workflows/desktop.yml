@@ -22,13 +22,9 @@ jobs:
             platform: linux
             arch: x86_64
             qt_arch: linux_gcc_64
-          - os: macos-15
-            platform: macos
-            arch: arm64
-            qt_arch: clang_64
           - os: macos-15-intel
             platform: macos
-            arch: x86_64
+            arch: universal
             qt_arch: clang_64
           - os: windows-2022
             platform: windows
@@ -79,7 +75,7 @@ jobs:
         shell: bash
         run: >-
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCOLD_FLAME_DEPLOY=ON
-          -DCMAKE_OSX_ARCHITECTURES="$PACKAGE_ARCH" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
       - name: Configure Linux
         if: runner.os == 'Linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib -DCOLD_FLAME_DEPLOY=ON
