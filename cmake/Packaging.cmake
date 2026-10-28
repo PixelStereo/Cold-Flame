@@ -46,6 +46,7 @@ qt_deploy_runtime_dependencies(
         set(release_resources ".")
     endif()
     install(FILES ${PROJECT_SOURCE_DIR}/LICENSE DESTINATION ${release_resources}/licenses/ColdFlame)
+    install(FILES ${PROJECT_SOURCE_DIR}/licenses/NyxMap-MIT.txt DESTINATION ${release_resources}/licenses/NyxMap)
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/examples/ DESTINATION ${release_resources}/examples)
 endif()
 

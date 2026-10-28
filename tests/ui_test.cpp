@@ -9,7 +9,7 @@ class UiTests : public QObject {
         PatchDialog dialog(e);
         auto a = dialog.findChild<QTableWidget *>("patchBank0");
         QVERIFY(a);
-        QCOMPARE(a->rowCount(), 60);
+        QCOMPARE(a->rowCount(), 120);
         QCOMPARE(dialog.findChildren<QTableWidget *>().size(), 1);
         dialog.show();
         QCoreApplication::processEvents();
@@ -17,10 +17,10 @@ class UiTests : public QObject {
         a->item(0, 2)->setText("1.002");
         QVERIFY(!dialog.apply());
         QCOMPARE(e.patch[1], 1);
-        a->item(0, 2)->setText("1.100");
+        a->item(0, 2)->setText("1.200");
         a->item(0, 1)->setText("Front wash");
         QVERIFY(dialog.apply());
-        QCOMPARE(e.patch[1], 100);
+        QCOMPARE(e.patch[1], 200);
         QCOMPARE(e.channels[1], QString("Front wash"));
         a->item(11, 2)->setText("22.013, 3.018, 3.512");
         QVERIFY(dialog.apply());
@@ -36,21 +36,30 @@ class UiTests : public QObject {
             if (edit->placeholderText().startsWith("Channel"))
                 input = edit;
         QVERIFY(input);
-        auto fade = window.findChild<QDoubleSpinBox *>("recordFade");
-        fade->setValue(0);
+        QVERIFY(!window.findChild<QDoubleSpinBox *>("recordFade"));
         auto record = window.findChild<QPushButton *>("recordButton");
         auto table = window.findChild<QTableWidget *>("cueSheet");
         auto list = window.findChild<QListWidget *>("channelList");
+        QCOMPARE(table->columnCount(), 10);
+        QCOMPARE(table->horizontalHeaderItem(1)->text(), QString("CUE"));
+        QVERIFY(!table->isColumnHidden(1));
         input->setText("1 at 20");
         window.execute();
         record->click();
-        QCOMPARE(table->item(0, 0)->text(), QString("10"));
-        QCOMPARE(table->item(0, 1)->text(), QString("cue-10"));
+        QCOMPARE(table->rowCount(), 0);
+        window.findChild<QPushButton *>("insertStoredCueButton")->click();
+        table->item(0, 3)->setText("0");
+        QCOMPARE(table->item(0, 0)->text(), QString("1"));
+        QCOMPARE(table->item(0, 1)->text(), QString("10"));
+        QCOMPARE(table->item(0, 2)->text(), QString("cue-10"));
         input->setText("1 at 80");
         window.execute();
         record->click();
-        QCOMPARE(table->item(1, 0)->text(), QString("20"));
-        QCOMPARE(table->item(1, 1)->text(), QString("cue-20"));
+        window.findChild<QPushButton *>("insertStoredCueButton")->click();
+        table->item(1, 3)->setText("0");
+        QCOMPARE(table->item(1, 0)->text(), QString("2"));
+        QCOMPARE(table->item(1, 1)->text(), QString("20"));
+        QCOMPARE(table->item(1, 2)->text(), QString("cue-20"));
         table->selectRow(0);
         window.findChild<QPushButton *>("gotoButton")->click();
         QVERIFY(list->item(0)->text().contains("20 %"));
@@ -65,12 +74,93 @@ class UiTests : public QObject {
         QCOMPARE(table->rowCount(), 2);
         table->selectRow(0);
         window.findChild<QPushButton *>("setNextButton")->click();
-        QVERIFY(table->item(0, 8)->text().contains("NEXT"));
+        QVERIFY(table->item(0, 9)->text().contains("NEXT"));
         window.findChild<QPushButton *>("goButton")->click();
         QVERIFY(list->item(0)->text().contains("20 %"));
         window.findChild<QPushButton *>("deleteSequenceButton")->click();
         QCOMPARE(sequences->count(), 1);
         // Avoid the unsaved-show prompt during test teardown.
+    }
+    void repeatedCueUiChoosesExactOccurrence() {
+        Console window;
+        window.show();
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>())
+            if (edit->placeholderText().startsWith("Channel")) input = edit;
+        QVERIFY(input);
+        input->setText("1 at 25"); window.execute();
+        window.findChild<QPushButton *>("recordButton")->click();
+        auto insert = window.findChild<QPushButton *>("insertStoredCueButton");
+        insert->click(); insert->click(); insert->click();
+        auto table = window.findChild<QTableWidget *>("cueSheet");
+        QCOMPARE(table->rowCount(), 3);
+        for (int row = 0; row < 3; ++row) {
+            QCOMPARE(table->item(row, 1)->text(), QString("10"));
+            QCOMPARE(table->item(row, 0)->text(), QString::number(row + 1));
+        }
+        table->selectRow(0);
+        QTimer::singleShot(0, &window, [&] {
+            auto dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            if (!dialog) return;
+            auto combo = dialog->findChild<QComboBox *>();
+            if (!combo) { dialog->reject(); return; }
+            combo->setCurrentIndex(3); // No link, then steps 1, 2, 3.
+            dialog->accept();
+        });
+        window.findChild<QPushButton *>("linkStepButton")->click();
+        QCOMPARE(table->item(0, 6)->text(), QString("1/3"));
+        auto library = window.findChild<QTableWidget *>("storedCueTable");
+        library->item(0, 0)->setText("15");
+        QCOMPARE(table->item(2, 1)->text(), QString("15"));
+        QCOMPARE(table->item(2, 2)->text(), QString("cue-15"));
+        table->selectRow(2);
+        window.findChild<QPushButton *>("moveStepUpButton")->click();
+        QCOMPARE(table->item(1, 0)->text(), QString("3"));
+        QCOMPARE(table->item(0, 6)->text(), QString("1/3"));
+        window.findChild<QPushButton *>("removeStepButton")->click();
+        QCOMPARE(table->rowCount(), 2); QVERIFY(table->item(0, 6)->text().isEmpty());
+        QCOMPARE(library->rowCount(), 1);
+    }
+    void contextualFooterAndNumberDragging() {
+        Console window;
+        window.show(); QCoreApplication::processEvents();
+        QVERIFY(!window.findChild<QPushButton *>("patchButton"));
+        QVERIFY(!window.findChild<QDoubleSpinBox *>("recordFade"));
+        for (auto label : window.findChildren<QLabel *>())
+            QVERIFY(label->text() != "COLD FLAME");
+        auto button = window.findChild<QPushButton *>("setNextButton");
+        QEvent enter(QEvent::Enter); QApplication::sendEvent(button, &enter);
+        auto help = window.findChild<QLabel *>("hoverHelp");
+        QVERIFY(window.findChild<QSpinBox *>("dmxOutputUniverse")->property("numberDragInstalled").toBool());
+        QVERIFY(help->text().contains("next GO"));
+        const QSize size = help->size();
+        QHelpEvent tooltip(QEvent::ToolTip, QPoint(2, 2), button->mapToGlobal(QPoint(2, 2)));
+        QApplication::sendEvent(button, &tooltip);
+        QVERIFY(!QToolTip::isVisible()); QCOMPARE(help->size(), size);
+        QEvent leave(QEvent::Leave); QApplication::sendEvent(button, &leave);
+        QVERIFY(help->text().isEmpty());
+        QWidget panel;
+        QVBoxLayout layout(&panel);
+        QDoubleSpinBox spin;
+        layout.addWidget(&spin);
+        spin.setDecimals(2); spin.setRange(0, 1000); spin.setValue(20);
+        spin.setSingleStep(1); enableNumberDrag(&spin);
+        panel.setFocusPolicy(Qt::StrongFocus); panel.show(); QCoreApplication::processEvents();
+        panel.activateWindow(); panel.setFocus(); spin.clearFocus();
+        QVERIFY(!spin.hasFocus());
+        auto edit = spin.findChild<QLineEdit *>(); QVERIFY(edit);
+        QPoint start(10, edit->height() / 2);
+        QTest::mousePress(edit, Qt::LeftButton, Qt::NoModifier, start);
+        auto move = [&](int dx, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+            QPoint point = start + QPoint(dx, 0);
+            QMouseEvent event(QEvent::MouseMove, point, edit->mapToGlobal(point), Qt::NoButton, Qt::LeftButton, modifiers);
+            QApplication::sendEvent(edit, &event);
+        };
+        move(5); move(15);
+        QTest::mouseRelease(edit, Qt::LeftButton, Qt::NoModifier, start + QPoint(15, 0));
+        QCOMPARE(spin.value(), 30.); QVERIFY(!spin.hasFocus());
+        QTest::mouseClick(edit, Qt::LeftButton, Qt::NoModifier, start);
+        QVERIFY(spin.hasFocus()); QVERIFY(edit->hasSelectedText());
     }
     void submasterContentEditorAndFader() {
         Console window;
@@ -101,19 +191,19 @@ class UiTests : public QObject {
             if (button->text() == "Edit…") { button->click(); break; }
         QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 30.);
     }
-    void channelPagesContainSixtyChannels() {
+    void channelPagesContainOneHundredTwentyChannels() {
         Console window;
         window.show();
         auto list = window.findChild<QListWidget *>("channelList");
         auto pages = window.findChild<QComboBox *>("channelPages");
-        QCOMPARE(list->count(), 60); QCOMPARE(pages->count(), 1);
+        QCOMPARE(list->count(), 120); QCOMPARE(pages->count(), 1);
         window.findChild<QPushButton *>("addChannelPageButton")->click();
-        QCOMPARE(pages->count(), 2); QCOMPARE(list->count(), 60);
-        QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 61);
-        QCOMPARE(list->item(59)->data(Qt::UserRole).toInt(), 120);
+        QCOMPARE(pages->count(), 2); QCOMPARE(list->count(), 120);
+        QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 121);
+        QCOMPARE(list->item(119)->data(Qt::UserRole).toInt(), 240);
         pages->setCurrentIndex(0);
         QCOMPARE(list->item(0)->data(Qt::UserRole).toInt(), 1);
-        QCOMPARE(list->count(), 60);
+        QCOMPARE(list->count(), 120);
         QVERIFY(!list->item(0)->toolTip().contains("DMX"));
         auto tabs = window.findChild<QTabWidget *>("channelTabs");
         QCOMPARE(tabs->tabText(0), QString("Channels"));
@@ -225,7 +315,6 @@ class UiTests : public QObject {
         Console window;
         window.show();
         auto list = window.findChild<QListWidget *>("channelList");
-        auto fade = window.findChild<QDoubleSpinBox *>("recordFade");
         auto record = window.findChild<QPushButton *>("recordButton");
         auto cues = window.findChild<QTableWidget *>("cueSheet");
         QLineEdit *input = nullptr;
@@ -233,14 +322,15 @@ class UiTests : public QObject {
             if (edit->placeholderText().startsWith("Channel"))
                 input = edit;
         QVERIFY(input);
-        fade->setValue(0);
         input->setText("1 at 0");
         window.execute();
         record->click();
-        fade->setValue(2);
+        window.findChild<QPushButton *>("insertStoredCueButton")->click();
+        cues->item(0, 3)->setText("0");
         input->setText("1 at 100");
         window.execute();
         record->click();
+        window.findChild<QPushButton *>("insertStoredCueButton")->click();
         cues->selectRow(0);
         window.findChild<QPushButton *>("gotoButton")->click();
         QTest::qWait(80);
@@ -267,7 +357,7 @@ class UiTests : public QObject {
         QTest::keyClick(command, Qt::Key_Return);
         bool selection = false;
         for (auto list : window.findChildren<QListWidget *>())
-            if (list->count() == 60) {
+            if (list->count() == 120) {
                 QCOMPARE(list->selectedItems().size(), 4);
                 QVERIFY(list->item(0)->text().contains("50 %"));
                 selection = true;
@@ -277,7 +367,7 @@ class UiTests : public QObject {
             if (b->text() == "RELEASE MANUAL")
                 QTest::mouseClick(b, Qt::LeftButton);
         for (auto list : window.findChildren<QListWidget *>())
-            if (list->count() == 60)
+            if (list->count() == 120)
                 QVERIFY(list->item(0)->text().contains("0 %"));
     }
 };

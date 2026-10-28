@@ -6,9 +6,9 @@ The reference is the Eos family, rather than Element. Documentation review and t
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity, referenced values | Position, color, beam, by-type, locking, nested references |
-| Cues | Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
+| Cues | Shared cue library, repeated sequence occurrences, Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
 | Cue Only | Engine, Record/Update checkbox, Blind level edits | Full parameter filtering and trace |
-| Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults, movable tabs, deletion, one-shot Set Next | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
+| Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults, movable tabs, stable step IDs, insertion/reordering/deletion, exact step links, one-shot Set Next | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
 | Editing | Live, Blind intensity spreadsheet, show-definition Undo/Redo, full-cue Block/Assert | Non-intensity targets, selective/live Undo, tracking change preview |
 | Files | Versioned JSON, atomic save, validated loading | Migration, autosave, recovery, selective merge |
 | Patch | Editable all-channel overview, batch patch, conflict detection, multiple DMX targets per channel, 8-bit channels, multiple universes | Intelligent GDTF patching, 16/24/32-bit parameters, geometry, MVR, fixture replacement |
@@ -17,7 +17,7 @@ The reference is the Eos family, rather than Element. Documentation review and t
 | OSC | Float messages and three local receive actions | Full dictionary, feedback, bundles, timing |
 | Effects | 1D intensity wave generator | Absolute/relative/step effects, phases, variables, curves, tempo |
 | Pixel mapping | 1D generator | RGB/RGBW matrices, free geometry, video, masks, layers, GPU |
-| Usability | Channel, palette, sequence and playback views; virtual keypad | Workspaces, interactive magic sheets, touch, accessibility, 3D visualization |
+| Usability | 120-channel pages, palette/sequence/library/playback views, contextual footer help, NyxMap numeric dragging; virtual keypad | Workspaces, interactive magic sheets, touch, accessibility, 3D visualization |
 | Submasters | Record selected/live intensity, HTP card bank, channel/level editor, Update/Delete/Out/Full, names, stable numbers, saved definitions | Inhibitive masters, timed bump/flash, configurable buttons |
 | Hardware | On-screen actions, computer keyboard | USB HID/MIDI interface, firmware, mapping, encoders, indicator feedback |
 | Reliability | Unit tests, UDP, Qt interaction test, offscreen launch | Endurance, load, physical rig, network loss, multiple users, backup |

@@ -14,7 +14,7 @@ BlindDialog::BlindDialog(Flame::Engine &engine, int sequence, std::function<void
     title->setObjectName("title");
     layout->addWidget(title);
     auto note =
-        new QLabel("Double-click a level to edit stored data. Changes save immediately; live "
+        new QLabel("Double-click a level to edit stored data. Changes save immediately as local step overrides; shared cues stay unchanged. Live "
                    "output is not recalled. Warm = blocked · sage = move · grey = tracked.");
     note->setWordWrap(true);
     layout->addWidget(note);
@@ -49,7 +49,7 @@ void BlindDialog::populate() {
     sheet->setColumnCount(seq.cues.size());
     QStringList headers;
     for (const auto &c : seq.cues)
-        headers << c.number + " / " + c.label;
+        headers << "Step " + c.number + " · Cue " + (c.reference.isEmpty() ? c.number : c.reference) + " / " + engine.cueLabel(c);
     sheet->setHorizontalHeaderLabels(headers);
     QStringList rows;
     for (auto it = engine.channels.begin(); it != engine.channels.end(); ++it)
@@ -67,7 +67,7 @@ void BlindDialog::populate() {
             item->setText(QString::number(values.value(channel), 'g', 6));
             item->setData(Qt::UserRole, channel);
             item->setForeground(QColor(seq.cues[col].blocked.contains(channel)  ? "#e0c998"
-                                       : seq.cues[col].values.contains(channel) ? "#b7cfc1"
+                                       : engine.cueValues(seq.cues[col]).contains(channel) ? "#b7cfc1"
                                                                                 : "#909995"));
             ++row;
         }

@@ -127,6 +127,64 @@ class Tests : public QObject {
         QVERIFY(restored.load(e.json()));
         QCOMPARE(restored.submasters.last().number, 3);
     }
+    void storedCuesRepeatWithIndependentStepTimingAndLinks() {
+        Engine e;
+        QCOMPARE(e.channels.size(), 120);
+        QCOMPARE(e.addChannelPage(), 1); QCOMPARE(e.channels.size(), 240);
+        e.selection = {1}; e.level(20); QVERIFY(e.storeCue("10"));
+        e.level(80); QVERIFY(e.storeCue("20"));
+        QCOMPARE(e.nextStoredCueNumber(), QString("30"));
+        QVERIFY(e.sequences[0].cues.isEmpty());
+        e.defaultFade = 0;
+        QCOMPARE(e.insertStoredCue(0, "10"), 0);
+        QCOMPARE(e.insertStoredCue(0, "20"), 1);
+        QCOMPARE(e.insertStoredCue(0, "10"), 2);
+        QCOMPARE(e.insertStoredCue(0, "10"), 3);
+        int second = e.addSequence();
+        auto &steps = e.sequences[0].cues;
+        QCOMPARE(steps[0].number, QString("1")); QCOMPARE(steps[2].number, QString("3"));
+        steps[2].time = 4; steps[3].time = 9;
+        steps[1].link = "3";
+        e.manual.clear(); e.go(0); QCOMPARE(e.output()[1], 20.);
+        e.go(0); QCOMPARE(e.output()[1], 80.);
+        e.go(0); QCOMPARE(e.sequences[0].current, 2);
+        QCOMPARE(e.sequences[0].duration, 4.); e.tick(4); QCOMPARE(e.output()[1], 20.);
+        // A shared edit changes the next recall of every occurrence, without moving live output.
+        QVERIFY(e.updateStoredCue("10", {{1, {35, 0}}}));
+        QCOMPARE(e.output()[1], 20.);
+        e.go(0, 0); QCOMPARE(e.output()[1], 35.);
+        QCOMPARE(e.tracked(0, 2)[1], 35.); QCOMPARE(steps[2].time, 4.); QCOMPARE(steps[3].time, 9.);
+        e.insertStoredCue(second, "10");
+        QCOMPARE(e.tracked(second, 0)[1], 35.);
+        QString error;
+        QVERIFY(!e.command("go to cue 10", &error)); QVERIFY(error.contains("several occurrences"));
+        QVERIFY(e.command("step 3")); QCOMPARE(e.commandCue, 2);
+        QVERIFY(e.moveStep(0, 2, 0));
+        QCOMPARE(steps[0].number, QString("3")); QCOMPARE(steps[2].link, QString("3"));
+        e.go(0, 2); e.go(0); QCOMPARE(e.sequences[0].current, 0); // Link follows the ID after reordering.
+        QVERIFY(!e.deleteStoredCue("10"));
+        QVERIFY(e.renameStoredCue("10", "30")); QCOMPARE(steps[0].reference, QString("30"));
+        Engine loaded; QVERIFY(loaded.load(e.json())); QCOMPARE(loaded.json(), e.json());
+        QCOMPARE(loaded.sequences[0].cues[0].reference, QString("30"));
+        QVERIFY(e.removeStep(0, 0)); QVERIFY(steps[1].link.isEmpty());
+        QCOMPARE(e.cueLibrary.size(), 2);
+        auto invalid = loaded.json(); auto sequences = invalid["sequences"].toArray();
+        auto sequence = sequences[0].toObject(); auto cues = sequence["cues"].toArray();
+        auto cue = cues[0].toObject(); cue["reference"] = "999"; cues[0] = cue;
+        sequence["cues"] = cues; sequences[0] = sequence; invalid["sequences"] = sequences;
+        QVERIFY(!loaded.load(invalid));
+    }
+    void sharedCueUndoAndLegacyLoad() {
+        Engine e; e.selection = {1}; e.level(50); e.record(0, "10", "Old cue", 0);
+        auto legacy = e.json(); legacy["version"] = 1; legacy.remove("cueLibrary");
+        Engine imported; QVERIFY(imported.load(legacy));
+        imported.manual.clear(); imported.go(0); QCOMPARE(imported.output()[1], 50.);
+        e.storeCue("10"); e.insertStoredCue(0, "10");
+        EditHistory history; history.reset(e);
+        e.updateStoredCue("10", {{1, {90, 0}}}); history.commit(e);
+        QVERIFY(history.undo(e)); QCOMPARE(e.cueLibrary["10"].values[1].level, 50.);
+        QVERIFY(history.redo(e)); QCOMPARE(e.cueLibrary["10"].values[1].level, 90.);
+    }
     void submasterHtpAndPersistence() {
         Engine e;
         e.selection = {1};
@@ -421,17 +479,19 @@ class Tests : public QObject {
         QVERIFY(e.command("1 thru 4 + 8 - 2 at 50"));
         QCOMPARE(e.selection, QSet<int>({1, 3, 4, 8}));
         QVERIFY(e.command("record cue 10"));
-        QCOMPARE(e.sequences[0].cues[0].label, QString("cue-10"));
+        QCOMPARE(e.cueLibrary["10"].label, QString("cue-10"));
+        QVERIFY(e.sequences[0].cues.isEmpty());
+        QVERIFY(e.command("insert cue 10"));
         e.manual.clear();
-        QVERIFY(e.command("cue 10"));
+        QVERIFY(e.command("step 1"));
         QCOMPARE(e.output().value(1), 0.);
-        QVERIFY(e.command("go to cue 10"));
+        QVERIFY(e.command("go to step 1"));
         QCOMPARE(e.output()[1], 50.);
         QVERIFY(e.command("at + 10") == false);
         QVERIFY(e.command("at +10"));
         QCOMPARE(e.output()[1], 60.);
         QVERIFY(e.command("record only cue 20"));
-        QCOMPARE(e.sequences[0].cues[1].values[1].level, 60.);
+        QCOMPARE(e.cueLibrary["20"].values[1].level, 60.);
     }
     void followOverlapPreservesUnchangedFade() {
         Engine e;

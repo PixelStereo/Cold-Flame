@@ -20,16 +20,16 @@ class ChannelDelegate : public QStyledItemDelegate {
         p->setPen(QPen(QColor(selected ? "#b7cfc1" : "#383d3a"), selected ? 2 : 1));
         p->drawRoundedRect(r, 5, 5);
         QFont font = o.font;
-        font.setPixelSize(14);
+        font.setPixelSize(13);
         font.setBold(true);
         p->setFont(font);
         p->setPen(QColor("#f0f4f1"));
-        p->drawText(QRect(r.left() + 5, r.top() + 2, r.width() - 10, 19),
+        p->drawText(QRect(r.left() + 5, r.top() + 2, r.width() - 10, 15),
                     Qt::AlignLeft | Qt::AlignVCenter, i.data(Qt::UserRole).toString());
-        font.setPixelSize(12);
+        font.setPixelSize(11);
         p->setFont(font);
         p->setPen(QColor(value > 0 ? "#b7cfc1" : "#909995"));
-        p->drawText(QRect(r.left() + 4, r.top() + 21, r.width() - 9, 17),
+        p->drawText(QRect(r.left() + 4, r.top() + 15, r.width() - 9, 12),
                     Qt::AlignRight | Qt::AlignVCenter, QString::number(value, 'f', 0));
         font.setPixelSize(9);
         font.setBold(false);
@@ -37,12 +37,12 @@ class ChannelDelegate : public QStyledItemDelegate {
         p->setPen(QColor(manual ? "#e0c998" : "#a3b0a8"));
         const QString flag = i.data(Qt::UserRole + 4).toString();
         if (!flag.isEmpty())
-            p->drawText(QRect(r.left() + 4, r.top() + 22, r.width() - 8, 15), Qt::AlignLeft, flag == "PARK" ? "P" : "C");
+            p->drawText(QRect(r.left() + 4, r.top() + 15, r.width() - 8, 12), Qt::AlignLeft, flag == "PARK" ? "P" : "C");
         else if (manual) {
             p->setBrush(QColor("#e0c998")); p->setPen(Qt::NoPen);
             p->drawEllipse(QPointF(r.right() - 7, r.top() + 10), 2, 2);
         }
-        QRectF track(r.left() + 8, r.bottom() - 6, r.width() - 16, 2);
+        QRectF track(r.left() + 8, r.bottom() - 3, r.width() - 16, 2);
         p->fillRect(track, QColor("#383d3a"));
         track.setWidth(track.width() * value / 100.);
         p->fillRect(track, QColor("#b7cfc1"));

@@ -3,7 +3,7 @@
 #include <cmath>
 namespace Flame {
 Engine::Engine() {
-    for (int i = 1; i <= 60; ++i) {
+    for (int i = 1; i <= ChannelsPerPage; ++i) {
         channels[i] = QString("Channel %1").arg(i);
         patch[i] = i;
     }
@@ -21,6 +21,103 @@ QList<int> Engine::dmxAddresses(int channel) const {
 double Engine::resolve(int channel, Value v) const {
     return v.palette ? palettes.value(v.palette).value(channel, v.level) : v.level;
 }
+QMap<int, Value> Engine::cueValues(const Cue &step) const {
+    auto values = step.reference.isEmpty() ? QMap<int, Value>{} : cueLibrary.value(step.reference).values;
+    for (auto it = step.values.begin(); it != step.values.end(); ++it) values[it.key()] = it.value();
+    return values;
+}
+QString Engine::cueLabel(const Cue &step) const {
+    return step.reference.isEmpty() ? step.label : cueLibrary.value(step.reference).label;
+}
+QString Engine::nextStoredCueNumber() const {
+    double last = 0;
+    for (const auto &cue : cueLibrary) last = qMax(last, cue.number.toDouble());
+    return QString::number(last + 10, 'g', 12);
+}
+bool Engine::storeCue(QString number, QString label, bool manualOnly) {
+    bool valid;
+    double n = number.toDouble(&valid);
+    if (!valid || !std::isfinite(n) || n <= 0 || n > 9999.999) return false;
+    number = QString::number(n, 'g', 12);
+    StoredCue cue;
+    cue.number = number;
+    cue.label = label.isEmpty() ? "cue-" + number : label;
+    if (!manualOnly) {
+        auto live = output(false, false);
+        for (int channel : channels.keys()) cue.values[channel] = {live.value(channel), 0};
+    }
+    for (auto it = manual.begin(); it != manual.end(); ++it)
+        if (channels.contains(it.key())) cue.values[it.key()] = it.value();
+    cueLibrary[number] = cue;
+    return true;
+}
+bool Engine::updateStoredCue(QString number, const QMap<int, Value> &values, bool replace) {
+    if (!cueLibrary.contains(number)) return false;
+    for (auto it = values.begin(); it != values.end(); ++it)
+        if (!channels.contains(it.key()) || !std::isfinite(it->level) || it->level < 0 || it->level > 100 ||
+            (it->palette && !palettes.contains(it->palette))) return false;
+    if (replace) cueLibrary[number].values = values;
+    else for (auto it = values.begin(); it != values.end(); ++it) cueLibrary[number].values[it.key()] = it.value();
+    return true;
+}
+bool Engine::renameStoredCue(QString number, QString replacement) {
+    bool valid; double n = replacement.toDouble(&valid);
+    if (!cueLibrary.contains(number) || !valid || !std::isfinite(n) || n <= 0 || n > 9999.999) return false;
+    replacement = QString::number(n, 'g', 12);
+    if (number == replacement) return true;
+    if (cueLibrary.contains(replacement)) return false;
+    auto cue = cueLibrary.take(number);
+    if (cue.label == "cue-" + number) cue.label = "cue-" + replacement;
+    cue.number = replacement; cueLibrary[replacement] = cue;
+    for (auto &sequence : sequences)
+        for (auto &step : sequence.cues) if (step.reference == number) step.reference = replacement;
+    for (auto &sequence : linkedPlaybacks)
+        for (auto &step : sequence.cues) if (step.reference == number) step.reference = replacement;
+    return true;
+}
+bool Engine::deleteStoredCue(QString number) {
+    for (const auto &sequence : sequences)
+        for (const auto &step : sequence.cues) if (step.reference == number) return false;
+    return cueLibrary.remove(number) > 0;
+}
+int Engine::insertStoredCue(int sequence, QString number, int position) {
+    if (sequence < 0 || sequence >= sequences.size() || !cueLibrary.contains(number)) return -1;
+    auto &seq = sequences[sequence];
+    Cue step;
+    int id = 0;
+    for (const auto &existing : seq.cues) id = qMax(id, int(std::ceil(existing.number.toDouble())));
+    step.number = QString::number(id + 1); step.reference = number; step.time = defaultFade;
+    if (position < 0) position = seq.cues.size();
+    if (position > seq.cues.size()) return -1;
+    seq.cues.insert(position, step);
+    if (seq.current >= position) ++seq.current;
+    return position;
+}
+bool Engine::moveStep(int sequence, int index, int destination) {
+    if (sequence < 0 || sequence >= sequences.size()) return false;
+    auto &seq = sequences[sequence];
+    if (index < 0 || destination < 0 || index >= seq.cues.size() || destination >= seq.cues.size()) return false;
+    QString current = seq.current >= 0 ? seq.cues[seq.current].number : QString();
+    seq.cues.move(index, destination);
+    seq.current = -1;
+    for (int i = 0; i < seq.cues.size(); ++i) if (seq.cues[i].number == current) seq.current = i;
+    return true;
+}
+bool Engine::removeStep(int sequence, int index) {
+    if (sequence < 0 || sequence >= sequences.size() || index < 0 || index >= sequences[sequence].cues.size()) return false;
+    auto &seq = sequences[sequence];
+    const QString id = seq.cues[index].number;
+    const QString qualified = QString::number(seq.number) + "/" + id;
+    if (seq.current == index) release(sequence);
+    else if (seq.current > index) --seq.current;
+    if (seq.pendingCue == id) seq.pendingCue.clear();
+    seq.cues.removeAt(index);
+    for (int owner = 0; owner < sequences.size(); ++owner)
+        for (auto &step : sequences[owner].cues)
+            for (auto field : {&step.link, &step.execute, &step.after})
+                if (*field == qualified || (owner == sequence && *field == id)) field->clear();
+    return true;
+}
 Values Engine::tracked(int s, int c) const {
     Values out;
     if (s < 0 || s >= sequences.size())
@@ -29,7 +126,8 @@ Values Engine::tracked(int s, int c) const {
     for (int i = 0; i <= c && i < seq.cues.size(); ++i) {
         for (auto it = seq.cues[i].blocked.begin(); it != seq.cues[i].blocked.end(); ++it)
             out[it.key()] = resolve(it.key(), it.value());
-        for (auto it = seq.cues[i].values.begin(); it != seq.cues[i].values.end(); ++it)
+        auto values = cueValues(seq.cues[i]);
+        for (auto it = values.begin(); it != values.end(); ++it)
             out[it.key()] = resolve(it.key(), it.value());
     }
     return out;
@@ -100,8 +198,8 @@ void Engine::setBlock(int s, int cue, bool enabled) {
             for (auto it = sequences[s].cues[i].blocked.begin();
                  it != sequences[s].cues[i].blocked.end(); ++it)
                 refs[it.key()] = it.value();
-            for (auto it = sequences[s].cues[i].values.begin();
-                 it != sequences[s].cues[i].values.end(); ++it)
+            auto values = cueValues(sequences[s].cues[i]);
+            for (auto it = values.begin(); it != values.end(); ++it)
                 refs[it.key()] = it.value();
         }
         c.blocked = refs;
@@ -116,7 +214,7 @@ void Engine::editBlind(int s, int cue, int channel, Value value, bool only) {
     auto before = tracked(s, cue);
     auto &list = sequences[s].cues;
     list[cue].values[channel] = value;
-    if (only && cue + 1 < list.size() && !list[cue + 1].values.contains(channel) &&
+    if (only && cue + 1 < list.size() && !cueValues(list[cue + 1]).contains(channel) &&
         !list[cue + 1].blocked.contains(channel))
         list[cue + 1].values[channel] = {before.value(channel), 0};
 }
@@ -143,10 +241,16 @@ void Engine::record(int s, QString number, QString label, double time, bool only
     if (s < 0 || s >= sequences.size())
         return;
     auto &list = sequences[s].cues;
-    int idx = 0;
-    while (idx < list.size() && list[idx].number.toDouble() < number.toDouble())
-        ++idx;
-    bool exists = idx < list.size() && list[idx].number == number;
+    int idx = -1;
+    for (int i = 0; i < list.size(); ++i)
+        if (list[i].number.toDouble() == number.toDouble()) { idx = i; break; }
+    bool exists = idx >= 0;
+    if (!exists) {
+        idx = 0;
+        const bool inlineList = std::all_of(list.begin(), list.end(), [](const Cue &cue) { return cue.reference.isEmpty(); });
+        if (inlineList) while (idx < list.size() && list[idx].number.toDouble() < number.toDouble()) ++idx;
+        else idx = list.size();
+    }
     auto before = tracked(s, idx - 1);
     auto after = tracked(s, exists ? idx : idx - 1);
     Cue cue;
@@ -207,14 +311,14 @@ QString Engine::nextCueNumber(int s) const {
     return QString::number(sequences[s].cues.last().number.toDouble() + 10, 'g', 12);
 }
 int Engine::addChannelPage() {
-    const int page = channels.isEmpty() ? 0 : (channels.lastKey() - 1) / 60 + 1;
-    const int first = page * 60 + 1;
-    if (first + 59 > 10000) return -1;
+    const int page = channels.isEmpty() ? 0 : (channels.lastKey() - 1) / ChannelsPerPage + 1;
+    const int first = page * ChannelsPerPage + 1;
+    if (first + ChannelsPerPage - 1 > 10000) return -1;
     QSet<int> used;
     for (int channel : channels.keys())
         for (int address : dmxAddresses(channel)) used.insert(address);
     int address = 1;
-    for (int channel = first; channel < first + 60; ++channel) {
+    for (int channel = first; channel < first + ChannelsPerPage; ++channel) {
         while (used.contains(address)) ++address;
         channels[channel] = QString("Channel %1").arg(channel);
         patch[channel] = address;
@@ -348,9 +452,11 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
     for (int i = 0; i < idx; ++i) {
         for (auto it = seq.cues[i].blocked.begin(); it != seq.cues[i].blocked.end(); ++it)
             previous[it.key()] = resolve(it.key(), it.value());
-        for (auto it = seq.cues[i].values.begin(); it != seq.cues[i].values.end(); ++it)
+        auto values = cueValues(seq.cues[i]);
+        for (auto it = values.begin(); it != values.end(); ++it)
             previous[it.key()] = resolve(it.key(), it.value());
     }
+    const auto instructions = cueValues(cue);
     seq.stamp = ++clock;
     if (assertAll) {
         seq.releasing.clear();
@@ -366,9 +472,9 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
     for (auto it = target.begin(); it != target.end(); ++it) {
         bool blockMove =
             cue.blocked.contains(it.key()) && qAbs(previous.value(it.key()) - it.value()) > 1e-9;
-        if (!assertAll && !cue.values.contains(it.key()) && !blockMove)
+        if (!assertAll && !instructions.contains(it.key()) && !blockMove)
             continue;
-        if (cue.values.contains(it.key()))
+        if (instructions.contains(it.key()))
             seq.releasing.remove(it.key());
         seq.start[it.key()] = live.value(it.key());
         seq.target[it.key()] = it.value();
@@ -570,6 +676,13 @@ bool Engine::command(QString text, QString *error) {
             cue.asserted = !cue.asserted;
         return true;
     }
+    auto insert = QRegularExpression("^insert cue (\\d+(?:\\.\\d+)?)$").match(text);
+    if (insert.hasMatch()) {
+        QString number = QString::number(insert.captured(1).toDouble(), 'g', 12);
+        int row = insertStoredCue(commandSequence, number);
+        if (row < 0) return fail("Stored cue not found");
+        commandCue = row; return true;
+    }
     auto recordCommand =
         QRegularExpression(
             "^(record only|record|update)(?: cue)?(?: (\\d+(?:/\\d+)?(?:\\.\\d+)?))?$")
@@ -578,6 +691,23 @@ bool Engine::command(QString text, QString *error) {
         QString action = recordCommand.captured(1), target = recordCommand.captured(2);
         int seq = commandSequence;
         QString number = target;
+        if (!target.contains('/')) {
+            if (number.isEmpty()) {
+                if (action == "update" && commandCue >= 0 && commandCue < sequences[seq].cues.size())
+                    number = sequences[seq].cues[commandCue].reference;
+                else number = nextStoredCueNumber();
+            }
+            bool valid; double n = number.toDouble(&valid);
+            if (!valid || !std::isfinite(n) || n <= 0 || n > 9999.999) return fail("Invalid stored cue number");
+            number = QString::number(n, 'g', 12);
+            if (action == "update") {
+                if (!updateStoredCue(number, manual)) return fail("Stored cue not found");
+            } else {
+                QString label = cueLibrary.contains(number) ? cueLibrary[number].label : QString();
+                if (!storeCue(number, label, action == "record only")) return fail("Unable to store cue");
+            }
+            return true;
+        }
         if (target.contains('/')) {
             auto parts = target.split('/');
             seq = -1;
@@ -622,7 +752,7 @@ bool Engine::command(QString text, QString *error) {
     auto target =
         QRegularExpression(
             "^(go to cue|goto "
-            "cue|cue|sequence|group|intensity)\\s+(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?)$")
+            "cue|go to step|goto step|step|sequence|group|intensity)\\s+(\\d+(?:\\.\\d+)?(?:/\\d+(?:\\.\\d+)?)?)$")
             .match(text);
     if (target.hasMatch()) {
         QString type = target.captured(1), id = target.captured(2);
@@ -649,12 +779,29 @@ bool Engine::command(QString text, QString *error) {
                 }
             return fail("Sequence not found");
         }
-        auto destination = cueTarget(id, commandSequence);
+        QPair<int, int> destination{-1, -1};
+        const bool stepSyntax = type.contains("step");
+        int seq = commandSequence;
+        QString number = id;
+        if (id.contains('/')) {
+            seq = -1; number = id.section('/', 1);
+            for (int i = 0; i < sequences.size(); ++i)
+                if (sequences[i].number == id.section('/', 0, 0).toInt()) seq = i;
+        }
+        if (!stepSyntax && seq >= 0) {
+            int matches = 0;
+            for (int i = 0; i < sequences[seq].cues.size(); ++i)
+                if (sequences[seq].cues[i].reference == number ||
+                    (sequences[seq].cues[i].reference.isEmpty() && sequences[seq].cues[i].number.toDouble() == number.toDouble()))
+                    { destination = {seq, i}; ++matches; }
+            if (matches > 1) return fail("Cue has several occurrences. Use Step or Go To Step with its step ID.");
+        }
+        if (stepSyntax) destination = cueTarget(id, commandSequence);
         if (destination.first < 0)
             return fail("Cue not found");
         commandSequence = destination.first;
         commandCue = destination.second;
-        if (type != "cue")
+        if (type != "cue" && type != "step")
             go(destination.first, destination.second);
         return true;
     }
@@ -732,7 +879,7 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 1;
+    root["version"] = 2;
     QJsonArray ch, ps, gs, ss;
     for (auto it = channels.begin(); it != channels.end(); ++it) {
         QJsonArray addresses;
@@ -770,6 +917,7 @@ QJsonObject Engine::json() const {
                     QJsonObject{{"level", it->level}, {"palette", it->palette}};
             cs.append(QJsonObject{{"blocked", blocked},
                                   {"number", c.number},
+                                  {"reference", c.reference},
                                   {"block", c.block},
                                   {"assert", c.asserted},
                                   {"label", c.label},
@@ -791,6 +939,14 @@ QJsonObject Engine::json() const {
     root["palettes"] = saveValues(palettes);
     root["groups"] = saveValues(groups);
     root["sequences"] = ss;
+    QJsonArray library;
+    for (const auto &cue : cueLibrary) {
+        QJsonObject values;
+        for (auto it = cue.values.begin(); it != cue.values.end(); ++it)
+            values[QString::number(it.key())] = QJsonObject{{"level", it->level}, {"palette", it->palette}};
+        library.append(QJsonObject{{"number", cue.number}, {"label", cue.label}, {"values", values}});
+    }
+    root["cueLibrary"] = library;
     QJsonArray subs;
     for (const auto &sub : submasters) {
         QJsonObject values;
@@ -807,7 +963,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || r["version"].toInt() != 1 || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() != 1 && r["version"].toInt() != 2) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;
@@ -855,6 +1011,23 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             }
             (key == "palettes" ? e.palettes : e.groups)[o["id"].toInt()] = v;
         }
+    for (auto entry : r["cueLibrary"].toArray()) {
+        auto object = entry.toObject(); StoredCue cue;
+        bool ok; double number = object["number"].toString().toDouble(&ok);
+        if (!ok || !std::isfinite(number) || number <= 0 || number > 9999.999) return fail();
+        cue.number = QString::number(number, 'g', 12);
+        if (e.cueLibrary.contains(cue.number)) return fail();
+        cue.label = object["label"].toString();
+        auto values = object["values"].toObject();
+        for (auto it = values.begin(); it != values.end(); ++it) {
+            auto value = it.value().toObject();
+            double level = value["level"].toDouble(-1); int palette = value["palette"].toInt();
+            if (!e.channels.contains(it.key().toInt()) || !std::isfinite(level) || level < 0 || level > 100 ||
+                (palette && !e.palettes.contains(palette))) return fail();
+            cue.values[it.key().toInt()] = {level, palette};
+        }
+        e.cueLibrary[cue.number] = cue;
+    }
     for (auto x : r["sequences"].toArray()) {
         auto o = x.toObject();
         Sequence s;
@@ -867,10 +1040,13 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             return fail();
         s.priority = o["priority"].toInt(4);
         double prev = -1;
+        QSet<double> stepNumbers;
         for (auto y : o["cues"].toArray()) {
             auto co = y.toObject();
             Cue c;
             c.number = co["number"].toString();
+            c.reference = co["reference"].toString();
+            if (!c.reference.isEmpty() && !e.cueLibrary.contains(c.reference)) return fail();
             bool ok;
             double n = c.number.toDouble(&ok);
             c.label = co["label"].toString();
@@ -887,7 +1063,8 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 c.blocked[it.key().toInt()] = {level, palette};
             }
             c.time = co["time"].toDouble(-1);
-            if (!ok || n <= prev || c.time < 0 || !std::isfinite(c.time))
+            if (!ok || !std::isfinite(n) || n <= 0 || stepNumbers.contains(n) ||
+                (r["version"].toInt() == 1 && n <= prev) || c.time < 0 || !std::isfinite(c.time))
                 return fail();
             c.down = co["down"].toDouble(-1);
             c.wait = co["wait"].toDouble(0);
@@ -926,6 +1103,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 c.channelTimes[it.key().toInt()] = t;
             }
             prev = n;
+            stepNumbers.insert(n);
             auto vs = co["values"].toObject();
             for (auto it = vs.begin(); it != vs.end(); ++it) {
                 auto v = it.value().toObject();

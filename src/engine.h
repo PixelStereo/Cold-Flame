@@ -16,7 +16,12 @@ struct Submaster {
     Values values;
     double level = 0;
 };
+struct StoredCue {
+    QString number, label;
+    QMap<int, Value> values;
+};
 struct Cue {
+    QString reference; // Shared stored cue; number identifies this sequence step.
     QString number, label;
     double time = 2;
     double down = -1, wait = 0; // -1 means use the common fade time.
@@ -49,6 +54,8 @@ class Engine {
     QMap<int, int> patch;
     QMap<int, QList<int>> additionalPatch;
     QList<int> dmxAddresses(int channel) const;
+    static constexpr int ChannelsPerPage = 120;
+    QMap<QString, StoredCue> cueLibrary;
     QMap<int, Values> palettes, groups;
     QList<Sequence> sequences;
     QList<Submaster> submasters;
@@ -71,6 +78,16 @@ class Engine {
     void parkSelection(bool enabled);
     void setBlock(int sequence, int cue, bool enabled);
     void editBlind(int sequence, int cue, int channel, Value value, bool cueOnly = false);
+    QMap<int, Value> cueValues(const Cue &step) const;
+    QString cueLabel(const Cue &step) const;
+    QString nextStoredCueNumber() const;
+    bool storeCue(QString number, QString label = {}, bool manualOnly = false);
+    bool deleteStoredCue(QString number);
+    bool renameStoredCue(QString number, QString replacement);
+    int insertStoredCue(int sequence, QString number, int position = -1);
+    bool moveStep(int sequence, int index, int destination);
+    bool removeStep(int sequence, int index);
+    bool updateStoredCue(QString number, const QMap<int, Value> &values, bool replace = false);
     QString nextCueNumber(int sequence) const;
     int addChannelPage();
     int addSequence();

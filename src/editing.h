@@ -41,6 +41,7 @@ class EditHistory {
         engine.channels = definitions.channels;
         engine.patch = definitions.patch;
         engine.additionalPatch = definitions.additionalPatch;
+        engine.cueLibrary = definitions.cueLibrary;
         engine.palettes = definitions.palettes;
         engine.groups = definitions.groups;
         QMap<int, Sequence> side;

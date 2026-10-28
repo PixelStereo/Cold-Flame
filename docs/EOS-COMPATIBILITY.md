@@ -65,3 +65,11 @@ These entries are requirements, not working controls. See FEATURES.md for implem
 Remaining verification includes physical fixtures, long-duration runs and native macOS/Windows application launches. Local validation so far is Linux Qt, network loopback, and mocked macOS build-script orchestration.
 
 Additional sources consulted for 0.3: [Capture](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/08_Manual_Control/04_Advanced_Manual_Control/Capture.htm), [Park](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/08_Manual_Control/05_Park_%5BTab_20%5D/PARK_%5BTAB_20%5D.htm), [Block vs Assert / Live and Blind](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/04_System_Basics/Important_Concepts.htm).
+
+## Version 0.5: reusable cues and sequence occurrences
+
+Stored cues and sequence steps are now separate. This is deliberately the reusable-look model documented for [Congo/Cobalt](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo), rather than a claim that Eos stores the same cue number several times in one list. A stored look may be used in many occurrences. Each step has an independent ID, timing, triggers, Block/Assert and local intensity overrides. Links target the step ID, so repeated cue numbers never determine an arbitrary occurrence. UI exposes an exact-occurrence picker. Reordering preserves IDs and links.
+
+The older Eos-style Link/Follow and tracking tests still cover legacy inline steps; they do not establish identical shared-library semantics. Full-look library recordings contain explicit values for all channels, while Record Only stores manual channels. Library edits affect future recalls, with active fades keeping their existing targets. Blind edits create local step overrides. New format 2 persists library references and arbitrary step order; format 1 inline shows remain readable without automatic conversion to shared cues.
+
+Tests cover three occurrences of a shared cue, independent step times, exact links after reorder, shared updates without live recall, rename and reference propagation, deletion guards, save/load, rejection of missing references, Undo/Redo, and legacy playback.
