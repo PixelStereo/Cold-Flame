@@ -4,7 +4,7 @@ CI runs on every push and pull request. It builds, runs the tests, deploys Qt de
 
 | Platform | Runner / architecture | Downloads |
 |---|---|---|
-| macOS Apple Silicon | macos-14 / arm64 | `.dmg` and `.zip` containing the `.app` |
+| macOS Apple Silicon | macos-15 / arm64 | `.dmg` and `.zip` containing the `.app` |
 | macOS Intel | macos-15-intel / x86_64 | `.dmg` and `.zip` containing the `.app` |
 | Linux | Ubuntu 22.04 / x86_64 | `.tar.gz` with `AppRun`, executable, Qt libraries and plugins |
 | Windows | Windows 2022 / x86_64 | NSIS `-setup.exe` installer and `-portable.zip` containing the executable and DLLs |
