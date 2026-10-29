@@ -729,7 +729,7 @@ class Console : public QMainWindow {
 
   public:
     ~Console() override { qApp->removeEventFilter(this); }
-    Console(QString showFile = {}) {
+    Console(QString showFile = {}, bool startupOutput = true) {
         setWindowTitle("COLD FLAME[*] — Lighting workspace");
         resize(1440, 940);
         setMinimumSize(1100, 720);
@@ -1463,6 +1463,12 @@ class Console : public QMainWindow {
                 path = showFile;
             else
                 message("Could not load show: " + error);
+        }
+        if (startupOutput) {
+            QString error;
+            if (!network.startDefaultArtNet(&error)) message("Cannot start Art-Net: " + error);
+            else message("Ready · Art-Net broadcast active · Ctrl+Space: GO · Ctrl+S: save");
+            outputPanel->reload();
         }
         history.reset(engine);
         rebuild();

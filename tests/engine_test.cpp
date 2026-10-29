@@ -8,6 +8,20 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void startupBroadcastRoutePreservesSettings() {
+        Network network; DmxOutput unicast, broadcast;
+        broadcast.name = "Rig broadcast"; broadcast.mode = "Broadcast"; broadcast.firstUniverse = 42;
+        QVERIFY(network.applyOutputs({unicast, broadcast}));
+        QVERIFY(network.startDefaultArtNet()); QCOMPARE(network.outputs.size(), 2);
+        QVERIFY(!network.outputs[0].enabled); QVERIFY(network.outputs[1].enabled);
+        QCOMPARE(network.outputs[1].firstUniverse, 42); QVERIFY(network.enabled);
+        QVERIFY(network.startDefaultArtNet()); QCOMPARE(network.outputs.size(), 2);
+        Network restored; QVERIFY(restored.loadOutputs(network.outputJson())); QVERIFY(!restored.enabled);
+        QVERIFY(restored.startDefaultArtNet()); QVERIFY(restored.outputs[1].enabled);
+        Network fresh; QVERIFY(fresh.startDefaultArtNet()); QCOMPARE(fresh.outputs.size(), 1);
+        QCOMPARE(fresh.outputs[0].protocol, QString("Art-Net")); QCOMPARE(fresh.outputs[0].mode, QString("Broadcast"));
+        QVERIFY(fresh.enabled); fresh.stop(); QVERIFY(!fresh.enabled);
+    }
     void undoFixtureTypeReleasesIncompatibleLiveParameters() {
         Engine e; EditHistory history; history.reset(e);
         e.fixtures[1] = {"moving-rgbw", 0}; e.patch[1] = 513; history.commit(e);

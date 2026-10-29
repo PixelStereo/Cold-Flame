@@ -28,6 +28,17 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void startupArtNetBroadcastEnabled() {
+        Console window;
+        auto outputs = window.findChild<QTableWidget *>("dmxOutputsTable");
+        QCOMPARE(outputs->rowCount(), 1);
+        QCOMPARE(outputs->item(0, 0)->checkState(), Qt::Checked);
+        QCOMPARE(window.findChild<QComboBox *>("dmxOutputProtocol")->currentText(), QString("Art-Net"));
+        QCOMPARE(window.findChild<QComboBox *>("dmxOutputMode")->currentText(), QString("Broadcast"));
+        QCOMPARE(window.findChild<QLabel *>("dmxStatus")->text(), QString("DMX ON"));
+        window.findChild<QPushButton *>("stopDmxOutputs")->click(); // No packets emitted by this test.
+        QCOMPARE(outputs->item(0, 0)->checkState(), Qt::Unchecked);
+    }
     void fixtureColorConversionAndRecall() {
         Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513; e.manual[1] = {70, 0};
         const QColor color = QColor::fromRgbF(.8, .6, .4);
@@ -53,7 +64,7 @@ class UiTests : public QObject {
     void channelColorSwatchContextAndCancel() {
         Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513;
         QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
-        Console window(file.fileName()); window.show(); QCoreApplication::processEvents();
+        Console window(file.fileName(), false); window.show(); QCoreApplication::processEvents();
         auto list = window.findChild<QListWidget *>("channelList"); auto item = list->item(0);
         QVERIFY(item->data(Qt::UserRole + 5).value<QColor>().isValid());
         bool handled = false;
@@ -127,7 +138,7 @@ class UiTests : public QObject {
         QTest::addColumn<QSize>("windowSize"); QTest::newRow("desktop") << QSize(1440, 940); QTest::newRow("compact") << QSize(1100, 720);
     }
     void balancedButtonLayout() {
-        QFETCH(QSize, windowSize); Console window; window.resize(windowSize); window.show(); QCoreApplication::processEvents();
+        QFETCH(QSize, windowSize); Console window({}, false); window.resize(windowSize); window.show(); QCoreApplication::processEvents();
         auto record = window.findChild<QPushButton *>("recordButton"), insert = window.findChild<QPushButton *>("insertCueButton"), next = window.findChild<QPushButton *>("setNextButton");
         if (windowSize == QSize(1440, 940)) {
             QTest::qWait(50);
@@ -173,7 +184,7 @@ class UiTests : public QObject {
                  QList<int>({(22 - 1) * 512 + 13, (3 - 1) * 512 + 18, (3 - 1) * 512 + 512}));
     }
     void recordDefaultsAndRecall() {
-        Console window;
+        Console window({}, false);
         window.show();
         auto command = window.findChildren<QLineEdit *>();
         QLineEdit *input = nullptr;
@@ -227,7 +238,7 @@ class UiTests : public QObject {
         // Avoid the unsaved-show prompt during test teardown.
     }
     void repeatedCueUiChoosesExactOccurrence() {
-        Console window;
+        Console window({}, false);
         window.show();
         QLineEdit *input = nullptr;
         for (auto edit : window.findChildren<QLineEdit *>())
@@ -267,7 +278,7 @@ class UiTests : public QObject {
         QCOMPARE(library->rowCount(), 1);
     }
     void liveChannelModesAndSelectedMembership() {
-        Console window; window.show();
+        Console window({}, false); window.show();
         QLineEdit *input = nullptr;
         for (auto edit : window.findChildren<QLineEdit *>())
             if (edit->placeholderText().startsWith("Channel")) input = edit;
@@ -308,7 +319,7 @@ class UiTests : public QObject {
         QCOMPARE(list->count(), 2); QCOMPARE(list->item(1)->data(Qt::UserRole).toInt(), 2);
     }
     void inlineTriggersFlagsAndDragValidation() {
-        Console window; window.show();
+        Console window({}, false); window.show();
         QLineEdit *input = nullptr;
         for (auto edit : window.findChildren<QLineEdit *>())
             if (edit->placeholderText().startsWith("Channel")) input = edit;
@@ -342,7 +353,7 @@ class UiTests : public QObject {
         QApplication::sendEvent(table->viewport(), &event); QVERIFY(!event.isAccepted());
     }
     void contextualFooterAndNumberDragging() {
-        Console window;
+        Console window({}, false);
         window.show(); QCoreApplication::processEvents();
         QVERIFY(!window.findChild<QPushButton *>("patchButton"));
         QVERIFY(!window.findChild<QDoubleSpinBox *>("recordFade"));
@@ -384,7 +395,7 @@ class UiTests : public QObject {
         QVERIFY(spin.hasFocus()); QVERIFY(edit->hasSelectedText());
     }
     void submasterContentEditorAndFader() {
-        Console window;
+        Console window({}, false);
         window.show();
         QLineEdit *command = nullptr;
         for (auto edit : window.findChildren<QLineEdit *>())
@@ -413,7 +424,7 @@ class UiTests : public QObject {
         QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 30.);
     }
     void channelPagesContainOneHundredTwentyChannels() {
-        Console window;
+        Console window({}, false);
         window.show();
         auto list = window.findChild<QListWidget *>("channelList");
         auto pages = window.findChild<QComboBox *>("channelPages");
@@ -453,7 +464,7 @@ class UiTests : public QObject {
         QCOMPARE(network.outputs[0].firstUniverse, 42);
     }
     void tableEditorsAndSubmasterBank() {
-        Console window;
+        Console window({}, false);
         window.show();
         QCoreApplication::processEvents();
         auto tabs = window.findChild<QTabWidget *>("workspaceTabs");
@@ -502,7 +513,7 @@ class UiTests : public QObject {
     }
     void channelGridRemainsStable() {
         QFETCH(QSize, windowSize);
-        Console window;
+        Console window({}, false);
         window.resize(windowSize);
         window.show();
         auto list = window.findChild<QListWidget *>("channelList");
@@ -533,7 +544,7 @@ class UiTests : public QObject {
         QCOMPARE(changes.size(), 0);
     }
     void channelGridStaysPutDuringFade() {
-        Console window;
+        Console window({}, false);
         window.show();
         auto list = window.findChild<QListWidget *>("channelList");
         auto record = window.findChild<QPushButton *>("recordButton");
@@ -566,7 +577,7 @@ class UiTests : public QObject {
             QCOMPARE(list->visualItemRect(list->item(i)), rects[i]);
     }
     void commandAndSelection() {
-        Console window;
+        Console window({}, false);
         window.show();
         QLineEdit *command = nullptr;
         for (auto edit : window.findChildren<QLineEdit *>())

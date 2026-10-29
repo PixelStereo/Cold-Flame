@@ -33,6 +33,7 @@ class Network : public QObject {
     QJsonArray outputJson() const;
     bool loadOutputs(const QJsonArray &json, QString *error = nullptr);
     void stop();
+    bool startDefaultArtNet(QString *error = nullptr);
     ~Network() override { stop(); }
 
     // Legacy single-route API retained for existing transport clients.

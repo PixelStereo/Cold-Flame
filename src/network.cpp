@@ -106,6 +106,24 @@ QString Network::validateOutput(const DmxOutput &o) {
     }
     return {};
 }
+bool Network::startDefaultArtNet(QString *error) {
+    auto settings = outputs;
+    int index = -1;
+    for (int i = 0; i < settings.size(); ++i) {
+        settings[i].enabled = false;
+        if (index < 0 && settings[i].protocol == "Art-Net" && settings[i].mode == "Broadcast") index = i;
+    }
+    if (index < 0) {
+        DmxOutput output;
+        output.name = "Art-Net broadcast";
+        output.mode = "Broadcast";
+        output.destinations.clear();
+        settings << output;
+        index = settings.size() - 1;
+    }
+    settings[index].enabled = true;
+    return applyOutputs(settings, error);
+}
 DmxState Network::state(int index) const {
     return index >= 0 && index < links.size() ? links[index].state : DmxState{};
 }

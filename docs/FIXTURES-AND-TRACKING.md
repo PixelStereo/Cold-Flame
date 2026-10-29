@@ -7,7 +7,7 @@ A console channel represents one fixture. Its intensity remains visible in the c
 1. Open **Patch**. Select a fixture/mode in its row, then enter its DMX start address, such as `2.001`. Several comma-separated starts drive identical copies of that fixture. Clear the address to unpatch, retaining the channel and its stored data.
 2. Use **Batch…** to add or repatch a range. Its stride is the fixture footprint; the next fixture moves to the next universe when it will not fit. Batch is a draft operation.
 3. Check the validation message. Both owners of an overlap are highlighted. **Apply patch** is unavailable until the whole draft is valid. Failed validation leaves the active patch unchanged.
-4. In **Network**, configure routes and enable the intended outputs.
+4. **Art-Net broadcast is active at application startup**. In **Network**, adjust its interface/range or use Stop all. Existing broadcast settings are reused; a default route is added if needed. Other saved routes remain off. Art-Net uses broadcast; sACN supports multicast. Opening another show later disables outputs.
 
 Profiles include Dimmer 8-bit, Dimmer 16-bit, RGB, RGBW, Dimmer + RGB and an explicitly generic 11-slot RGBW moving head. The generic mover is a layout example, not a claim that every moving head uses those slots. Choose the actual manufacturer's GDTF profile and the exact mode configured on the fixture.
 
