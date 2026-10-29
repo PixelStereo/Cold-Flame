@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.6.0: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.7.0: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -10,6 +10,8 @@ Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
 ![Patch overview](patch-preview.png)
 
 ![Network outputs](network-preview.png)
+
+![Fixture parameters and tracking](fixtures-preview.png)
 
 ## Downloads and automated releases
 
@@ -48,7 +50,7 @@ Native release packaging is enabled with `-DCOLD_FLAME_DEPLOY=ON`; it deploys th
 6. **Link to step…** selects the exact occurrence, including its sequence, step ID, cue and name. For example, steps 1, 3 and 7 can all use cue 10; linking to step 7 always chooses that occurrence, even after reordering. Link queues the target; Follow / Hang can fire it automatically. The Link cell accepts a step ID or `sequence/step`.
 7. Use **+ / −** above the step sheet to create or delete sequences (1, 2, 3…). One must remain. Double-click a sequence tab to rename it. Drag the workspace tabs to arrange them. Each sequence retains its own state and fade. Higher priority wins; at equal priority, the most recently triggered move wins for the channels it owns.
 8. **Edit content…** in the cue library edits the shared cue. **Update from manual** merges manual values; all referencing steps use the new look on their next playback, without changing active fades. A referenced library cue cannot be deleted until its occurrences are removed. **Update** on a sequence step updates its shared cue, unless Cue Only is enabled, which creates local step overrides.
-9. Save as `.cfl`. Format 2 contains the cue library, steps, patch, palettes, groups, submasters and network settings. Format 1 shows still load with their original inline cues, links and tracking preserved; saving writes format 2. Older Cold Flame builds cannot open format 2. Outputs are disabled when opening a show.
+9. Save as `.cfl`. Format 3 contains the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1 and 2 shows still load; saving writes format 3. Older Cold Flame builds cannot open format 3. Outputs are disabled when opening a show.
 
 The reusable-look model follows [Congo/Cobalt’s documented preset-and-sequence model](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo). Eos uses cue numbers within cue lists; its [Link](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/04_Cue_Attributes/Link_Loop.htm) addresses such cues. Cold Flame explicitly addresses sequence steps to distinguish repeated stored cues.
 
@@ -67,7 +69,7 @@ Buttons show immediate contextual help at the bottom right, without floating too
 ## Core editing and manual control
 
 - **Record Only** stores manual values in a reusable cue. **Cue Only** makes sequence Update and Blind edits local to that occurrence, preserving the next step where tracking would otherwise propagate the change.
-- **Blind** opens the sequence intensity spreadsheet. Editing saves a local step override immediately, leaving the shared library cue and live output unchanged. Warm cells are blocked, sage cells are moves and grey cells are tracked. Blind also has a Cue Only option.
+- **Tracking** is a workspace tab for channel and fixture-parameter values across sequence steps. M/T/B indicate moves, tracks and blocks. Edit locally in Blind, clear or right-click to track from the previous step, apply a channel/parameter Block, find its source, or use Trace edit (including Cue Only and forced tracing through zeros). See the [fixture and tracking guide](docs/FIXTURES-AND-TRACKING.md).
 - The stacked **B / A** buttons at the left of each step toggle Block and Assert. Block protects tracked values against upstream edits; Assert takes back tracked intensity when the step plays.
 - **Capture** toggles manual protection on selected channels. Playback and submasters cannot override captured channels; manual level changes still work. Release manual leaves captured values alone.
 - **Park** locks selected channel outputs; **Unpark** restores normal output. As in Eos, Park overrides grand master and blackout and is excluded from recordings. The tile displays P. These are temporary channel parks; address parks, scaling and park persistence are not implemented.
@@ -77,13 +79,13 @@ Equivalent selection commands include `Select Active`, `Select Manual`, `Capture
 
 ## Multiple DMX destinations per channel
 
-In Patch, the **DMX targets** cell accepts comma-separated `universe.address` destinations. For example, channel 12 can have:
+In Patch, the **DMX start addresses** cell accepts comma-separated `universe.address` destinations. For example, channel 12 can have:
 
 ```text
 22.013, 3.018, 3.512
 ```
 
-All three destinations receive the same channel level, fades and blackout. Multiple targets are saved with the show; old single-address show files still load. Duplicate DMX addresses are rejected. Universe numbers in the patch are relative to the configured first output universe: with first universe 1, the example sends to sACN universes 22 and 3; with Art-Net first universe 0, their wire universe numbers are 21 and 2. Set the first Art-Net universe to 1 if you want the displayed universe numbers to match its wire numbers.
+For an 8-bit dimmer, all three destinations receive the same channel level, fades and blackout. For a multi-parameter fixture, each address starts a complete copy of its fixture footprint. Multiple targets are saved with the show; old single-address show files still load. Duplicate DMX addresses are rejected. Universe numbers in the patch are relative to the configured first output universe: with first universe 1, the example sends to sACN universes 22 and 3; with Art-Net first universe 0, their wire universe numbers are 21 and 2. Set the first Art-Net universe to 1 if you want the displayed universe numbers to match its wire numbers.
 
 ## Cue timing and submasters
 
@@ -123,10 +125,12 @@ OSC bundles, feedback and configurable remote reception are not yet supported.
 
 **Pixel mapping** provides a sinusoidal intensity wave across selected channels in ascending numerical order, with adjustable speed and spread. Its layer overrides sequences and is overridden by manual values. This is an initial 1D generator; RGB matrices, video layers, masks and GPU processing remain to be developed.
 
-**Fixtures → Inspect GDTF profile** reads a `.gdtf` archive (stored or Deflate ZIP), checks its CRC, and displays manufacturer, modes, footprint and attributes. It does not yet convert those attributes into intelligent fixture parameters. The current patch supports 8-bit channels; no proprietary grandMA format support is claimed.
+**Patch tools** imports/exports GDTF and transfers applied patches as `.cfp` files. Built-in 8/16-bit dimmers, RGB/RGBW and moving-head profiles are available. Supported GDTF modes patch 8/16/24/32-bit parameters with defaults, byte ordering and Snap, and record/play them through cues. Whole-footprint overlap and universe-boundary validation applies to every fixture start address. **Parameters** provides live controls. Geometry expansion, multiple breaks, mode dependencies, physical-unit tools, MVR and fixture-type migration remain incomplete; unsupported modes are rejected. See the [supported formats and programming guide](docs/FIXTURES-AND-TRACKING.md).
 
 ## Status and next steps
 
 See the [Eos behavior audit](docs/EOS-COMPATIBILITY.md), [feature matrix](docs/FEATURES.md) and [hardware surface proposal](docs/HARDWARE.md). This alpha is intended for preparation and experimentation. It has not yet been validated against a physical lighting rig, through endurance testing, or during a live show.
 
 The interface palette follows [DMXPulse](https://github.com/PixelStereo/DMXPulse/blob/main/src/window.cpp): charcoal surfaces, neutral text, sage accents and warm state indicators. Channel tiles use compact numeric information; patch details remain in their own tab.
+
+`examples/fixtures-and-tracking.cfl` demonstrates generic fixtures, sparse shared cues, tracked parameters and a channel block. See the [fixture and tracking guide](docs/FIXTURES-AND-TRACKING.md).

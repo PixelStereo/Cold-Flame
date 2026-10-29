@@ -167,15 +167,7 @@ bool Network::loadOutputs(const QJsonArray &json, QString *error) {
 void Network::send(const Engine &e) {
     if (!enabled)
         return;
-    QMap<int, QByteArray> universes;
-    auto values = e.output();
-    for (int channel : e.channels.keys())
-        for (int absolute : e.dmxAddresses(channel)) {
-            int u = (absolute - 1) / 512;
-            if (!universes.contains(u))
-                universes[u] = QByteArray(512, '\0');
-            universes[u][(absolute - 1) % 512] = char(qRound(values.value(channel) * 2.55));
-        }
+    const auto universes = e.dmxFrames();
     if (!outputs.isEmpty()) {
         if (!transportClock.isValid()) transportClock.start();
         const qint64 now = transportClock.elapsed();

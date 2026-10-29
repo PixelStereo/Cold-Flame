@@ -8,6 +8,109 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void undoFixtureTypeReleasesIncompatibleLiveParameters() {
+        Engine e; EditHistory history; history.reset(e);
+        e.fixtures[1] = {"moving-rgbw", 0}; e.patch[1] = 513; history.commit(e);
+        const int pan = e.parameterKey(1, 0); e.manual[pan] = {100, 0}; e.manual[1] = {80, 0};
+        e.selection = {1}; e.toggleCapture(); e.parkSelection(true);
+        QVERIFY(history.undo(e)); QCOMPARE(e.fixtures.value(1).profile, QString("dimmer8"));
+        QVERIFY(!e.manual.contains(pan)); QVERIFY(!e.captured.contains(pan)); QVERIFY(!e.parked.contains(pan));
+        QCOMPARE(e.manual[1].level, 80.); QVERIFY(e.captured.contains(1));
+    }
+    void traceInactiveAndCueOnly() {
+        Engine e; e.manual[1] = {0, 0}; e.record(0, "10", "Zero", 0); e.manual.clear();
+        e.record(0, "20", "Track", 0); e.record(0, "30", "Track", 0);
+        e.traceEdit(0, 1, 1, {70, 0}); QCOMPARE(e.tracked(0, 0)[1], 0.); QCOMPARE(e.tracked(0, 1)[1], 70.);
+        e.trackFromPrevious(0, 1, 1); e.traceEdit(0, 1, 1, {40, 0}, true, true);
+        QCOMPARE(e.tracked(0, 0)[1], 40.); QCOMPARE(e.tracked(0, 1)[1], 40.); QCOMPARE(e.tracked(0, 2)[1], 0.);
+    }
+    void fixtureGdtfRoundtripAndReservations() {
+        const auto profiles = genericFixtures(); QString error;
+        for (auto it = profiles.begin(); it != profiles.end(); ++it) {
+            const auto bytes = writeGdtf(it.value()); FixtureProfile loaded;
+            QVERIFY2(readGdtf(bytes, loaded, error), qPrintable(error));
+            QCOMPARE(loaded.name, it->name); QCOMPARE(loaded.modes[0].footprint, it->modes[0].footprint);
+            QCOMPARE(loaded.modes[0].parameters.size(), it->modes[0].parameters.size());
+            QVERIFY2(validateMode(loaded.modes[0], error), qPrintable(error));
+            QCOMPARE(writeGdtf(loaded), bytes); // Imported vendor archives are re-exported byte for byte.
+            FixtureProfile restored; QVERIFY(fixtureFromJson(fixtureJson(loaded), restored, error));
+            for (int i = 0; i < loaded.modes[0].parameters.size(); ++i) {
+                const auto a = loaded.modes[0].parameters[i], b = it->modes[0].parameters[i];
+                QCOMPARE(a.offsets, b.offsets); QCOMPARE(a.attribute, b.attribute);
+                QVERIFY(qAbs(a.home - b.home) <= 100. / 255.); QCOMPARE(a.snap, b.snap);
+            }
+        }
+        Engine e; e.fixtures[1] = {"moving-rgbw", 0};
+        QVERIFY(e.patchErrors().contains(1)); QVERIFY(e.patchErrors().contains(2));
+        e.patch[1] = 513; QVERIFY(e.patchErrors().isEmpty());
+        e.additionalPatch[1] = {1020}; QVERIFY(e.patchErrors().contains(1)); // Eleven slots cannot start at 2.508.
+        e.additionalPatch[1] = {1025}; QVERIFY(e.patchErrors().isEmpty());
+        e.patch.remove(1); e.additionalPatch.remove(1); QVERIFY(e.patchErrors().isEmpty()); // Unpatching is valid.
+        Engine copy; QVERIFY(copy.load(e.json())); QVERIFY(copy.dmxAddresses(1).isEmpty());
+        e.patch[1] = 1; QVERIFY(!copy.load(e.json())); // Whole footprint overlap rejected while loading.
+        FixtureMode invalid = profiles["rgb"].modes[0]; invalid.parameters[1].offsets = {1};
+        QVERIFY(!validateMode(invalid, error));
+        invalid = profiles["dimmer8"].modes[0]; invalid.unsupported = "Multiple DMX breaks are not supported";
+        QVERIFY(!validateMode(invalid, error));
+    }
+    void fixtureParametersRecordFadeAndNetwork() {
+        Engine e; e.fixtures[1] = {"moving-rgbw", 0}; e.patch[1] = 513; e.additionalPatch[1] = {1025};
+        int pan = e.parameterKey(1, 0), red = e.parameterKey(1, 3), gobo = e.parameterKey(1, 8);
+        QVERIFY(pan < 0); QCOMPARE(e.channelForControl(pan), 1); QVERIFY(e.controlExists(pan));
+        QCOMPARE(e.output().value(pan), 50.);
+        e.manual = {{1, {100, 0}}, {pan, {100, 0}}, {red, {25, 0}}, {gobo, {80, 0}}};
+        QVERIFY(e.storeCue("10")); e.insertStoredCue(0, "10"); e.sequences[0].cues[0].time = 2;
+        e.manual.clear(); e.go(0); e.tick(1);
+        QCOMPARE(e.output().value(1), 50.); QCOMPARE(e.output().value(pan), 75.);
+        QCOMPARE(e.output().value(gobo), 80.); // Snap is honored for discrete parameters.
+        e.tick(1); QCOMPARE(e.output().value(red), 25.);
+        e.master = 0.5;
+        QCOMPARE(e.output().value(pan), 100.); QCOMPARE(e.output().value(1), 50.); // Grand master affects intensity only.
+        auto frames = e.dmxFrames(); QCOMPARE(quint8(frames[1][0]), 255); QCOMPARE(quint8(frames[1][1]), 255);
+        QCOMPARE(quint8(frames[1][4]), 128); QCOMPARE(quint8(frames[1][5]), 64); QCOMPARE(frames[1], frames[2]);
+        QUdpSocket receiver; receiver.setProxy(QNetworkProxy::NoProxy); QVERIFY(receiver.bind(QHostAddress::LocalHost, 6454));
+        Network n; DmxOutput route; route.enabled = true; route.interfaceAddress = "127.0.0.1"; route.firstPatchUniverse = 2; route.universeCount = 1;
+        QVERIFY(n.applyOutputs({route})); n.send(e); QVERIFY(receiver.waitForReadyRead(1000));
+        QCOMPARE(receiver.receiveDatagram().data().mid(18), frames[1]);
+        Engine restored; QString error; QVERIFY2(restored.load(e.json(), &error), qPrintable(error));
+        QCOMPARE(restored.cueLibrary["10"].values[pan].level, 100.);
+        restored.go(0); restored.tick(2); QCOMPARE(restored.output()[red], 25.);
+        QVERIFY(!restored.canChangeFixture(1, {"rgb", 0})); // Stored internal identities must not be reinterpreted.
+        EditHistory history; history.reset(restored); restored.patch[1] = 2049; history.commit(restored);
+        QVERIFY(history.undo(restored)); QCOMPARE(restored.patch[1], 513); QCOMPARE(restored.fixtures[1].profile, QString("moving-rgbw"));
+    }
+    void fixtureVirtualDimmerAndByteOrder() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        int green = e.parameterKey(1, 1); e.manual[1] = {50, 0}; e.manual[green] = {20, 0};
+        auto frame = e.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 128); QCOMPARE(quint8(frame[1]), 26); QCOMPARE(quint8(frame[2]), 128);
+        e.blackout = true; frame = e.dmxFrames()[1]; QCOMPARE(frame.left(3), QByteArray(3, '\0'));
+        QCOMPARE(e.output()[green], 20.); // Blackout does not alter color or position values.
+        e.blackout = false; e.fixtures[1] = {"dimmer16", 0}; e.manual.clear(); e.manual[1] = {50, 0};
+        frame = e.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 128); QCOMPARE(quint8(frame[1]), 0);
+        auto profile = genericFixtures()["dimmer16"];
+        profile.modes[0].parameters[0].offsets = {2, 1}; e.fixtureProfiles["swapped"] = profile; e.fixtures[1] = {"swapped", 0};
+        frame = e.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 0); QCOMPARE(quint8(frame[1]), 128);
+        profile.modes[0].footprint = 4; profile.modes[0].parameters[0].offsets = {1, 2, 3, 4};
+        e.fixtureProfiles["wide"] = profile; e.fixtures[1] = {"wide", 0};
+        frame = e.dmxFrames()[1]; QCOMPARE(frame.left(4).toHex(), QByteArray("80000000"));
+    }
+    void channelTrackingTraceAndSharedCueSuppression() {
+        Engine e; e.manual[1] = {20, 0}; QVERIFY(e.storeCue("10", {}, true));
+        e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10");
+        e.trackFromPrevious(0, 1, 1); e.trackFromPrevious(0, 2, 1);
+        QCOMPARE(e.traceSource(0, 2, 1), 0); QCOMPARE(e.tracked(0, 2)[1], 20.);
+        e.editBlind(0, 0, 1, {35, 0}); QCOMPARE(e.tracked(0, 2)[1], 35.); QCOMPARE(e.tracked(0, 3)[1], 20.);
+        e.setChannelBlock(0, 1, 1, true); e.editBlind(0, 0, 1, {70, 0});
+        QCOMPARE(e.tracked(0, 2)[1], 35.); QCOMPARE(e.traceSource(0, 2, 1), 1);
+        e.traceEdit(0, 2, 1, {45, 0}); QCOMPARE(e.tracked(0, 0)[1], 70.); QCOMPARE(e.tracked(0, 2)[1], 45.);
+        QCOMPARE(e.cueLibrary["10"].values[1].level, 20.); // Trace never changes other occurrences in the library.
+        e.trackFromPrevious(0, 1, 1, true); QCOMPARE(e.tracked(0, 1)[1], 70.); QCOMPARE(e.tracked(0, 2)[1], 45.);
+        Engine restored; QVERIFY(restored.load(e.json())); QCOMPARE(restored.tracked(0, 1)[1], 70.); QCOMPARE(restored.tracked(0, 2)[1], 45.);
+        QVERIFY(restored.sequences[0].cues[1].suppressed.contains(1));
+        e.fixtures[2] = {"moving-rgbw", 0}; e.patch[2] = 513; int pan = e.parameterKey(2, 0);
+        e.editBlind(0, 0, pan, {80, 0}); e.setChannelBlock(0, 1, pan, true); e.editBlind(0, 0, pan, {30, 0});
+        QCOMPARE(e.tracked(0, 2)[pan], 80.); e.setChannelBlock(0, 1, pan, false); QCOMPARE(e.tracked(0, 2)[pan], 30.);
+    }
     void recordedLookRecallWithoutRelease() {
         Engine e;
         e.selection = {1};

@@ -1,14 +1,14 @@
-# Eos behavior audit — development version 0.5
+# Eos behavior audit — development version 0.7
 
-**Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28 October 2026).
+**Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
 ## Verified scenarios and remaining differences
 
 | Topic | Documented Eos behavior | Cold Flame result / evidence |
 |---|---|---|
-| Channel/address relationship | A channel can drive several addresses; each address belongs to only one channel. | Implemented for 8-bit dimmers. `multiPatchOutputAndRoundtrip` receives channel 12 at 22.013, 3.018 and 3.512 over sACN. Patch dialog rejects duplicate addresses. |
-| Record | Store the stage look; unchanged data tracks. Record Only stores manual data. | Library Record stores a full live intensity snapshot; Record Only stores manual values. The legacy inline recording API tracks unchanged intensities. Full category/parameter recording filters are missing. |
-| Tracking | Unchanged values continue until a new move or block. | Basic intensity tracking, full-cue Block and Cue Only level edits are implemented and tested; channel/parameter Block, trace and complete filtering are missing. |
+| Channel/address relationship | A channel can drive several addresses; each address belongs to only one channel. | Implemented for dimmers and supported multi-parameter fixture modes, with whole-footprint overlap checks. `multiPatchOutputAndRoundtrip` receives channel 12 at 22.013, 3.018 and 3.512 over sACN. Patch dialog rejects duplicate addresses. |
+| Record | Store the stage look; unchanged data tracks. Record Only stores manual data. | Library Record stores a full live intensity/parameter snapshot; Record Only stores manual values. The legacy inline recording API tracks unchanged intensities. Full category/parameter recording filters are missing. |
+| Tracking | Unchanged values continue until a new move or block. | Intensity/fixture-parameter tracking, local move removal, channel/parameter Block, Trace with inactive-level handling, forced trace through zero, Cue Only and source navigation are implemented. Full category filters and range-update semantics remain incomplete. See `channelTrackingTraceAndSharedCueSuppression` and `traceInactiveAndCueOnly`. |
 | Sequential Go | Tracked channels do not automatically take over manually modified values. | `eosTrackedManualAndOwnership` tests that a tracked channel stays manual; incoming move instructions take over their channels. |
 | Go To Cue | Recall both moves and tracked values for an out-of-sequence jump. | Same intensity test verifies that Go To recalls the tracked recorded value. |
 | Sequence ownership | Playback ownership follows move instructions rather than every Go. | `sequentialGoDoesNotStealTrackedChannels` verifies basic LTP ownership; `unchangedFadeContinuesAcrossNextCue` verifies fade continuity. Full attributes, asserts, background priorities and exclusions remain incomplete. |
@@ -23,7 +23,7 @@
 Additional verified intensity cases in 0.3:
 
 - Blind edits change stored data while leaving live output untouched (`blindEditsDoNotRecallLive`, `blindSpreadsheetEditsStoredOnly`).
-- Full-cue Block preserves values against upstream edits; Assert separately takes over playback (`blockIsEditingAndAssertIsPlayback`). Channel/parameter flags remain incomplete.
+- Full-cue Block preserves values against upstream edits; Assert separately takes over playback (`blockIsEditingAndAssertIsPlayback`). Channel/parameter Block is added in 0.7; per-parameter Assert remains incomplete.
 - Capture protects manual values against recall (`captureSurvivesPlayback`). Capture latch is missing.
 - Temporary channel Park bypasses master and blackout and is withheld from recordings (`parkBypassesMastersAndIsNotRecorded`). Address Park, scaling and persistence are missing.
 - Show-definition Undo/Redo retains current transport progress (`editUndoDoesNotRewindTransport`). Live/manual/selective Undo is missing.
@@ -36,10 +36,10 @@ Numbering new cues and sequences in increments of ten is the requested Cold Flam
 
 ## Major feature families without parity
 
-- Fixture parameters beyond 8-bit intensity; multicell and compound fixture interpretation; full GDTF mode patching; RDM and device health.
+- Full GDTF interpretation: geometry/cells, compound fixtures, mode masters, multiple breaks, physical-unit conversion; MVR, RDM and device health. Supported direct modes now provide 8/16/24/32-bit parameter output.
 - Focus, Color and Beam palettes; presets; by-type and embedded reference handling; color tools and calibration.
-- Complete tracking editing, per-parameter Blocks and Assert, Mark/AutoMark, multipart cues, preheat, curves, rate and scene attributes.
-- Blind for non-intensity targets, complete selective Undo/Redo, Query, filters, partitions and user profiles.
+- Complete tracking range/update editing, per-parameter Assert, Mark/AutoMark, multipart cues, preheat, curves, rate and scene attributes.
+- Full target/category editing, complete selective Undo/Redo, Query, filters, partitions and user profiles.
 - Full playback/fader configuration, HTP cue lists, inhibitive/effect subs, background rules, shielded controls and backup operation.
 - Step, absolute and relative effects, effects variables, parameter phasing and complete effect playback rules.
 - Magic Sheets, workspaces, snapshots, macros, Augment3d and complete pixel/media layers.
@@ -70,6 +70,8 @@ Additional sources consulted for 0.3: [Capture](https://www.etcconnect.com/WebDo
 
 Stored cues and sequence steps are now separate. This is deliberately the reusable-look model documented for [Congo/Cobalt](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo), rather than a claim that Eos stores the same cue number several times in one list. A stored look may be used in many occurrences. Each step has an independent ID, timing, triggers, Block/Assert and local intensity overrides. Links target the step ID, so repeated cue numbers never determine an arbitrary occurrence. UI exposes an exact-occurrence picker. Reordering preserves IDs and links.
 
-The older Eos-style Link/Follow and tracking tests still cover legacy inline steps; they do not establish identical shared-library semantics. Full-look library recordings contain explicit values for all channels, while Record Only stores manual channels. Library edits affect future recalls, with active fades keeping their existing targets. Blind edits create local step overrides. New format 2 persists library references and arbitrary step order; format 1 inline shows remain readable without automatic conversion to shared cues.
+The older Eos-style Link/Follow and tracking tests still cover legacy inline steps; they do not establish identical shared-library semantics. Full-look library recordings contain explicit values for all channels, while Record Only stores manual channels. Library edits affect future recalls, with active fades keeping their existing targets. Blind edits create local step overrides. Format 2 introduced library references and arbitrary step order; format 3 adds fixture parameters and local tracking suppressions; format 1 inline shows remain readable without automatic conversion to shared cues.
 
 Tests cover three occurrences of a shared cue, independent step times, exact links after reorder, shared updates without live recall, rename and reference propagation, deletion guards, save/load, rejection of missing references, Undo/Redo, and legacy playback.
+
+Version 0.7 adds the [fixture and tracking workflow](FIXTURES-AND-TRACKING.md). Reviewed references include Eos Patch/About Patch, overlap restrictions, channel Block and Update Using Trace. The reusable-library model remains distinct from Eos cue lists.

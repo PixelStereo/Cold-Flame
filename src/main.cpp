@@ -10,6 +10,7 @@
 #include "cuelibrary.h"
 #include "steptable.h"
 #include "patchdialog.h"
+#include "parameterpanel.h"
 #include <QtWidgets>
 #include <cmath>
 using namespace Flame;
@@ -29,6 +30,8 @@ class Console : public QMainWindow {
     QComboBox *channelPages;
     int channelPage = 0;
     PatchDialog *patchPanel;
+    ParameterPanel *parameterPanel = nullptr;
+    BlindDialog *trackingPanel = nullptr;
     StepTable *cues;
     enum ChannelView { AllChannels, UsedChannels, EditChannels };
     ChannelView channelView = AllChannels;
@@ -63,6 +66,7 @@ class Console : public QMainWindow {
         history.commit(engine);
         dirty = true;
         setWindowModified(true);
+        if (trackingPanel) trackingPanel->reload(selectedSequence);
         refresh();
     }
     void message(QString text) { status->setText(text); }
@@ -72,13 +76,13 @@ class Console : public QMainWindow {
         if (channelView == EditChannels) {
             if (workspaceTabs->currentWidget() == libraryPanel) {
                 const auto values = engine.cueLibrary.value(libraryPanel->selectedCue()).values;
-                for (int channel : values.keys()) members.insert(channel);
+                for (int channel : values.keys()) members.insert(engine.channelForControl(channel));
             } else {
                 const auto &steps = engine.sequences[selectedSequence].cues;
                 const int row = cues->currentRow();
                 if (row >= 0 && row < steps.size()) {
-                    for (int channel : engine.cueValues(steps[row]).keys()) members.insert(channel);
-                    for (int channel : steps[row].blocked.keys()) members.insert(channel);
+                    for (int channel : engine.cueValues(steps[row]).keys()) members.insert(engine.channelForControl(channel));
+                    for (int channel : steps[row].blocked.keys()) members.insert(engine.channelForControl(channel));
                 }
             }
         }
@@ -156,6 +160,7 @@ class Console : public QMainWindow {
         }
         if (repaintChannels)
             channels->viewport()->update();
+        if (parameterPanel) parameterPanel->refresh();
         selection->setText(QString("%1 shown / %2 matching · %3 selected · %4 manual")
                                .arg(channels->count()).arg(matchingChannels)
                                .arg(engine.selection.size()).arg(engine.manual.size()));
@@ -243,6 +248,8 @@ class Console : public QMainWindow {
             palettes->addItem(item);
         }
         libraryPanel->reload();
+        if (parameterPanel) parameterPanel->reload();
+        if (trackingPanel) trackingPanel->reload(selectedSequence);
         fitChannels();
         refresh();
     }
@@ -494,7 +501,7 @@ class Console : public QMainWindow {
                 auto live = engine.output(false, false);
                 engine.submasters[i].level = level;
                 Values values;
-                if (engine.selection.isEmpty()) values = live;
+                if (engine.selection.isEmpty()) { for (int key : engine.channels.keys()) values[key] = live.value(key); }
                 else for (int ch : engine.selection) values[ch] = live.value(ch);
                 engine.submasters[i].values = values;
                 changed();
@@ -616,6 +623,7 @@ class Console : public QMainWindow {
             {"BLIND", "Edit sequence step intensities without recalling them live. Referenced cues receive local overrides."},
             {"Block", "Protect this step's tracked values against upstream edits."},
             {"Assert", "Make this step take back its tracked channel values when played."},
+            {"Tracking", "Edit channel and fixture parameter moves across sequence steps, with Track, Block and Trace."},
             {"Channel timing…", "Set individual up, down and delay times for selected channels in this step."},
             {"Triggers…", "Edit Follow, Hang, Execute and completion triggers for this step."},
             {"+ Record submaster", "Record selected channels, or all live channels if none are selected, into a new HTP submaster."},
@@ -691,7 +699,7 @@ class Console : public QMainWindow {
  QLabel#title{font-size:23px;font-weight:700;letter-spacing:2px;color:#fafafa;}
  QLabel#section{color:#96999d;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 0;}
  QLabel#playback{background:#242628;border-left:3px solid #b7cfc1;padding:14px;color:#c2e5d3;font-size:15px;font-weight:600;}
- QPushButton{background:#292c2e;border:1px solid #404346;border-radius:4px;padding:6px 9px;}
+ QPushButton{background:#292c2e;border:1px solid #404346;border-radius:4px;padding:7px 11px;min-height:18px;}
  QPushButton:hover{background:#35393b;border-color:#9cb8af;} QPushButton:checked{background:#314c44;}
  QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#222426;border:1px solid #393c3f;border-radius:3px;padding:7px;selection-background-color:#3c665e;}
  QTabBar::tab{background:#292c2e;padding:9px;border:1px solid #404346;} QTabBar::tab:selected{background:#303a36;color:#f3fff9;}
@@ -704,6 +712,7 @@ class Console : public QMainWindow {
  QHeaderView::section{background:#303234;color:#b7babe;border:0;border-bottom:1px solid #404346;padding:9px 5px;font-size:10px;font-weight:700;}
  QTableWidget{gridline-color:#303234;background:#000;} QMenuBar,QMenu{background:#242628;} QMenu::item:selected{background:#3c4842;}
  QSlider::groove:horizontal{height:5px;background:#383d3a;} QSlider::handle:horizontal{background:#b7cfc1;width:15px;margin:-6px 0;border-radius:3px;}
+ QScrollBar:horizontal{background:#1d1f20;height:10px;margin:0;} QScrollBar::handle:horizontal{background:#393c3f;min-width:24px;border-radius:4px;} QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0;} QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none;}
  QProgressBar{border:0;background:#232725;max-height:4px;} QProgressBar::chunk{background:#b7cfc1;} QScrollBar:vertical{background:#1d1f20;width:10px;margin:0;} QScrollBar::handle:vertical{background:#393c3f;min-height:24px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;} QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{background:none;}
  )");
         auto editMenu = menuBar()->addMenu("Edit");
@@ -878,6 +887,7 @@ class Console : public QMainWindow {
         cueLayout->addWidget(workspaceTabs, 1);
         sequencePage = new QWidget;
         auto sequenceLayout = new QVBoxLayout(sequencePage);
+        sequenceLayout->setSpacing(10);
         workspaceTabs->addTab(sequencePage, "Sequences");
         auto sequenceTools = new QHBoxLayout;
         sequences = new QTabBar;
@@ -917,7 +927,8 @@ class Console : public QMainWindow {
         cues->setHorizontalHeaderLabels(
             {"STEP", "CUE", "NAME", "UP", "DOWN", "WAIT", "LINK", "VALUES", "INDIV.", "STATE", "FOLLOW", "HANG", "EXEC", "AFTER", "B/A"});
         cues->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-        cues->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+        cues->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+        cues->setColumnWidth(2, 128); // Preserve legible cue names; scroll at narrow widths.
         cues->horizontalHeader()->setSectionResizeMode(14, QHeaderView::Fixed); cues->setColumnWidth(14, 30);
         cues->horizontalHeader()->moveSection(14, 0);
         cues->horizontalHeader()->viewport()->setStatusTip("Times are in seconds. Follow/Hang are mutually exclusive. Link, Execute and After target step IDs.");
@@ -943,37 +954,30 @@ class Console : public QMainWindow {
         auto edit = new QHBoxLayout;
         button("RECORD", edit, [this] { record(); })->setObjectName("recordButton");
         button("UPDATE", edit, [this] { updateStep(); });
-        button("SET NEXT", edit, [this] {
+        button("Record Only", edit, [this] { record(true); });
+        edit->addStretch();
+        cueOnly = new QCheckBox("Cue Only"); edit->addWidget(cueOnly);
+        sequenceLayout->addLayout(edit);
+        auto steps = new QHBoxLayout;
+        button("Insert cue…", steps, [this] { chooseCue(); })->setObjectName("insertCueButton");
+        button("Link to step…", steps, [this] { linkStep(); })->setObjectName("linkStepButton");
+        steps->addStretch();
+        button("SET NEXT", steps, [this] {
             if (engine.setNextCue(selectedSequence, cues->currentRow())) {
                 refresh();
                 message("Next GO will play the selected cue. Current output and stored links are unchanged.");
             }
         })->setObjectName("setNextButton");
-        button("GO TO", edit, [this] {
+        button("GO TO", steps, [this] {
             int i = cues->currentRow();
             if (i >= 0) {
                 engine.go(selectedSequence, i);
                 refresh();
             }
         })->setObjectName("gotoButton");
-        edit->addStretch();
-        sequenceLayout->addLayout(edit);
-        auto steps = new QHBoxLayout;
-        button("Insert cue…", steps, [this] { chooseCue(); })->setObjectName("insertCueButton");
-        button("Link to step…", steps, [this] { linkStep(); })->setObjectName("linkStepButton");
-        steps->addStretch();
         sequenceLayout->addLayout(steps);
-        auto modes = new QHBoxLayout;
-        cueOnly = new QCheckBox("Cue Only");
-        modes->addWidget(cueOnly);
-        button("Record Only", modes, [this] { record(true); });
-        button("BLIND", modes, [this] {
-            BlindDialog dialog(engine, selectedSequence, [this] { changed(); }, this);
-            dialog.exec();
-        });
-        modes->addStretch();
-        sequenceLayout->addLayout(modes);
         auto extra = new QHBoxLayout;
+        button("Tracking", extra, [this] { workspaceTabs->setCurrentWidget(trackingPanel); })->setObjectName("trackingButton");
         button("Channel timing…", extra, [this] { channelTiming(); });
         extra->addStretch();
         sequenceLayout->addLayout(extra);
@@ -1012,13 +1016,31 @@ class Console : public QMainWindow {
         workspaceTabs->addTab(palettePage, "Palettes");
         libraryPanel = new CueLibraryPanel(engine, [this] { changed(); }, [this](QString number) { insertCue(number); });
         workspaceTabs->addTab(libraryPanel, "Cue library");
+        trackingPanel = new BlindDialog(engine, selectedSequence, [this] { changed(); }, workspaceTabs, true);
+        trackingPanel->sequenceSelected = [this](int index) {
+            selectedSequence = index;
+            for (int tab = 0; tab < sequences->count(); ++tab) if (sequences->tabData(tab).toInt() == index) sequences->setCurrentIndex(tab);
+            refresh();
+        };
+        workspaceTabs->addTab(trackingPanel, "Tracking");
         outputPanel = new OutputPanel(network, engine, [this] {
             dirty = true; setWindowModified(true);
             message(network.enabled ? "DMX outputs enabled" : "DMX outputs off");
         });
         channelTabs->addTab(outputPanel, "Network");
+        parameterPanel = new ParameterPanel(engine, [this] { refresh(); }, channelTabs);
+        channelTabs->addTab(parameterPanel, "Parameters");
+        connect(channels, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+            parameterPanel->selectChannel(item->data(Qt::UserRole).toInt()); channelTabs->setCurrentWidget(parameterPanel);
+        });
+        connect(channelTabs, &QTabWidget::currentChanged, this, [this] {
+            if (channelTabs->currentWidget() == parameterPanel) {
+                if (!engine.selection.isEmpty()) parameterPanel->selectChannel(*std::min_element(engine.selection.begin(), engine.selection.end()));
+                parameterPanel->refresh();
+            }
+        });
         split->addWidget(cuePanel);
-        split->setSizes({560, 640});
+        split->setSizes({500, 740});
         auto transport = new QHBoxLayout;
         button("↶ BACK", transport, [this] {
             engine.back(selectedSequence);
@@ -1174,7 +1196,7 @@ class Console : public QMainWindow {
         });
         connect(command, &QLineEdit::returnPressed, this, [this] { execute(); });
         connect(cues, &QTableWidget::currentCellChanged, this, [this] { refresh(); });
-        connect(workspaceTabs, &QTabWidget::currentChanged, this, [this] { refresh(); });
+        connect(workspaceTabs, &QTabWidget::currentChanged, this, [this] { if (workspaceTabs->currentWidget() == trackingPanel) trackingPanel->reload(selectedSequence); refresh(); });
         connect(libraryPanel->findChild<QTableWidget *>("storedCueTable"), &QTableWidget::itemSelectionChanged,
             this, [this] { refresh(); });
         connect(channels, &QListWidget::itemSelectionChanged, this, [this] {
@@ -1192,6 +1214,7 @@ class Console : public QMainWindow {
             int i = sequences->tabData(tab).toInt();
             if (i >= 0) {
                 selectedSequence = i;
+                if (trackingPanel) trackingPanel->reload(selectedSequence);
                 refresh();
             }
         });
@@ -1324,6 +1347,8 @@ class Console : public QMainWindow {
             refresh();
         });
         auto fixtures = menuBar()->addMenu("Fixtures");
+        fixtures->addAction("Patch fixtures / import and export…", this, [this] { patch(); });
+        fixtures->addAction("Live parameters…", this, [this] { channelTabs->setCurrentWidget(parameterPanel); });
         fixtures->addAction("Inspect GDTF profile…", this, [this] {
             QString p = QFileDialog::getOpenFileName(this, "GDTF profile", {}, "GDTF (*.gdtf)");
             if (p.isEmpty())
@@ -1343,8 +1368,8 @@ class Console : public QMainWindow {
             for (auto m : profile.modes)
                 text += m.name + " · " + QString::number(m.footprint) + " addresses\n" +
                         m.attributes.join(", ") + "\n\n";
-            text += "Inspection only in this version. Intelligent parameter patching "
-                    "is not yet implemented.";
+            text += "Patch tools in the Patch tab can import this profile, select a supported mode and export GDTF.\n";
+            for (const auto &mode : profile.modes) if (!mode.unsupported.isEmpty()) text += mode.name + ": " + mode.unsupported + "\n";
             QMessageBox::information(this, "GDTF profile", text);
         });
         auto integration = menuBar()->addMenu("Interaction");
@@ -1464,6 +1489,17 @@ int main(int argc, char **argv) {
         QTimer::singleShot(50, [&w] {
             w.findChild<QTabWidget *>("workspaceTabs")->setCurrentIndex(3);
             QTimer::singleShot(150, [&w] { w.grab().save("cue-library-preview.png"); });
+        });
+    if (app.arguments().contains("--fixtures-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            auto left = w.findChild<QTabWidget *>("channelTabs");
+            auto selector = w.findChild<QComboBox *>("parameterChannel");
+            selector->setCurrentIndex(qMax(0, selector->findData(102)));
+            for (int i = 0; i < left->count(); ++i) if (left->tabText(i) == "Parameters") left->setCurrentIndex(i);
+            auto right = w.findChild<QTabWidget *>("workspaceTabs");
+            for (int i = 0; i < right->count(); ++i) if (right->tabText(i) == "Tracking") right->setCurrentIndex(i);
+            w.findChild<QComboBox *>("trackingScope")->setCurrentIndex(2);
+            QTimer::singleShot(150, [&w] { w.grab().save("fixtures-preview.png"); });
         });
     if (app.arguments().contains("--smoke-test"))
         QTimer::singleShot(300, &app, &QApplication::quit);

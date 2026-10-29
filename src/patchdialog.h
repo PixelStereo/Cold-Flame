@@ -1,19 +1,26 @@
 #pragma once
 #include "engine.h"
 #include <QtWidgets>
-// Changes remain in the dialog until the entire patch passes validation.
 class PatchDialog : public QDialog {
     Flame::Engine &engine;
     bool embedded;
     std::function<void()> onApply;
     QList<QTableWidget *> banks;
+    QMap<QString, Flame::FixtureProfile> profiles;
     QLabel *summary, *error;
     QLineEdit *filter;
     QSpinBox *first, *count, *universe, *address;
-    void appendRow(QTableWidget *table, int channel, QString name, int absolute);
+    QComboBox *batchFixture;
+    void appendRow(QTableWidget *table, int channel, QString name, int absolute,
+                   Flame::FixtureAssignment assignment = {}, QList<int> extra = {});
     void populate();
     void validate();
-
+    void fillModes(QComboBox *combo, Flame::FixtureAssignment selected = {});
+    bool buildDraft(Flame::Engine &draft, QString &issue) const;
+    void importProfile();
+    void exportProfile();
+    void importPatch();
+    void exportPatch();
   public:
     explicit PatchDialog(Flame::Engine &engine, QWidget *parent = nullptr, bool embedded = false,
                          std::function<void()> onApply = {});

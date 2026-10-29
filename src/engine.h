@@ -1,5 +1,6 @@
 #pragma once
 #include <QtCore>
+#include "gdtf.h"
 #include <optional>
 namespace Flame {
 using Values = QMap<int, double>;
@@ -31,6 +32,11 @@ struct Cue {
     QMap<int, Value> values;
     bool block = false, asserted = false;
     QMap<int, Value> blocked;
+    QSet<int> suppressed; // Remove shared-cue moves locally to permit tracking.
+};
+struct FixtureAssignment {
+    QString profile = "dimmer8";
+    int mode = 0;
 };
 struct Sequence {
     QString name;
@@ -54,6 +60,23 @@ class Engine {
     QMap<int, int> patch;
     QMap<int, QList<int>> additionalPatch;
     QList<int> dmxAddresses(int channel) const;
+    QMap<QString, FixtureProfile> fixtureProfiles = genericFixtures();
+    QMap<int, FixtureAssignment> fixtures;
+    FixtureMode fixtureMode(int channel) const;
+    int parameterKey(int channel, int parameter) const;
+    int channelForControl(int key) const;
+    QList<int> controlIds() const;
+    bool controlExists(int key) const;
+    double controlDefault(int key) const;
+    QString controlLabel(int key) const;
+    QList<int> occupiedAddresses(int channel) const;
+    QMap<int, QString> patchErrors() const;
+    QMap<int, QByteArray> dmxFrames() const;
+    bool canChangeFixture(int channel, FixtureAssignment assignment) const;
+    void trackFromPrevious(int sequence, int step, int control, bool cueOnly = false);
+    void setChannelBlock(int sequence, int step, int control, bool enabled);
+    int traceSource(int sequence, int step, int control) const;
+    void traceEdit(int sequence, int step, int control, Value value, bool force = false, bool cueOnly = false);
     static constexpr int ChannelsPerPage = 120;
     QMap<QString, StoredCue> cueLibrary;
     QMap<int, Values> palettes, groups;

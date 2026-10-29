@@ -28,6 +28,56 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void fixturePatchParameterEditorAndRecall() {
+        Engine e; PatchDialog patch(e); auto table = patch.findChild<QTableWidget *>("patchBank0");
+        auto mode = patch.findChild<QComboBox *>("fixtureMode1"); QVERIFY(mode);
+        mode->setCurrentIndex(mode->findData("moving-rgbw"));
+        QVERIFY(!patch.apply()); QCOMPARE(e.fixtures.value(1).profile, QString("dimmer8"));
+        QVERIFY(table->item(0, 2)->background().color() == QColor("#443c2c"));
+        QVERIFY(table->item(1, 2)->background().color() == QColor("#443c2c")); // Both owners are highlighted.
+        table->item(0, 2)->setText("2.001, 3.001"); QVERIFY(patch.apply());
+        QCOMPARE(e.fixtureMode(1).footprint, 11);
+        table->item(0, 2)->setText("2.510"); QVERIFY(!patch.apply());
+        table->item(0, 2)->setText(""); QVERIFY(patch.apply()); QVERIFY(e.dmxAddresses(1).isEmpty());
+        table->item(0, 2)->setText("2.001"); QVERIFY(patch.apply());
+        ParameterPanel panel(e, [] {}); panel.show(); panel.refresh();
+        auto parameters = panel.findChild<QTableWidget *>("parameterTable"); QCOMPARE(parameters->rowCount(), 9);
+        int pan = e.parameterKey(1, 0); auto panField = panel.findChild<QDoubleSpinBox *>(QString("parameterLevel%1").arg(pan)); QVERIFY(panField);
+        QCOMPARE(panField->value(), 50.); panField->setValue(80.); QCOMPARE(e.manual[pan].level, 80.);
+        QVERIFY(e.storeCue("10")); e.insertStoredCue(0, "10"); e.sequences[0].cues[0].time = 0;
+        panField->setValue(10.); e.go(0); panel.refresh(); QCOMPARE(panField->value(), 80.);
+        mode->setCurrentIndex(mode->findData("rgb")); QVERIFY(!patch.apply()); QCOMPARE(e.fixtures[1].profile, QString("moving-rgbw"));
+    }
+    void trackingViewEditingAndTrace() {
+        Engine e; e.manual[1] = {20, 0}; e.record(0, "10", "First", 0); e.manual.clear(); e.record(0, "20", "Second", 0);
+        int changes = 0; BlindDialog tracking(e, 0, [&] { ++changes; }); tracking.show();
+        auto sheet = tracking.findChild<QTableWidget *>("blindSheet"); QCOMPARE(sheet->item(0, 0)->data(Qt::UserRole + 1).toString(), QString("M"));
+        QCOMPARE(sheet->item(0, 1)->data(Qt::UserRole + 1).toString(), QString("T"));
+        tracking.findChild<QCheckBox *>("trackingTrace")->setChecked(true);
+        sheet->item(0, 1)->setText("70"); QCOMPARE(e.tracked(0, 0)[1], 70.); QCOMPARE(e.tracked(0, 1)[1], 70.); QCOMPARE(changes, 1);
+        tracking.findChild<QCheckBox *>("trackingTrace")->setChecked(false);
+        sheet->item(0, 1)->setText("40"); QCOMPARE(e.tracked(0, 0)[1], 70.); QCOMPARE(e.tracked(0, 1)[1], 40.);
+        sheet->item(0, 1)->setText(""); QCOMPARE(e.tracked(0, 1)[1], 70.); QCOMPARE(sheet->item(0, 1)->data(Qt::UserRole + 1).toString(), QString("T"));
+        e.selection = {1}; tracking.findChild<QComboBox *>("trackingScope")->setCurrentIndex(1); QCOMPARE(sheet->rowCount(), 1);
+        e.setChannelBlock(0, 1, 1, true); tracking.reload(0); QCOMPARE(sheet->item(0, 1)->data(Qt::UserRole + 1).toString(), QString("B"));
+    }
+    void balancedButtonLayout_data() {
+        QTest::addColumn<QSize>("windowSize"); QTest::newRow("desktop") << QSize(1440, 940); QTest::newRow("compact") << QSize(1100, 720);
+    }
+    void balancedButtonLayout() {
+        QFETCH(QSize, windowSize); Console window; window.resize(windowSize); window.show(); QCoreApplication::processEvents();
+        auto record = window.findChild<QPushButton *>("recordButton"), insert = window.findChild<QPushButton *>("insertCueButton"), next = window.findChild<QPushButton *>("setNextButton");
+        QVERIFY(record->height() >= 32); QVERIFY(record->height() <= 42);
+        QCOMPARE(insert->mapTo(&window, QPoint()).y(), next->mapTo(&window, QPoint()).y());
+        QVERIFY(record->mapTo(&window, QPoint()).y() < insert->mapTo(&window, QPoint()).y());
+        auto sheet = window.findChild<QTableWidget *>("cueSheet"); QVERIFY(sheet->height() > 100);
+        for (auto control : {record, insert, next}) {
+            QVERIFY(control->width() >= control->fontMetrics().horizontalAdvance(control->text()) + 20);
+            QVERIFY(control->mapTo(&window, control->rect().bottomRight()).x() < window.width());
+        }
+        window.findChild<QPushButton *>("trackingButton")->click();
+        QCOMPARE(window.findChild<QTabWidget *>("workspaceTabs")->currentWidget()->objectName(), QString("blindDialog"));
+    }
     void patchOverviewAndAtomicValidation() {
         Engine e;
         PatchDialog dialog(e);

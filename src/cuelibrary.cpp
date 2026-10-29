@@ -92,18 +92,18 @@ void CueLibraryPanel::edit() {
     QVBoxLayout layout(&dialog);
     auto note = new QLabel("Saving updates every use of this cue. Running fades keep their current targets.");
     note->setWordWrap(true); layout.addWidget(note);
-    QTableWidget editor(engine.channels.size(), 3); editor.setObjectName("storedCueEditor");
+    QTableWidget editor(engine.controlIds().size(), 3); editor.setObjectName("storedCueEditor");
     editor.setHorizontalHeaderLabels({"Include", "Channel", "Level %"});
     editor.setItemDelegate(new TableDelegate(&editor)); editor.verticalHeader()->setDefaultSectionSize(30);
     editor.horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     const auto values = engine.cueLibrary[number].values;
     int row = 0;
-    for (int channel : engine.channels.keys()) {
+    for (int channel : engine.controlIds()) {
         auto check = new QTableWidgetItem;
         check->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
         check->setCheckState(values.contains(channel) ? Qt::Checked : Qt::Unchecked);
         check->setData(Qt::UserRole, channel); editor.setItem(row, 0, check);
-        auto label = new QTableWidgetItem(QString("%1 · %2").arg(channel).arg(engine.channels[channel]));
+        auto label = new QTableWidgetItem(engine.controlLabel(channel));
         label->setFlags(Qt::ItemIsEnabled); editor.setItem(row, 1, label);
         editor.setItem(row++, 2, new QTableWidgetItem(QString::number(engine.resolve(channel, values.value(channel)))));
     }

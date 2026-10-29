@@ -23,6 +23,7 @@ double Engine::resolve(int channel, Value v) const {
 }
 QMap<int, Value> Engine::cueValues(const Cue &step) const {
     auto values = step.reference.isEmpty() ? QMap<int, Value>{} : cueLibrary.value(step.reference).values;
+    for (int key : step.suppressed) values.remove(key);
     for (auto it = step.values.begin(); it != step.values.end(); ++it) values[it.key()] = it.value();
     return values;
 }
@@ -44,17 +45,17 @@ bool Engine::storeCue(QString number, QString label, bool manualOnly) {
     cue.label = label.isEmpty() ? "cue-" + number : label;
     if (!manualOnly) {
         auto live = output(false, false);
-        for (int channel : channels.keys()) cue.values[channel] = {live.value(channel), 0};
+        for (int channel : controlIds()) cue.values[channel] = {live.value(channel), 0};
     }
     for (auto it = manual.begin(); it != manual.end(); ++it)
-        if (channels.contains(it.key())) cue.values[it.key()] = it.value();
+        if (controlExists(it.key())) cue.values[it.key()] = it.value();
     cueLibrary[number] = cue;
     return true;
 }
 bool Engine::updateStoredCue(QString number, const QMap<int, Value> &values, bool replace) {
     if (!cueLibrary.contains(number)) return false;
     for (auto it = values.begin(); it != values.end(); ++it)
-        if (!channels.contains(it.key()) || !std::isfinite(it->level) || it->level < 0 || it->level > 100 ||
+        if (!controlExists(it.key()) || !std::isfinite(it->level) || it->level < 0 || it->level > 100 ||
             (it->palette && !palettes.contains(it->palette))) return false;
     if (replace) cueLibrary[number].values = values;
     else for (auto it = values.begin(); it != values.end(); ++it) cueLibrary[number].values[it.key()] = it.value();
@@ -155,37 +156,35 @@ Values Engine::output(bool mastered, bool includePark) const {
         out[it.key()] = it.value();
     for (auto it = manual.begin(); it != manual.end(); ++it)
         out[it.key()] = resolve(it.key(), it.value());
+    for (int key : controlIds())
+        if (key < 0 && !out.contains(key)) out[key] = controlDefault(key);
     if (mastered)
         for (auto it = out.begin(); it != out.end(); ++it)
-            it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
+            if (it.key() > 0) it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
     if (includePark)
         for (auto it = parked.begin(); it != parked.end(); ++it)
             out[it.key()] = it.value();
     return out;
 }
 void Engine::toggleCapture() {
+    QList<int> controls;
+    for (int key : controlIds()) if (selection.contains(channelForControl(key))) controls << key;
     bool any = false;
-    for (int c : selection)
-        if (captured.contains(c))
-            any = true;
-    auto live = output(false, false);
-    for (int c : selection) {
-        if (any)
-            captured.remove(c);
+    for (int key : controls) if (captured.contains(key)) any = true;
+    const auto live = output(false, false);
+    for (int key : controls) {
+        if (any) captured.remove(key);
         else {
-            captured.insert(c);
-            if (!manual.contains(c))
-                manual[c] = {live.value(c), 0};
+            captured.insert(key);
+            if (!manual.contains(key)) manual[key] = {live.value(key, controlDefault(key)), 0};
         }
     }
 }
 void Engine::parkSelection(bool enabled) {
-    auto live = output();
-    for (int c : selection) {
-        if (enabled)
-            parked[c] = live.value(c);
-        else
-            parked.remove(c);
+    const auto live = output();
+    for (int key : controlIds()) if (selection.contains(channelForControl(key))) {
+        if (enabled) parked[key] = live.value(key, controlDefault(key));
+        else parked.remove(key);
     }
 }
 void Engine::setBlock(int s, int cue, bool enabled) {
@@ -209,14 +208,16 @@ void Engine::setBlock(int s, int cue, bool enabled) {
 }
 void Engine::editBlind(int s, int cue, int channel, Value value, bool only) {
     if (s < 0 || s >= sequences.size() || cue < 0 || cue >= sequences[s].cues.size() ||
-        !channels.contains(channel))
+        !controlExists(channel))
         return;
     auto before = tracked(s, cue);
     auto &list = sequences[s].cues;
+    list[cue].suppressed.remove(channel);
     list[cue].values[channel] = value;
+    if (list[cue].blocked.contains(channel)) list[cue].blocked[channel] = value;
     if (only && cue + 1 < list.size() && !cueValues(list[cue + 1]).contains(channel) &&
         !list[cue + 1].blocked.contains(channel))
-        list[cue + 1].values[channel] = {before.value(channel), 0};
+        list[cue + 1].values[channel] = {before.value(channel, controlDefault(channel)), 0};
 }
 void Engine::level(double p) {
     for (int c : selection)
@@ -278,9 +279,8 @@ void Engine::recordLook(int s, QString number, QString label, double time, bool 
         return;
     auto live = output(false, false);
     auto saved = manual;
-    for (auto it = channels.begin(); it != channels.end(); ++it)
-        if (!manual.contains(it.key()))
-            manual[it.key()] = {live.value(it.key()), 0};
+    for (int key : controlIds())
+        if (!manual.contains(key)) manual[key] = {live.value(key), 0};
     bool replacing = false;
     for (const auto &c : sequences[s].cues)
         if (c.number == number)
@@ -316,7 +316,7 @@ int Engine::addChannelPage() {
     if (first + ChannelsPerPage - 1 > 10000) return -1;
     QSet<int> used;
     for (int channel : channels.keys())
-        for (int address : dmxAddresses(channel)) used.insert(address);
+        for (int address : occupiedAddresses(channel)) used.insert(address);
     int address = 1;
     for (int channel = first; channel < first + ChannelsPerPage; ++channel) {
         while (used.contains(address)) ++address;
@@ -377,8 +377,9 @@ void Engine::recordSubmaster() {
         s.number = qMax(s.number, existing.number + 1);
     s.name = QString("sub-%1").arg(s.number);
     auto live = output(false, false);
-    if (selection.isEmpty())
-        s.values = live;
+    if (selection.isEmpty()) {
+        for (int key : channels.keys()) s.values[key] = live.value(key);
+    }
     else
         for (int c : selection)
             s.values[c] = live.value(c);
@@ -462,7 +463,7 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
         seq.releasing.clear();
         for (auto it = seq.output.begin(); it != seq.output.end(); ++it)
             if (!target.contains(it.key())) {
-                target[it.key()] = 0;
+                target[it.key()] = controlDefault(it.key());
                 seq.releasing.insert(it.key());
             }
         seq.target.clear();
@@ -476,15 +477,19 @@ void Engine::beginPlayback(Sequence &seq, int idx, Values target, bool assertAll
             continue;
         if (instructions.contains(it.key()))
             seq.releasing.remove(it.key());
-        seq.start[it.key()] = live.value(it.key());
+        seq.start[it.key()] = live.value(it.key(), controlDefault(it.key()));
         seq.target[it.key()] = it.value();
         seq.timings[it.key()] = cue.channelTimes.value(
             it.key(), ChannelTiming{cue.time, cue.down < 0 ? cue.time : cue.down, cue.wait});
+        if (it.key() < 0) {
+            int channel = channelForControl(it.key()), index = (-qint64(it.key()) - 1) % 512;
+            if (fixtureMode(channel).parameters.value(index).snap) seq.timings[it.key()].up = seq.timings[it.key()].down = 0;
+        }
         seq.channelElapsed[it.key()] = 0;
         seq.ownership[it.key()] = seq.stamp;
         if (!captured.contains(it.key()))
             manual.remove(it.key());
-        seq.output[it.key()] = live.value(it.key());
+        seq.output[it.key()] = live.value(it.key(), controlDefault(it.key()));
     }
     seq.duration = 0;
     for (auto it = seq.target.begin(); it != seq.target.end(); ++it) {
@@ -641,13 +646,13 @@ bool Engine::command(QString text, QString *error) {
         return true;
     }
     if (text == "home") {
-        level(0);
+        for (int key : controlIds()) if (selection.contains(channelForControl(key))) manual[key] = {controlDefault(key), 0};
         return true;
     }
     if (text == "release") {
         for (auto it = manual.begin(); it != manual.end();)
             if (!captured.contains(it.key()) &&
-                (selection.isEmpty() || selection.contains(it.key())))
+                (selection.isEmpty() || selection.contains(channelForControl(it.key()))))
                 it = manual.erase(it);
             else
                 ++it;
@@ -657,11 +662,11 @@ bool Engine::command(QString text, QString *error) {
         selection.clear();
         if (text == "select manual") {
             for (int c : manual.keys())
-                selection.insert(c);
+                selection.insert(channelForControl(c));
         } else {
             auto live = output();
             for (auto it = live.begin(); it != live.end(); ++it)
-                if (it.value() > 0)
+                if (it.key() > 0 && it.value() > 0)
                     selection.insert(it.key());
         }
         return true;
@@ -761,7 +766,7 @@ bool Engine::command(QString text, QString *error) {
                 return fail("Group not found");
             selection.clear();
             for (int c : groups[id.toInt()].keys())
-                selection.insert(c);
+                selection.insert(channelForControl(c));
             return true;
         }
         if (type == "intensity") {
@@ -879,7 +884,10 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 2;
+    root["version"] = 3;
+    QJsonObject profiles;
+    for (auto it = fixtureProfiles.begin(); it != fixtureProfiles.end(); ++it) profiles[it.key()] = fixtureJson(it.value());
+    root["fixtureProfiles"] = profiles;
     QJsonArray ch, ps, gs, ss;
     for (auto it = channels.begin(); it != channels.end(); ++it) {
         QJsonArray addresses;
@@ -888,6 +896,8 @@ QJsonObject Engine::json() const {
         ch.append(QJsonObject{{"id", it.key()},
                               {"name", it.value()},
                               {"address", patch.value(it.key())},
+                              {"profile", fixtures.value(it.key()).profile},
+                              {"mode", fixtures.value(it.key()).mode},
                               {"addresses", addresses}});
     }
     auto saveValues = [](const QMap<int, Values> &source) {
@@ -915,7 +925,8 @@ QJsonObject Engine::json() const {
             for (auto it = c.blocked.begin(); it != c.blocked.end(); ++it)
                 blocked[QString::number(it.key())] =
                     QJsonObject{{"level", it->level}, {"palette", it->palette}};
-            cs.append(QJsonObject{{"blocked", blocked},
+            QJsonArray suppressed; for (int key : c.suppressed) suppressed << key;
+            cs.append(QJsonObject{{"suppressed", suppressed}, {"blocked", blocked},
                                   {"number", c.number},
                                   {"reference", c.reference},
                                   {"block", c.block},
@@ -963,10 +974,18 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || (r["version"].toInt() != 1 && r["version"].toInt() != 2) || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 3) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;
+    if (r.contains("fixtureProfiles")) {
+        const auto profiles = r["fixtureProfiles"].toObject();
+        for (auto it = profiles.begin(); it != profiles.end(); ++it) {
+            FixtureProfile profile; QString issue;
+            if (!fixtureFromJson(it.value().toObject(), profile, issue)) return fail();
+            e.fixtureProfiles[it.key()] = profile;
+        }
+    }
     e.channels.clear();
     e.patch.clear();
     e.sequences.clear();
@@ -974,11 +993,11 @@ bool Engine::load(const QJsonObject &r, QString *error) {
     for (auto x : r["channels"].toArray()) {
         auto o = x.toObject();
         int id = o["id"].toInt();
-        if (id < 1 || e.channels.contains(id))
+        if (id < 1 || id > 10000 || e.channels.contains(id))
             return fail();
         QList<int> targets;
         if (o.contains("addresses")) {
-            if (!o["addresses"].isArray() || o["addresses"].toArray().isEmpty())
+            if (!o["addresses"].isArray())
                 return fail();
             for (auto value : o["addresses"].toArray()) {
                 int a = value.toInt(-1);
@@ -995,9 +1014,13 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             targets << a;
         }
         e.channels[id] = o["name"].toString();
-        e.patch[id] = targets.takeFirst();
+        FixtureAssignment assignment{o["profile"].toString("dimmer8"), o["mode"].toInt()};
+        if (!e.fixtureProfiles.contains(assignment.profile) || assignment.mode < 0 || assignment.mode >= e.fixtureProfiles[assignment.profile].modes.size()) return fail();
+        e.fixtures[id] = assignment;
+        if (!targets.isEmpty()) e.patch[id] = targets.takeFirst();
         e.additionalPatch[id] = targets;
     }
+    if (!e.patchErrors().isEmpty()) return fail();
     for (QString key : {"palettes", "groups"})
         for (auto x : r[key].toArray()) {
             auto o = x.toObject();
@@ -1005,7 +1028,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             auto vo = o["values"].toObject();
             for (auto it = vo.begin(); it != vo.end(); ++it) {
                 double n = it.value().toDouble(-1);
-                if (!e.channels.contains(it.key().toInt()) || n < 0 || n > 100)
+                if (!e.controlExists(it.key().toInt()) || n < 0 || n > 100)
                     return fail();
                 v[it.key().toInt()] = n;
             }
@@ -1022,7 +1045,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
         for (auto it = values.begin(); it != values.end(); ++it) {
             auto value = it.value().toObject();
             double level = value["level"].toDouble(-1); int palette = value["palette"].toInt();
-            if (!e.channels.contains(it.key().toInt()) || !std::isfinite(level) || level < 0 || level > 100 ||
+            if (!e.controlExists(it.key().toInt()) || !std::isfinite(level) || level < 0 || level > 100 ||
                 (palette && !e.palettes.contains(palette))) return fail();
             cue.values[it.key().toInt()] = {level, palette};
         }
@@ -1052,12 +1075,15 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             c.label = co["label"].toString();
             c.block = co["block"].toBool();
             c.asserted = co["assert"].toBool();
+            for (auto key : co["suppressed"].toArray()) {
+                if (!e.controlExists(key.toInt())) return fail(); c.suppressed.insert(key.toInt());
+            }
             auto blocked = co["blocked"].toObject();
             for (auto it = blocked.begin(); it != blocked.end(); ++it) {
                 auto o = it.value().toObject();
                 double level = o["level"].toDouble(-1);
                 int palette = o["palette"].toInt();
-                if (!e.channels.contains(it.key().toInt()) || level < 0 || level > 100 ||
+                if (!e.controlExists(it.key().toInt()) || level < 0 || level > 100 ||
                     (palette && !e.palettes.contains(palette)))
                     return fail();
                 c.blocked[it.key().toInt()] = {level, palette};
@@ -1096,7 +1122,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 auto o = it.value().toObject();
                 ChannelTiming t{o["up"].toDouble(-1), o["down"].toDouble(-1),
                                 o["wait"].toDouble(-1)};
-                if (!e.channels.contains(it.key().toInt()) || t.up < 0 || t.down < 0 ||
+                if (!e.controlExists(it.key().toInt()) || t.up < 0 || t.down < 0 ||
                     t.wait < 0 || !std::isfinite(t.up) || !std::isfinite(t.down) ||
                     !std::isfinite(t.wait))
                     return fail();
@@ -1109,7 +1135,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 auto v = it.value().toObject();
                 double l = v["level"].toDouble(-1);
                 int p = v["palette"].toInt();
-                if (!e.channels.contains(it.key().toInt()) || l < 0 || l > 100 ||
+                if (!e.controlExists(it.key().toInt()) || l < 0 || l > 100 ||
                     (p && !e.palettes.contains(p)))
                     return fail();
                 c.values[it.key().toInt()] = {l, p};

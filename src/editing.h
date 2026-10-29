@@ -38,6 +38,34 @@ class EditHistory {
         for (auto &sub : definitions.submasters)
             for (const auto &live : engine.submasters)
                 if (sub.number == live.number) sub.level = live.level;
+        // Undo may remove a fixture definition while its parameters are live. Do not
+        // reinterpret an ordinal control key as a different fixture's parameter.
+        QSet<int> incompatible;
+        for (int channel : engine.channels.keys()) {
+            const auto oldAssignment = engine.fixtures.value(channel), nextAssignment = definitions.fixtures.value(channel);
+            if (oldAssignment.profile != nextAssignment.profile || oldAssignment.mode != nextAssignment.mode ||
+                fixtureJson(engine.fixtureProfiles.value(oldAssignment.profile)) != fixtureJson(definitions.fixtureProfiles.value(nextAssignment.profile)))
+                incompatible.insert(channel);
+        }
+        auto purge = [&](auto &values) {
+            for (auto it = values.begin(); it != values.end();)
+                if (it.key() < 0 && incompatible.contains(engine.channelForControl(it.key()))) it = values.erase(it);
+                else ++it;
+        };
+        purge(engine.manual); purge(engine.parked); purge(engine.pixels);
+        for (auto it = engine.captured.begin(); it != engine.captured.end();)
+            if (*it < 0 && incompatible.contains(engine.channelForControl(*it))) it = engine.captured.erase(it);
+            else ++it;
+        auto purgePlayback = [&](Sequence &s) {
+            purge(s.output); purge(s.start); purge(s.target); purge(s.timings); purge(s.channelElapsed); purge(s.ownership);
+            for (auto it = s.releasing.begin(); it != s.releasing.end();)
+                if (*it < 0 && incompatible.contains(engine.channelForControl(*it))) it = s.releasing.erase(it);
+                else ++it;
+        };
+        for (auto &s : definitions.sequences) purgePlayback(s);
+        for (auto &s : engine.linkedPlaybacks) purgePlayback(s);
+        engine.fixtureProfiles = definitions.fixtureProfiles;
+        engine.fixtures = definitions.fixtures;
         engine.channels = definitions.channels;
         engine.patch = definitions.patch;
         engine.additionalPatch = definitions.additionalPatch;
