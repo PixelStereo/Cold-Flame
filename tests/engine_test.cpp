@@ -8,6 +8,20 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void gdtfExportRejectsLossyAndInvalidNativeDefinitions() {
+        auto profile = genericFixtures().value("dimmer8");
+        profile.modes[0].footprint = 3;
+        QVERIFY(writeGdtf(profile).isEmpty()); // GDTF would otherwise reload as one slot.
+        profile.modes[0].parameters << FixtureParameter{"NoFeature", {3}, 0};
+        const auto bytes = writeGdtf(profile); QVERIFY(!bytes.isEmpty());
+        FixtureProfile loaded; QString issue; QVERIFY2(readGdtf(bytes, loaded, issue), qPrintable(issue));
+        QCOMPARE(loaded.modes[0].footprint, 3);
+        profile.modes[0].parameters[0].offsets.clear(); QVERIFY(writeGdtf(profile).isEmpty());
+        profile.modes[0].parameters[0].offsets = {1,2,3,4,5,6,7,8}; profile.modes[0].footprint = 8;
+        QVERIFY(writeGdtf(profile).isEmpty());
+        profile = genericFixtures().value("dimmer8"); profile.modes[0].parameters[0].attribute = "Pan";
+        QVERIFY(writeGdtf(profile).isEmpty()); // Intensity interpretation must survive export/import.
+    }
     void submasterCommandsUseStableNumbers() {
         Engine e; Submaster sub; sub.number = 7; sub.values[1] = 80; e.submasters << sub;
         QVERIFY(e.command("Sub 7 At 50")); QCOMPARE(e.output()[1], 40.);

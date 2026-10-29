@@ -1528,6 +1528,7 @@ class Console : public QMainWindow {
             refresh();
         });
         auto fixtures = menuBar()->addMenu("Fixtures");
+        fixtures->addAction("Define fixture…", this, [this] { channelTabs->setCurrentIndex(1); patchPanel->defineFixture(); });
         fixtures->addAction("Patch fixtures / import and export…", this, [this] { patch(); });
         fixtures->addAction("Live parameters…", this, [this] { channelTabs->setCurrentWidget(parameterPanel); });
         fixtures->addAction("Inspect GDTF profile…", this, [this] {
@@ -1671,6 +1672,18 @@ int main(int argc, char **argv) {
             tabs->setCurrentIndex(2);
             w.findChild<QPushButton *>("addDmxOutput")->click();
             QTimer::singleShot(150, [&w] { w.grab().save("network-preview.png"); });
+        });
+    if (app.arguments().contains("--fixture-editor-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            w.findChild<QTabWidget *>("channelTabs")->setCurrentIndex(1);
+            auto patch = static_cast<PatchDialog *>(w.findChild<QDialog *>("patchDialog"));
+            auto table = patch->findChild<QTableWidget *>("patchBank0");
+            for (int row = 0; row < table->rowCount(); ++row)
+                if (qobject_cast<QComboBox *>(table->cellWidget(row, 3))->currentData().toString() == "moving-rgbw") { table->selectRow(row); break; }
+            QTimer::singleShot(100, &w, [&w] {
+                if (auto editor = w.findChild<QDialog *>("fixtureEditor")) { editor->grab().save("fixture-editor-preview.png"); editor->reject(); }
+            });
+            patch->defineFixture(table->currentRow() >= 0);
         });
     if (app.arguments().contains("--submasters-screenshot"))
         QTimer::singleShot(50, [&w] {

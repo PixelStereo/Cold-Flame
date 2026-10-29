@@ -1,6 +1,7 @@
 #define FLAME_NO_MAIN
 #include "../src/main.cpp"
 #include <QtTest>
+#include "fixtureeditor.h"
 class UiTests : public QObject {
     Q_OBJECT
     static void dropStep(StepTable *table, int source, int beforeRow, bool gutter = false) {
@@ -28,6 +29,110 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void batchPatchConflictIncludesFineByteAndKeepsOtherCopies() {
+        Engine engine; engine.fixtures[9] = {"dimmer16", 0}; engine.patch[9] = 513; engine.additionalPatch[9] = {1025};
+        PatchDialog patch(engine); patch.show();
+        patch.findChild<QSpinBox *>("patchChannelCount")->setValue(2);
+        patch.findChild<QSpinBox *>("patchUniverse")->setValue(2);
+        patch.findChild<QSpinBox *>("patchStartAddress")->setValue(2);
+        patch.findChild<QPushButton *>("patchRangeButton")->click();
+        auto resolve = patch.findChild<QPushButton *>("resolvePatchConflictsButton"); QVERIFY(!resolve->isHidden());
+        QTimer::singleShot(0, &patch, [&] {
+            if (auto dialog = patch.findChild<QDialog *>("patchConflictDialog")) dialog->findChild<QPushButton *>("confirmUnpatchConflicts")->click();
+        });
+        resolve->click(); QVERIFY(patch.apply());
+        QCOMPARE(engine.dmxAddresses(9), QList<int>({1025})); // Fine-byte collision unpatches its complete two-slot copy.
+        QCOMPARE(engine.dmxAddresses(121), QList<int>({514})); QCOMPARE(engine.dmxAddresses(122), QList<int>({515}));
+        QCOMPARE(engine.dmxAddresses(10), QList<int>({10})); QVERIFY(engine.patchErrors().isEmpty());
+    }
+    void patchConflictResolutionPreservesOtherStartsAndCueData() {
+        Engine engine; engine.additionalPatch[10] = {1025}; engine.manual[10] = {70, 0}; engine.storeCue("10");
+        const QJsonValue cue = engine.json().value("cueLibrary");
+        PatchDialog patch(engine); patch.show();
+        auto table = patch.findChild<QTableWidget *>("patchBank0");
+        auto fixture = qobject_cast<QComboBox *>(table->cellWidget(0, 3)); fixture->setCurrentIndex(fixture->findData("rgb"));
+        table->item(0, 2)->setText("1.010");
+        auto resolve = patch.findChild<QPushButton *>("resolvePatchConflictsButton");
+        QVERIFY(!resolve->isHidden()); QVERIFY(!patch.apply());
+        bool previewed = false;
+        QTimer::singleShot(0, &patch, [&] {
+            auto dialog = patch.findChild<QDialog *>("patchConflictDialog"); if (!dialog) return;
+            const auto text = dialog->findChild<QPlainTextEdit *>()->toPlainText();
+            previewed = text.contains("CH 10") && text.contains("1.010") && text.contains("3.001") && text.contains("CH 12");
+            dialog->reject();
+        });
+        resolve->click(); QVERIFY(previewed); QCOMPARE(engine.patch[10], 10); QCOMPARE(table->item(9, 2)->text(), QString("1.010, 3.001"));
+        QTimer::singleShot(0, &patch, [&] {
+            auto dialog = patch.findChild<QDialog *>("patchConflictDialog"); if (dialog) dialog->findChild<QPushButton *>("confirmUnpatchConflicts")->click();
+        });
+        resolve->click(); QVERIFY(resolve->isHidden());
+        QCOMPARE(engine.patch[10], 10); // Confirmation edits the draft, not live output.
+        QCOMPARE(table->item(9, 2)->text(), QString("3.001"));
+        QVERIFY(patch.apply()); QCOMPARE(engine.dmxAddresses(1), QList<int>({10}));
+        QCOMPARE(engine.dmxAddresses(10), QList<int>({1025})); QVERIFY(engine.dmxAddresses(11).isEmpty()); QVERIFY(engine.dmxAddresses(12).isEmpty());
+        QCOMPARE(engine.json().value("cueLibrary"), cue); QCOMPARE(engine.manual[10].level, 70.);
+        // A universe crossing or overlapping copies of the new fixture need correction, not unpatching others.
+        table->item(0, 2)->setText("1.512"); QVERIFY(resolve->isHidden());
+        table->item(0, 2)->setText("1.010, 1.011"); QVERIFY(resolve->isHidden());
+    }
+    void fixtureDefinitionEditorModesValidationAndRoundtrip() {
+        FixtureEditor editor; editor.show(); QCoreApplication::processEvents();
+        editor.findChild<QLineEdit *>("fixtureName")->setText("Tour spot");
+        auto table = editor.findChild<QTableWidget *>("fixtureParameters");
+        auto save = editor.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save);
+        editor.findChild<QPushButton *>("addFixtureParameter")->click();
+        qobject_cast<QComboBox *>(table->cellWidget(1, 0))->setCurrentText("Pan");
+        table->item(1, 2)->setText("2,3"); table->item(1, 3)->setText("32768");
+        QVERIFY(save->isEnabled()); QCOMPARE(table->item(1, 1)->text(), QString("16 bit"));
+        table->item(1, 2)->setText("1,3"); QVERIFY(!save->isEnabled());
+        QVERIFY(editor.findChild<QLabel *>("fixtureDefinitionError")->text().contains("Overlapping"));
+        table->item(1, 2)->setText("2,3"); table->item(1, 3)->setText("65536"); QVERIFY(!save->isEnabled());
+        table->item(1, 3)->setText("32768"); QVERIFY(save->isEnabled());
+        editor.findChild<QPushButton *>("copyFixtureMode")->click();
+        QCOMPARE(editor.findChild<QListWidget *>("fixtureModes")->count(), 2);
+        editor.findChild<QLineEdit *>("fixtureModeName")->setText("Wide");
+        table->item(1, 2)->setText("4,2,5,3"); table->item(1, 3)->setText("2147483648");
+        table->item(1, 4)->setCheckState(Qt::Checked); QVERIFY(save->isEnabled());
+        auto profile = editor.profile(); QCOMPARE(profile.modes.size(), 2); QVERIFY(profile.source.isEmpty());
+        QCOMPARE(profile.modes[0].footprint, 3); QCOMPARE(profile.modes[1].footprint, 5);
+        QCOMPARE(profile.modes[1].parameters[1].offsets, QList<int>({4,2,5,3}));
+        FixtureProfile restored; QString issue;
+        QVERIFY2(readGdtf(writeGdtf(profile), restored, issue), qPrintable(issue));
+        QCOMPARE(restored.modes[1].parameters[1].offsets, profile.modes[1].parameters[1].offsets);
+        QVERIFY(restored.modes[1].parameters[1].snap);
+        Engine engine; engine.fixtureProfiles["tour"] = profile; engine.fixtures[1] = {"tour", 1}; engine.patch[1] = 513;
+        engine.manual[1] = {100, 0}; const auto frame = engine.dmxFrames()[1];
+        QCOMPARE(quint8(frame[0]), 255); QCOMPARE(quint8(frame[3]), 128); QCOMPARE(quint8(frame[1]), 0);
+        Engine loaded; QVERIFY(loaded.load(engine.json())); QCOMPARE(loaded.fixtureProfiles["tour"].modes.size(), 2);
+        // Deleting every parameter must not trap the editor in an unrecoverable state.
+        while (table->rowCount()) { table->selectRow(0); editor.findChild<QPushButton *>("removeFixtureParameter")->click(); }
+        QVERIFY(!save->isEnabled()); editor.findChild<QPushButton *>("addFixtureParameter")->click(); QVERIFY(save->isEnabled());
+    }
+    void fixtureDefinitionPatchDraftAndUsedProfileCopy() {
+        Engine engine; engine.fixtures[1] = {"moving-rgbw", 0}; engine.patch[1] = 513;
+        const int pan = engine.parameterKey(1, 0); engine.manual[pan] = {25, 0};
+        const auto original = fixtureJson(engine.fixtureProfiles["moving-rgbw"]); const int count = engine.fixtureProfiles.size();
+        PatchDialog patch(engine); patch.show(); auto table = patch.findChild<QTableWidget *>("patchBank0"); table->selectRow(0);
+        bool edited = false;
+        QTimer::singleShot(0, &patch, [&] {
+            auto dialog = patch.findChild<QDialog *>("fixtureEditor"); if (!dialog) return;
+            edited = true; dialog->findChild<QLineEdit *>("fixtureName")->setText("Custom tour spot");
+            dialog->findChild<QTableWidget *>("fixtureParameters")->item(0, 3)->setText("40000");
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        });
+        patch.defineFixture(true); QVERIFY(edited); QCOMPARE(engine.fixtureProfiles.size(), count);
+        QCOMPARE(fixtureJson(engine.fixtureProfiles["moving-rgbw"]), original);
+        QVERIFY(patch.apply()); QCOMPARE(engine.fixtureProfiles.size(), count + 1);
+        QCOMPARE(engine.fixtures[1].profile, QString("moving-rgbw")); QCOMPARE(engine.manual[pan].level, 25.);
+        auto modes = patch.findChild<QComboBox *>("batchFixtureMode"); const QString newId = modes->currentData().toString();
+        QVERIFY(newId != "moving-rgbw"); QCOMPARE(engine.fixtureProfiles[newId].name, QString("Custom tour spot"));
+        auto fixture = qobject_cast<QComboBox *>(table->cellWidget(0, 3));
+        fixture->setCurrentIndex(fixture->findData(newId)); QVERIFY(!patch.apply()); // Existing parameter data is preserved.
+        QCOMPARE(engine.fixtures[1].profile, QString("moving-rgbw"));
+        patch.reload();
+        QTimer::singleShot(0, &patch, [&] { if (auto dialog = patch.findChild<QDialog *>("fixtureEditor")) dialog->reject(); });
+        patch.defineFixture(); QVERIFY(patch.apply()); QCOMPARE(engine.fixtureProfiles.size(), count + 1);
+    }
     void submasterTimesAcceptTypedInput() {
         Engine e; Submaster sub; sub.values[1] = 80; e.submasters << sub;
         QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();

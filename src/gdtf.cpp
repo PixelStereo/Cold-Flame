@@ -215,6 +215,18 @@ static void put16(QByteArray &b, quint16 n) { b.append(char(n)); b.append(char(n
 static void put32(QByteArray &b, quint32 n) { put16(b, n & 65535); put16(b, n >> 16); }
 QByteArray writeGdtf(const FixtureProfile &p) {
     if (!p.source.isEmpty()) return p.source;
+    if (p.name.trimmed().isEmpty() || p.manufacturer.trimmed().isEmpty() || p.modes.isEmpty()) return {};
+    for (const auto &mode : p.modes) {
+        QString issue; if (!validateMode(mode, issue)) return {};
+        int last = 0;
+        for (const auto &parameter : mode.parameters) {
+            if (parameter.intensity != (parameter.attribute == "Dimmer")) return {};
+            for (int offset : parameter.offsets) last = qMax(last, offset);
+        }
+        // GDTF derives its footprint from occupied offsets; it has no independent
+        // trailing reservation. Refuse an export that would silently shrink it.
+        if (last != mode.footprint) return {};
+    }
     QByteArray xml; QXmlStreamWriter w(&xml); w.setAutoFormatting(true); w.writeStartDocument();
     w.writeStartElement("GDTF"); w.writeAttribute("DataVersion", "1.2"); w.writeStartElement("FixtureType");
     w.writeAttribute("Name", p.name); w.writeAttribute("ShortName", p.name); w.writeAttribute("LongName", p.name);

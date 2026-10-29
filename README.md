@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.9.0: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.10.0: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -146,3 +146,5 @@ Color palettes are stored independently and referenced by cues. RGB recordings i
 ![Color palette bank](color-palettes-preview.png)
 
 Submasters now support additive HTP or inhibitive intensity, with timed bump controls (Up / Dwell / Down; Manual, Hold or Timed). See [Submaster operation](docs/SUBMASTERS.md).
+
+Create custom fixture definitions from **Patch → Define fixture…**. The editor supports multiple modes, attributes, byte offsets, raw DMX home values and Snap. **Unpatch conflicting outputs…** previews how to free occupied slots for a new patch. See [fixture definitions](docs/FIXTURE-EDITOR.md).

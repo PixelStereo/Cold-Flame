@@ -11,6 +11,9 @@ class PatchDialog : public QDialog {
     QLineEdit *filter;
     QSpinBox *first, *count, *universe, *address;
     QComboBox *batchFixture;
+    QSet<int> patchTargets;
+    bool conflictPlan(const Flame::Engine &draft, QMap<int, QList<int>> &remaining, QStringList &details) const;
+    void resolveConflicts();
     void appendRow(QTableWidget *table, int channel, QString name, int absolute,
                    Flame::FixtureAssignment assignment = {}, QList<int> extra = {});
     void populate();
@@ -26,4 +29,5 @@ class PatchDialog : public QDialog {
                          std::function<void()> onApply = {});
     void reload();
     bool apply();
+    void defineFixture(bool copySelected = false);
 };

@@ -1,4 +1,4 @@
-# Fixtures, patch and tracking (0.9)
+# Fixtures, patch and tracking (0.10)
 
 A console channel represents one fixture. Its intensity remains visible in the channel grid; its other parameters belong to that same channel in Parameters and Tracking. This follows the Eos [channel/fixture concept](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/06_Patch/About_Patch.htm). Shared reusable looks and repeated sequence occurrences retain Cold Flame's Congo/Cobalt-style model.
 
@@ -6,8 +6,10 @@ A console channel represents one fixture. Its intensity remains visible in the c
 
 1. Open **Patch**. Select a fixture/mode in its row, then enter its DMX start address, such as `2.001`. Several comma-separated starts drive identical copies of that fixture. Clear the address to unpatch, retaining the channel and its stored data.
 2. Use **Batch…** to add or repatch a range. Its stride is the fixture footprint; the next fixture moves to the next universe when it will not fit. Batch is a draft operation.
-3. Check the validation message. Both owners of an overlap are highlighted. **Apply patch** is unavailable until the whole draft is valid. Failed validation leaves the active patch unchanged.
+3. Check the validation message. Both owners of an overlap are highlighted. **Apply patch** is unavailable until the whole draft is valid. Failed validation leaves the active patch unchanged. If a newly entered patch overlaps existing outputs, **Unpatch conflicting outputs…** offers a preview. Confirming removes only the conflicting fixture starts from the draft, preserving other copies and stored channel data. **Apply patch** commits the result. Universe crossings and overlaps between the new fixture’s own copies still require correction.
 4. **Art-Net broadcast is active at application startup**. In **Network**, adjust its interface/range or use Stop all. Existing broadcast settings are reused; a default route is added if needed. Other saved routes remain off. Art-Net uses broadcast; sACN supports multicast. Opening another show later disables outputs.
+
+Use **Define fixture…** to create a custom definition, or **Patch tools → Edit / copy selected fixture…** to work from an existing definition. See [Fixture editor](FIXTURE-EDITOR.md).
 
 Profiles include Dimmer 8-bit, Dimmer 16-bit, RGB, RGBW, Dimmer + RGB and an explicitly generic 11-slot RGBW moving head. The generic mover is a layout example, not a claim that every moving head uses those slots. Choose the actual manufacturer's GDTF profile and the exact mode configured on the fixture.
 
@@ -29,7 +31,7 @@ Changing start addresses keeps parameter identities and is supported with existi
 
 Open **Parameters**, then select the fixture. Double-clicking a dimmer tile also opens Parameters. The panel exposes intensity and each DMX parameter, its resolution and manual status. Drag a numeric field sideways, or click to type. Home parameters loads non-intensity defaults; Release fixture clears its manual values except captured controls.
 
-Record stores the unmastered look, including fixture parameters and their defaults; Record Only stores manual controls. Update, shared-cue content editing, local tracking edits, fades and show files preserve parameter data. Grand master and blackout affect intensity, leaving position/color/beam values unchanged. RGB/RGBW profiles without a physical dimmer use the channel intensity to scale additive colors. Submasters remain HTP intensity only. Capture, Park, Home and selected-channel Release include the fixture's parameters; Park remains excluded from recordings.
+Record stores the unmastered look, including fixture parameters and their defaults; Record Only stores manual controls. Update, shared-cue content editing, local tracking edits, fades and show files preserve parameter data. Grand master and blackout affect intensity, leaving position/color/beam values unchanged. RGB/RGBW profiles without a physical dimmer use the channel intensity to scale additive colors. Submasters support additive HTP and inhibitive intensity with timed bumps. Capture, Park, Home and selected-channel Release include the fixture's parameters; Park remains excluded from recordings.
 
 ## Choose a color from the channel grid
 

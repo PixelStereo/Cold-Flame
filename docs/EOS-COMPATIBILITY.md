@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.9
+# Eos behavior audit — development version 0.10
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
@@ -81,3 +81,9 @@ Version 0.8 adds independent Color Palettes referenced by cue parameter data, di
 ## Version 0.9: submaster operation
 
 Additive/inhibitive intensity and Manual/Hold/Timed bump follow the documented home/target and Up/Dwell/Down concepts. Tests cover partial release, zero-time flash, timed overshoot, fader override, Park, recording, definition Undo, legacy loading and Qt operation. Inhibitors reset to Full on show load; additive subs reset to Out. The lowest overlapping inhibitive fader applies in Cold Flame; equivalent overlap behavior has not been verified against an Eos console. Full priority/exclusion and non-intensity behavior remain outside this implementation. See [SUBMASTERS.md](SUBMASTERS.md).
+
+## Version 0.10: fixture definitions and patch conflicts
+
+The fixture-definition editor follows the Eos New/Copy, parameter, coarse/fine address, raw Home and Snap workflow. It supports multiple direct DMX modes and 8/16/24/32-bit parameters. Copying an assigned definition preserves the original parameter identities; fixture replacement with stored parameter data still requires migration support. See [FIXTURE-EDITOR.md](FIXTURE-EDITOR.md) for implemented scope and the official reference.
+
+Patch conflict resolution previews conflicting starts and preserves unaffected copies, channels and cue data. Self-overlapping new fixtures and universe crossings remain errors. This is an explicit Cold Flame workflow; identical Eos conflict-dialog behavior is not claimed.

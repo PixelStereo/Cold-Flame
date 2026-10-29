@@ -1,5 +1,7 @@
 #include "tabledelegate.h"
 #include "patchdialog.h"
+#include "fixtureeditor.h"
+#include <algorithm>
 using namespace Flame;
 static QString targetText(int absolute) {
     return absolute > 0 ? QString("%1.%2").arg((absolute - 1) / 512 + 1).arg((absolute - 1) % 512 + 1, 3, 10, QChar('0')) : QString();
@@ -16,8 +18,12 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
     auto toolbar = new QHBoxLayout; toolbar->setSpacing(8);
     filter = new QLineEdit; filter->setPlaceholderText("Filter channel, label, fixture or address…"); toolbar->addWidget(filter, 1);
     auto batchToggle = new QPushButton("Batch…"); toolbar->addWidget(batchToggle);
+    auto define = new QPushButton("Define fixture…"); define->setObjectName("defineFixtureButton"); toolbar->addWidget(define);
+    connect(define, &QPushButton::clicked, this, [this] { defineFixture(); });
     auto more = new QPushButton("Patch tools ▾"); more->setObjectName("patchToolsButton"); toolbar->addWidget(more);
     auto menu = new QMenu(more);
+    auto editDefinition = menu->addAction("Edit / copy selected fixture…", this, [this] { defineFixture(true); });
+    editDefinition->setObjectName("editFixtureDefinitionAction"); menu->addSeparator();
     menu->addAction("Import GDTF profile…", this, [this] { importProfile(); });
     menu->addAction("Export selected fixture as GDTF…", this, [this] { exportProfile(); }); menu->addSeparator();
     menu->addAction("Import patch…", this, [this] { importPatch(); });
@@ -51,11 +57,17 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
     first = spin("First channel", 1, 10000, e.channels.isEmpty() ? 1 : e.channels.lastKey() + 1, 0, 0);
     count = spin("Count", 1, 10000, 1, 0, 2);
     universe = spin("Universe", 1, 63999, 1, 1, 0); address = spin("Address", 1, 512, 1, 1, 2);
+    first->setObjectName("patchFirstChannel"); count->setObjectName("patchChannelCount");
+    universe->setObjectName("patchUniverse"); address->setObjectName("patchStartAddress");
     batchFixture = new QComboBox; batchFixture->setObjectName("batchFixtureMode"); fillModes(batchFixture);
     batch->addWidget(new QLabel("Fixture / mode"), 2, 0); batch->addWidget(batchFixture, 2, 1, 1, 3);
-    auto add = new QPushButton("Add / repatch range"); batch->addWidget(add, 3, 0, 1, 4); layout->addWidget(batchWidget);
+    auto add = new QPushButton("Add / repatch range"); add->setObjectName("patchRangeButton"); batch->addWidget(add, 3, 0, 1, 4); layout->addWidget(batchWidget);
     batchWidget->setVisible(!embedded); connect(batchToggle, &QPushButton::clicked, this, [batchWidget] { batchWidget->setVisible(!batchWidget->isVisible()); });
     error = new QLabel; error->setObjectName("patchError"); error->setStyleSheet("color:#e0c998;"); error->setWordWrap(true); layout->addWidget(error);
+    auto resolve = new QPushButton("Unpatch conflicting outputs…"); resolve->setObjectName("resolvePatchConflictsButton");
+    resolve->setStatusTip("Preview the fixture starts that overlap the patch you just entered. Confirm to remove those starts from the draft.");
+    layout->addWidget(resolve, 0, Qt::AlignLeft);
+    connect(resolve, &QPushButton::clicked, this, [this] { resolveConflicts(); });
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel); layout->addWidget(buttons);
     buttons->button(QDialogButtonBox::Save)->setText("Apply patch"); buttons->button(QDialogButtonBox::Save)->setObjectName("applyPatchButton");
     if (embedded) buttons->button(QDialogButtonBox::Cancel)->setText("Revert draft");
@@ -63,7 +75,10 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
         if (apply()) { if (this->onApply) this->onApply(); if (!this->embedded) accept(); }
     });
     connect(buttons, &QDialogButtonBox::rejected, this, [this] { if (this->embedded) reload(); else reject(); });
-    connect(table, &QTableWidget::itemChanged, this, [this] { validate(); });
+    connect(table, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
+        if (item->column() == 2) patchTargets = {banks[0]->item(item->row(), 0)->text().toInt()};
+        validate();
+    });
     connect(filter, &QLineEdit::textChanged, this, [this](QString text) {
         auto t = banks[0];
         for (int r = 0; r < t->rowCount(); ++r) {
@@ -89,6 +104,7 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
             if (row < 0) appendRow(t, id, QString("Channel %1").arg(id), starts[i], selected);
             else { QSignalBlocker block(t); t->item(row, 2)->setText(targetText(starts[i])); fillModes(qobject_cast<QComboBox *>(t->cellWidget(row, 3)), selected); }
         }
+        patchTargets.clear(); for (int i = 0; i < starts.size(); ++i) patchTargets.insert(first->value() + i);
         validate();
     });
     populate(); validate();
@@ -110,18 +126,33 @@ void PatchDialog::appendRow(QTableWidget *t, int id, QString name, int absolute,
     QStringList fields{QString::number(id), name, targets.join(", "), "", QString::number(engine.output().value(id), 'f', 0) + " %"};
     for (int c = 0; c < fields.size(); ++c) { auto item = new QTableWidgetItem(fields[c]); if (c == 0 || c >= 3) item->setFlags(item->flags() & ~Qt::ItemIsEditable); t->setItem(r, c, item); }
     auto combo = new QComboBox; combo->setObjectName(QString("fixtureMode%1").arg(id)); fillModes(combo, mode); t->setCellWidget(r, 3, combo);
-    connect(combo, &QComboBox::currentIndexChanged, this, [this] { validate(); });
+    connect(combo, &QComboBox::currentIndexChanged, this, [this, id] { patchTargets = {id}; validate(); });
 }
 void PatchDialog::populate() {
     for (auto i = engine.channels.begin(); i != engine.channels.end(); ++i)
         appendRow(banks[0], i.key(), i.value(), engine.patch.value(i.key()), engine.fixtures.value(i.key()), engine.additionalPatch.value(i.key()));
 }
 void PatchDialog::reload() {
+    patchTargets.clear();
     profiles = engine.fixtureProfiles; fillModes(batchFixture);
     { QSignalBlocker blocker(banks[0]); banks[0]->setRowCount(0); }
     filter->clear(); populate(); validate();
 }
 bool PatchDialog::buildDraft(Engine &draft, QString &issue) const {
+    // A profile ID also identifies the ordering of stored parameter keys.
+    // Never reinterpret a fixture already present in the active show.
+    QSet<QString> checked;
+    for (int channel : engine.channels.keys()) {
+        const QString id = engine.fixtures.value(channel).profile;
+        if (checked.contains(id)) continue;
+        checked.insert(id);
+        auto proposed = profiles.value(id), existing = engine.fixtureProfiles.value(id);
+        const bool sameArchive = proposed.source == existing.source;
+        proposed.source.clear(); existing.source.clear();
+        if (!sameArchive || fixtureJson(proposed) != fixtureJson(existing)) {
+            issue = QString("Channel %1 uses a changed fixture definition. Save the definition as a copy.").arg(channel); return false;
+        }
+    }
     draft = engine; draft.fixtureProfiles = profiles; draft.patch.clear(); draft.additionalPatch.clear();
     QSet<int> ids; auto t = banks[0];
     for (int r = 0; r < t->rowCount(); ++r) {
@@ -161,6 +192,66 @@ void PatchDialog::validate() {
     summary->setText(QString("%1 CHANNELS · %2 PATCHED · %3 DMX SLOTS · %4 UNIVERSES").arg(table->rowCount()).arg(patched).arg(slotCount).arg(universes.size()));
     error->setText(issue); error->setProperty("valid", parsed && issues.isEmpty());
     findChild<QPushButton *>("applyPatchButton")->setEnabled(parsed && issues.isEmpty());
+    QMap<int, QList<int>> remaining; QStringList details;
+    findChild<QPushButton *>("resolvePatchConflictsButton")->setVisible(parsed && !issues.isEmpty() && conflictPlan(draft, remaining, details));
+}
+bool PatchDialog::conflictPlan(const Engine &draft, QMap<int, QList<int>> &remaining, QStringList &details) const {
+    QList<QPair<int, int>> requested;
+    for (int channel : patchTargets) {
+        const auto mode = draft.fixtureMode(channel); QString issue;
+        if (!validateMode(mode, issue)) return false;
+        for (int start : draft.dmxAddresses(channel)) {
+            if (start < 1 || start > 63999 * 512 || (start - 1) % 512 + mode.footprint > 512) return false;
+            requested << qMakePair(start, start + mode.footprint - 1);
+        }
+    }
+    if (requested.isEmpty()) return false;
+    std::sort(requested.begin(), requested.end());
+    for (int i = 1; i < requested.size(); ++i) if (requested[i].first <= requested[i - 1].second) return false;
+    for (int channel : draft.channels.keys()) {
+        if (patchTargets.contains(channel)) continue;
+        QStringList removed; QList<int> kept;
+        const int footprint = draft.fixtureMode(channel).footprint;
+        if (footprint < 1) continue;
+        for (int start : draft.dmxAddresses(channel)) {
+            auto match = std::lower_bound(requested.cbegin(), requested.cend(), start,
+                [](const QPair<int, int> &range, int value) { return range.second < value; });
+            if (match != requested.cend() && match->first <= start + footprint - 1) removed << targetText(start);
+            else kept << start;
+        }
+        if (!removed.isEmpty()) {
+            remaining[channel] = kept;
+            QStringList preserved; for (int start : kept) preserved << targetText(start);
+            details << QString("CH %1 · %2\nUnpatch: %3\nKeep: %4").arg(channel).arg(draft.channels.value(channel),
+                removed.join(", "), preserved.isEmpty() ? "No remaining outputs" : preserved.join(", "));
+        }
+    }
+    return !remaining.isEmpty();
+}
+void PatchDialog::resolveConflicts() {
+    Engine draft; QString issue; QMap<int, QList<int>> remaining; QStringList details;
+    if (!buildDraft(draft, issue) || !conflictPlan(draft, remaining, details)) return;
+    QDialog dialog(this); dialog.setObjectName("patchConflictDialog"); dialog.setWindowTitle("Resolve DMX patch conflicts"); dialog.resize(620, 440);
+    QVBoxLayout layout(&dialog);
+    QStringList targets; auto ordered = patchTargets.values(); std::sort(ordered.begin(), ordered.end());
+    for (int id : ordered) targets << QString::number(id);
+    auto note = new QLabel("Keep the new patch for channels " + targets.join(", ") +
+        ". Remove the conflicting fixture starts listed below. Channels, cues and other outputs are retained. Apply patch makes the draft live.");
+    note->setWordWrap(true); layout.addWidget(note);
+    QPlainTextEdit preview; preview.setReadOnly(true); preview.setPlainText(details.join("\n\n")); layout.addWidget(&preview, 1);
+    QDialogButtonBox buttons(QDialogButtonBox::Cancel); auto confirm = buttons.addButton("Unpatch conflicting outputs", QDialogButtonBox::AcceptRole);
+    confirm->setObjectName("confirmUnpatchConflicts"); buttons.button(QDialogButtonBox::Cancel)->setDefault(true); layout.addWidget(&buttons);
+    connect(&buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept); connect(&buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted) return;
+    auto table = banks[0];
+    { QSignalBlocker block(table);
+        for (int row = 0; row < table->rowCount(); ++row) {
+            const int id = table->item(row, 0)->text().toInt(); if (!remaining.contains(id)) continue;
+            QStringList starts; for (int start : remaining[id]) starts << targetText(start);
+            table->item(row, 2)->setText(starts.join(", "));
+        }
+    }
+    validate();
 }
 bool PatchDialog::apply() {
     validate(); if (!error->property("valid").toBool()) return false;
@@ -183,9 +274,36 @@ void PatchDialog::exportProfile() {
     auto t = banks[0]; int row = t->currentRow(); if (row < 0) { error->setText("Select a fixture row to export its profile"); return; }
     const auto profile = profiles.value(assignment(qobject_cast<QComboBox *>(t->cellWidget(row, 3))).profile);
     QString path = QFileDialog::getSaveFileName(this, "Export fixture profile", profile.name + ".gdtf", "GDTF (*.gdtf)"); if (path.isEmpty()) return;
-    QSaveFile file(path); if (!file.open(QIODevice::WriteOnly)) { error->setText(file.errorString()); return; }
     const auto bytes = writeGdtf(profile);
+    if (bytes.isEmpty()) { error->setText("Cannot export this definition. Check its modes and define reserved trailing slots with NoFeature parameters."); return; }
+    QSaveFile file(path); if (!file.open(QIODevice::WriteOnly)) { error->setText(file.errorString()); return; }
     if (file.write(bytes) != bytes.size() || !file.commit()) error->setText(file.errorString()); else error->setText("GDTF profile exported");
+}
+void PatchDialog::defineFixture(bool copySelected) {
+    FixtureProfile seed; QString id;
+    if (copySelected) {
+        auto table = banks[0]; const int row = table->currentRow();
+        if (row < 0) { error->setText("Select a fixture row to edit or copy its definition."); return; }
+        id = assignment(qobject_cast<QComboBox *>(table->cellWidget(row, 3))).profile;
+        seed = profiles.value(id);
+        for (const auto &mode : seed.modes) if (!mode.unsupported.isEmpty()) {
+            error->setText("This profile contains unsupported geometry or DMX modes. Use Define fixture to create a supported direct mode."); return;
+        }
+        bool copy = genericFixtures().contains(id) || !seed.source.isEmpty();
+        for (int channel : engine.channels.keys()) copy |= engine.fixtures.value(channel).profile == id;
+        if (copy) { id.clear(); seed.name += " copy"; }
+    }
+    FixtureEditor editor(seed, this);
+    if (copySelected && id.isEmpty()) editor.setWindowTitle("Fixture definition · new copy");
+    if (editor.exec() != QDialog::Accepted) return;
+    if (id.isEmpty()) id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    profiles[id] = editor.profile();
+    auto table = banks[0];
+    for (int row = 0; row < table->rowCount(); ++row) {
+        auto combo = qobject_cast<QComboBox *>(table->cellWidget(row, 3)); fillModes(combo, assignment(combo));
+    }
+    fillModes(batchFixture, {id, 0}); validate();
+    error->setText("Definition saved in the patch draft. Select its mode for a channel or Batch, then Apply patch.");
 }
 void PatchDialog::exportPatch() {
     QString path = QFileDialog::getSaveFileName(this, "Export applied patch", "patch.cfp", "Cold Flame patch (*.cfp)"); if (path.isEmpty()) return;
