@@ -6,6 +6,8 @@ Try [`examples/submaster-playback.cfl`](../examples/submaster-playback.cfl) for 
 
 Submasters control intensity only. **Additive** contributes stored levels using HTP. **Inhibitive** scales the live intensity of its included channels, including manual intensity. It generates no levels itself. Inhibitive mode uses channel membership, so the level column is hidden in its editor. Color, position and other parameters remain independent.
 
+Each card groups live controls (**Out / Full / Bump**) above stored-content actions (**Edit / Update / Delete**). Cards adapt to the available width, using a single column in narrow panes. Resizing keeps the same controls and leaves ongoing playback intact.
+
 Use **Edit…** on a card to set its mode, membership and bump timing. Save applies the definition; Cancel leaves it unchanged. Changing mode returns that submaster to its new home position: Out for additive, Full for inhibitive. Editing timing cancels its current bump at the current level. Full and Out explicitly set a level and cancel timing.
 
 ## Bump timing

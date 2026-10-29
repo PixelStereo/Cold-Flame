@@ -28,6 +28,48 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void submasterCardActionsStayGroupedOnResize() {
+        Engine e;
+        for (int i = 1; i <= 4; ++i) {
+            Submaster sub; sub.number = i; sub.name = QString("Wash %1").arg(i);
+            sub.values[i] = 80; sub.dwell = Submaster::Dwell::Hold; e.submasters << sub;
+        }
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.resize(1440, 940); window.show();
+        window.findChild<QTabWidget *>("workspaceTabs")->setCurrentIndex(1);
+        QCoreApplication::processEvents();
+        auto bank = window.findChild<QWidget *>("submasterCards"); QVERIFY(bank);
+        auto scroll = qobject_cast<QScrollArea *>(bank->parentWidget()->parentWidget()); QVERIFY(scroll);
+        auto first = window.findChild<QGroupBox *>("subCard1");
+        auto second = window.findChild<QGroupBox *>("subCard2");
+        QTRY_COMPARE(first->y(), second->y()); QVERIFY(second->x() > first->x());
+        for (int id = 1; id <= 4; ++id) {
+            auto card = window.findChild<QGroupBox *>(QString("subCard%1").arg(id));
+            QList<QPushButton *> buttons;
+            for (const auto &prefix : {"subOut", "subFull", "subBump", "editSub", "updateSub", "deleteSub"})
+                buttons << card->findChild<QPushButton *>(QString(prefix) + QString::number(id));
+            for (auto button : buttons) { QVERIFY(button); QVERIFY(button->height() >= 32); QVERIFY(card->rect().contains(button->geometry())); }
+            for (int col = 0; col < 3; ++col) {
+                QCOMPARE(buttons[col]->y(), buttons[0]->y());
+                QCOMPARE(buttons[col + 3]->y(), buttons[3]->y());
+                QCOMPARE(buttons[col]->x(), buttons[col + 3]->x());
+                QVERIFY(qAbs(buttons[col]->width() - buttons[0]->width()) <= 1);
+                if (col) QCOMPARE(buttons[col]->x() - buttons[col - 1]->geometry().right() - 1, 6);
+            }
+            QVERIFY(buttons[3]->y() > buttons[0]->geometry().bottom());
+        }
+        QPointer<QPushButton> bump = window.findChild<QPushButton *>("subBump1"); bump->click();
+        auto channels = window.findChild<QListWidget *>("channelList");
+        QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 80.);
+        window.resize(1100, 720); QCoreApplication::processEvents();
+        QTRY_COMPARE(first->x(), second->x()); QVERIFY(second->y() > first->y());
+        QTRY_COMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+        QVERIFY(bump); QCOMPARE(window.findChild<QPushButton *>("subBump1"), bump.data());
+        QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 80.);
+        window.resize(1440, 940); QCoreApplication::processEvents();
+        QTRY_COMPARE(first->y(), second->y()); bump->click();
+        QCOMPARE(channels->item(0)->data(Qt::UserRole + 1).toDouble(), 0.);
+    }
     void submasterBumpModesAndSettings() {
         Engine e; Submaster sub; sub.values[1] = 80; e.submasters << sub;
         QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();

@@ -1,3 +1,4 @@
+#include "cardbank.h"
 #include "palettereferences.h"
 #include "blinddialog.h"
 #include "channeldelegate.h"
@@ -580,14 +581,17 @@ class Console : public QMainWindow {
         for (int i = 0; i < engine.submasters.size(); ++i)
             if (engine.submasters[i].dwell == Submaster::Dwell::Manual && engine.submasters[i].pressed)
                 engine.bumpSubmaster(i, false);
-        auto content = new QWidget;
-        auto grid = new QGridLayout(content);
-        grid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+        auto content = new CardBank(subBank);
         for (int i = 0; i < engine.submasters.size(); ++i) {
             const auto &sub = engine.submasters[i];
-            auto card = new QGroupBox(QString("SUB %1 · %2").arg(sub.number).arg(sub.name));
-            card->setMinimumWidth(220);
+            auto card = new QGroupBox(QString("SUB %1").arg(sub.number));
+            card->setObjectName(QString("subCard%1").arg(sub.number));
+            card->setMinimumWidth(280);
             auto layout = new QVBoxLayout(card);
+            layout->setContentsMargins(12, 18, 12, 12); layout->setSpacing(6);
+            auto name = new QLabel(sub.name); name->setTextFormat(Qt::PlainText); name->setWordWrap(true);
+            name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+            layout->addWidget(name);
             layout->addWidget(new QLabel(QString("%1 · %2 channels").arg(sub.mode == Submaster::Mode::Inhibitive ? "INHIBITIVE" : "HTP intensity").arg(sub.values.size())));
             const QString dwellText = sub.dwell == Submaster::Dwell::Timed ? QString::number(sub.dwellTime) + " s"
                 : sub.dwell == Submaster::Dwell::Hold ? "Hold" : "Manual";
@@ -605,18 +609,26 @@ class Console : public QMainWindow {
                 value->setText(QString::number(v) + " %");
                 refresh();
             });
-            auto controls = new QHBoxLayout;
-            button("Out", controls, [this, i] { engine.setSubmasterLevel(i, 0); refresh(); });
-            button("Full", controls, [this, i] { engine.setSubmasterLevel(i, 1); refresh(); });
-            auto bump = button("BUMP", controls, [] {});
+            auto actions = new QGridLayout; actions->setSpacing(6);
+            auto action = [&](QString text, int row, int col, QString object, std::function<void()> callback) {
+                auto control = new QPushButton(text);
+                control->setObjectName(object + QString::number(sub.number));
+                control->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+                actions->addWidget(control, row, col);
+                connect(control, &QPushButton::clicked, this, callback);
+                return control;
+            };
+            for (int col = 0; col < 3; ++col) actions->setColumnStretch(col, 1);
+            action("Out", 0, 0, "subOut", [this, i] { engine.setSubmasterLevel(i, 0); refresh(); });
+            action("Full", 0, 1, "subFull", [this, i] { engine.setSubmasterLevel(i, 1); refresh(); });
+            auto bump = action("BUMP", 0, 2, "subBump", [] {});
+            bump->setStyleSheet("QPushButton{background:#314c44;border-color:#6e9b8c;} QPushButton:hover{background:#3a5b50;}");
             bump->setObjectName(QString("subBump%1").arg(sub.number));
             bump->setStatusTip("Bump uses Up / Dwell / Down timing. Manual: hold the button. Hold: press again to release. Inhibitive bumps go to Out.");
             connect(bump, &QPushButton::pressed, this, [this, i] { engine.bumpSubmaster(i, true); refresh(); });
             connect(bump, &QPushButton::released, this, [this, i] { engine.bumpSubmaster(i, false); refresh(); });
-            layout->addLayout(controls);
-            auto edit = new QHBoxLayout;
-            button("Edit…", edit, [this, i] { editSubmaster(i); })->setObjectName(QString("editSub%1").arg(sub.number));
-            button("Update", edit, [this, i] {
+            action("Edit…", 1, 0, "editSub", [this, i] { editSubmaster(i); });
+            action("Update", 1, 1, "updateSub", [this, i] {
                 // Updating stored content must not record this submaster's own contribution.
                 const double level = engine.submasters[i].level;
                 engine.submasters[i].level = engine.submasters[i].home();
@@ -630,16 +642,16 @@ class Console : public QMainWindow {
                 QTimer::singleShot(0, this, [this] { rebuildSubmasters(); });
                 message("Submaster updated from live output · selected channels, or all if none selected");
             });
-            layout->addLayout(edit);
-            button("Delete", layout, [this, i] {
+            action("Delete", 1, 2, "deleteSub", [this, i] {
                 engine.submasters.removeAt(i);
                 changed();
                 QTimer::singleShot(0, this, [this] { rebuildSubmasters(); });
             });
-            grid->addWidget(card, i / 2, i % 2);
+            layout->addLayout(actions);
+            content->addCard(card);
         }
         if (engine.submasters.isEmpty())
-            grid->addWidget(new QLabel("No submasters yet. Set a look, then Record submaster."), 0, 0);
+            content->addCard(new QLabel("No submasters yet. Set a look, then Record submaster."));
         if (auto previous = subBank->takeWidget()) previous->deleteLater();
         subBank->setWidget(content);
     }
