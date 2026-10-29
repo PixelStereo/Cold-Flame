@@ -12,6 +12,7 @@ public:
         edit->installEventFilter(this);
         spin->installEventFilter(this); // its focus (the text field's is given by it, past the filters)
         edit->setCursor(Qt::SizeHorCursor); // an I-beam only once editing
+        spin->setCursor(Qt::SizeHorCursor);
         // A press must not give the focus by itself (Qt does it before any filter sees the press): the release
         // decides, a click edits the text, a drag does not. Tab still reaches the field.
         spin->setFocusPolicy(Qt::TabFocus);
@@ -22,9 +23,10 @@ protected:
     bool eventFilter(QObject *o, QEvent *e) override
     {
         if (o == m_spin) {
-            if (e->type() == QEvent::FocusIn) m_edit->setCursor(Qt::IBeamCursor);
-            else if (e->type() == QEvent::FocusOut) m_edit->setCursor(Qt::SizeHorCursor);
-            return false;
+            if (e->type() == QEvent::FocusIn) { m_edit->setCursor(Qt::IBeamCursor); m_spin->setCursor(Qt::IBeamCursor); return false; }
+            if (e->type() == QEvent::FocusOut) { m_edit->setCursor(Qt::SizeHorCursor); m_spin->setCursor(Qt::SizeHorCursor); return false; }
+            // Styled padding belongs to the spin box, outside its line edit.
+            // Apply the same click/drag behavior to the entire visible field.
         }
         switch (e->type()) {
         case QEvent::MouseButtonPress:
@@ -35,7 +37,7 @@ protected:
         }
         auto *me = static_cast<QMouseEvent *>(e);
         // Editing the text: the mouse places the cursor and selects, as usual
-        if (!m_pressed && (m_spin->hasFocus() || !m_spin->isEnabled() || m_spin->isReadOnly())) return false;
+        if (!m_pressed && (m_spin->hasFocus() || m_edit->hasFocus() || !m_spin->isEnabled() || m_spin->isReadOnly())) return false;
         const QPointF pos = me->globalPosition();
         if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonDblClick) {
             if (me->button() != Qt::LeftButton) return false;

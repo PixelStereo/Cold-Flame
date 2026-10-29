@@ -28,6 +28,50 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void submasterTimesAcceptTypedInput() {
+        Engine e; Submaster sub; sub.values[1] = 80; e.submasters << sub;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.show();
+        window.findChild<QTabWidget *>("workspaceTabs")->setCurrentIndex(1);
+        bool handled = false, focused = true, readable = true, typed = true;
+        QString geometry;
+        QTimer::singleShot(40, &window, [&] {
+            auto dialog = window.findChild<QDialog *>("submasterDialog"); if (!dialog) return;
+            handled = true;
+            dialog->findChild<QComboBox *>("submasterDwell")->setCurrentIndex(2);
+            const QStringList names{"submasterUp", "submasterDwellTime", "submasterDown"};
+            const QStringList numbers{"1.25", "2.50", "3.75"};
+            for (int i = 0; i < names.size(); ++i) {
+                auto field = dialog->findChild<QDoubleSpinBox *>(names[i]);
+                auto edit = field->findChild<QLineEdit *>();
+                QStyleOptionFrame option; option.initFrom(edit);
+                const auto contents = edit->style()->subElementRect(QStyle::SE_LineEditContents, &option, edit);
+                readable &= contents.height() >= edit->fontMetrics().height();
+                geometry += QString("%1: editor %2, content %3, font %4; ").arg(names[i]).arg(edit->height()).arg(contents.height()).arg(edit->fontMetrics().height());
+                QTest::mouseClick(field, Qt::LeftButton, Qt::NoModifier, QPoint(2, field->height() / 2));
+                focused &= field->hasFocus() || edit->hasFocus();
+                geometry += QString("active %1, focus %2; ").arg(dialog->isActiveWindow()).arg(QApplication::focusWidget() ? QApplication::focusWidget()->objectName() : "none");
+                if (auto target = QApplication::focusWidget()) {
+                    QTest::keySequence(target, QKeySequence(QKeySequence::SelectAll));
+                    QTest::keyClicks(target, numbers[i]);
+                    QTest::keyClick(target, Qt::Key_Tab);
+                }
+                typed &= qAbs(field->value() - numbers[i].toDouble()) < 1e-7;
+            }
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        });
+        window.findChild<QPushButton *>("editSub1")->click();
+        QVERIFY(handled); QVERIFY2(focused, qPrintable(geometry)); QVERIFY2(readable, qPrintable(geometry)); QVERIFY(typed);
+        bool persisted = false;
+        QTimer::singleShot(40, &window, [&] {
+            auto dialog = window.findChild<QDialog *>("submasterDialog"); if (!dialog) return;
+            persisted = dialog->findChild<QDoubleSpinBox *>("submasterUp")->value() == 1.25 &&
+                dialog->findChild<QDoubleSpinBox *>("submasterDwellTime")->value() == 2.5 &&
+                dialog->findChild<QDoubleSpinBox *>("submasterDown")->value() == 3.75;
+            dialog->reject();
+        });
+        window.findChild<QPushButton *>("editSub1")->click(); QVERIFY(persisted);
+    }
     void submasterCardActionsStayGroupedOnResize() {
         Engine e;
         for (int i = 1; i <= 4; ++i) {
@@ -579,6 +623,16 @@ class UiTests : public QObject {
         QCOMPARE(spin.value(), 30.); QVERIFY(!spin.hasFocus());
         QTest::mouseClick(edit, Qt::LeftButton, Qt::NoModifier, start);
         QVERIFY(spin.hasFocus()); QVERIFY(edit->hasSelectedText());
+        panel.setFocus(); spin.clearFocus();
+        const QPoint edge(2, spin.height() / 2);
+        QTest::mousePress(&spin, Qt::LeftButton, Qt::NoModifier, edge);
+        for (int dx : {5, 15}) {
+            const QPoint point = edge + QPoint(dx, 0);
+            QMouseEvent event(QEvent::MouseMove, point, spin.mapToGlobal(point), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(&spin, &event);
+        }
+        QTest::mouseRelease(&spin, Qt::LeftButton, Qt::NoModifier, edge + QPoint(15, 0));
+        QCOMPARE(spin.value(), 40.); QVERIFY(!spin.hasFocus());
     }
     void submasterContentEditorAndFader() {
         Console window({}, false);

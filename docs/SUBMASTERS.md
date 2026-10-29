@@ -18,7 +18,7 @@ The **BUMP** button runs **Up**, then **Dwell**, then **Down**:
 - **Hold**: press once to start; press again to start Down.
 - **Timed**: one press runs Up, the specified dwell duration, then Down automatically.
 
-Up moves from the current level to the target: Full for additive, Out for inhibitive. Down returns to home. Times are in seconds and support the same numeric dragging as other editors. Default timing is zero Up, Manual dwell, zero Down, giving an immediate flash. A zero-duration Timed cycle finishes immediately.
+Up moves from the current level to the target: Full for additive, Out for inhibitive. Down returns to home. Times are in seconds. Click anywhere in a timing field to type, or drag horizontally to adjust. Numeric Dwell time is enabled when the dwell mode is **Timed**. Default timing is zero Up, Manual dwell, zero Down, giving an immediate flash. A zero-duration Timed cycle finishes immediately.
 
 Moving the slider cancels the bump and takes direct control. Each card shows the live percentage and bump phase. Losing application focus or rebuilding the bank releases held Manual bumps so a disappearing button cannot leave a momentary flash latched. Hold and Timed playbacks continue. Show-definition Undo preserves ongoing bumps when their mode and timing are unchanged; restoring different timing cancels the bump without rewinding its level. Restoring another mode returns to that mode's home.
 
