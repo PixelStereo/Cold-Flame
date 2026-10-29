@@ -1040,7 +1040,7 @@ class Console : public QMainWindow {
             }
         });
         split->addWidget(cuePanel);
-        split->setSizes({500, 740});
+        split->setSizes({520, 720});
         auto transport = new QHBoxLayout;
         button("↶ BACK", transport, [this] {
             engine.back(selectedSequence);

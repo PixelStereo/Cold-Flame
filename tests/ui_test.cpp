@@ -67,6 +67,11 @@ class UiTests : public QObject {
     void balancedButtonLayout() {
         QFETCH(QSize, windowSize); Console window; window.resize(windowSize); window.show(); QCoreApplication::processEvents();
         auto record = window.findChild<QPushButton *>("recordButton"), insert = window.findChild<QPushButton *>("insertCueButton"), next = window.findChild<QPushButton *>("setNextButton");
+        if (windowSize == QSize(1440, 940)) {
+            QTest::qWait(50);
+            auto channels = window.findChild<QListWidget *>("channelList");
+            QVERIFY(channels->viewport()->rect().contains(channels->visualItemRect(channels->item(119))));
+        }
         QVERIFY(record->height() >= 32); QVERIFY(record->height() <= 42);
         QCOMPARE(insert->mapTo(&window, QPoint()).y(), next->mapTo(&window, QPoint()).y());
         QVERIFY(record->mapTo(&window, QPoint()).y() < insert->mapTo(&window, QPoint()).y());
