@@ -8,6 +8,82 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void submasterCommandsUseStableNumbers() {
+        Engine e; Submaster sub; sub.number = 7; sub.values[1] = 80; e.submasters << sub;
+        QVERIFY(e.command("Sub 7 At 50")); QCOMPARE(e.output()[1], 40.);
+        QVERIFY(!e.command("Sub 1 Full")); QVERIFY(!e.command("Sub 7 At 101")); QCOMPARE(e.output()[1], 40.);
+        QVERIFY(e.command("Sub 7 Bump")); QCOMPARE(e.output()[1], 80.);
+        QVERIFY(e.command("Sub 7 Release")); QCOMPARE(e.output()[1], 0.);
+        e.submasters[0].mode = Submaster::Mode::Inhibitive;
+        QVERIFY(e.command("Submaster 7 Home")); QCOMPARE(e.submasters[0].level, 1.);
+    }
+    void timedSubmasterBumpConsumesWholeTick() {
+        Engine e; Submaster sub; sub.values[1] = 80;
+        sub.dwell = Submaster::Dwell::Timed; sub.upTime = 1; sub.dwellTime = 2; sub.downTime = 1;
+        e.submasters << sub;
+        QVERIFY(e.bumpSubmaster(0, true)); QVERIFY(e.bumpSubmaster(0, false));
+        e.tick(.5); QCOMPARE(e.output()[1], 40.);
+        e.tick(1.5); QCOMPARE(e.output()[1], 80.); QCOMPARE(e.submasters[0].phase, Submaster::Phase::Dwell);
+        e.tick(1.5); QCOMPARE(e.output()[1], 40.); QCOMPARE(e.submasters[0].phase, Submaster::Phase::Down);
+        e.tick(.5); QCOMPARE(e.output()[1], 0.); QCOMPARE(e.submasters[0].phase, Submaster::Phase::Idle);
+        e.bumpSubmaster(0, true); e.bumpSubmaster(0, false); e.tick(20);
+        QCOMPARE(e.submasters[0].level, 0.); QCOMPARE(e.submasters[0].phase, Submaster::Phase::Idle);
+        QVERIFY(!e.setSubmasterLevel(0, 2)); QVERIFY(!e.bumpSubmaster(9, true));
+    }
+    void manualHoldAndFaderOverrideSubmasterBumps() {
+        Engine e; Submaster sub; sub.values[1] = 100; sub.upTime = 2; sub.downTime = 1; e.submasters << sub;
+        e.bumpSubmaster(0, true); e.tick(1); QCOMPARE(e.output()[1], 50.);
+        e.bumpSubmaster(0, false); e.tick(.5); QCOMPARE(e.output()[1], 25.);
+        e.tick(.5); QCOMPARE(e.output()[1], 0.);
+        e.submasters[0].dwell = Submaster::Dwell::Hold;
+        e.bumpSubmaster(0, true); e.bumpSubmaster(0, false); e.tick(10); QCOMPARE(e.output()[1], 100.);
+        e.bumpSubmaster(0, true); e.bumpSubmaster(0, false); e.tick(.5); QCOMPARE(e.output()[1], 50.);
+        QVERIFY(e.setSubmasterLevel(0, .3)); e.tick(20); QCOMPARE(e.output()[1], 30.);
+        QCOMPARE(e.submasters[0].phase, Submaster::Phase::Idle);
+        // Zero-time Manual is a true flash, even between engine ticks.
+        e.submasters[0].dwell = Submaster::Dwell::Manual; e.submasters[0].upTime = e.submasters[0].downTime = 0;
+        e.bumpSubmaster(0, true); QCOMPARE(e.output()[1], 100.);
+        e.bumpSubmaster(0, false); QCOMPARE(e.output()[1], 0.);
+    }
+    void inhibitiveSubmastersScaleIntensityAndRespectPark() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513; e.manual[1] = {80, 0}; e.manual[2] = {60, 0};
+        e.applyColorPalette(1, e.findOrCreateColorPalette({"Red", 1, 0, 0}));
+        Submaster sub; sub.mode = Submaster::Mode::Inhibitive; sub.level = 1; sub.values[1] = 100; e.submasters << sub;
+        QCOMPARE(e.output()[1], 80.); e.setSubmasterLevel(0, .5);
+        QCOMPARE(e.output()[1], 40.); QCOMPARE(e.output()[2], 60.);
+        QCOMPARE(e.output()[e.parameterKey(1, 0)], 100.);
+        Submaster other = sub; other.number = 2; other.level = .75; e.submasters << other;
+        QCOMPARE(e.output()[1], 40.); // Lowest inhibitor wins; levels do not multiply.
+        e.selection = {1}; e.toggleCapture(); QCOMPARE(e.output()[1], 40.); // Capture does not apply inhibition twice.
+        e.storeCue("10"); QCOMPARE(e.cueLibrary["10"].values[1].level, 40.);
+        e.master = .5; QCOMPARE(e.output()[1], 20.);
+        e.parked[1] = 70; e.blackout = true; QCOMPARE(e.output()[1], 70.);
+        e.parked.clear(); e.blackout = false; e.master = 1;
+        e.bumpSubmaster(0, true); QCOMPARE(e.output()[1], 0.);
+        e.bumpSubmaster(0, false); QCOMPARE(e.submasters[0].level, 1.); QCOMPARE(e.output()[1], 60.);
+        e.manual.clear(); e.submasters[1].values.clear(); QCOMPARE(e.output()[1], 0.); // Inhibitors do not generate a look.
+    }
+    void submasterTimingPersistenceValidationAndUndo() {
+        Engine e; Submaster sub; sub.mode = Submaster::Mode::Inhibitive; sub.level = 1; sub.values[1] = 100;
+        sub.dwell = Submaster::Dwell::Timed; sub.upTime = 2; sub.dwellTime = 3; sub.downTime = 4; e.submasters << sub;
+        EditHistory history; history.reset(e); e.bumpSubmaster(0, true); e.bumpSubmaster(0, false); e.tick(1);
+        e.submasters[0].name = "Edited while fading"; history.commit(e); e.tick(.5);
+        QVERIFY(history.undo(e)); QCOMPARE(e.submasters[0].level, .25); QCOMPARE(e.submasters[0].elapsed, 1.5);
+        e.tick(.5); QCOMPARE(e.submasters[0].level, 0.);
+        auto json = e.json(); Engine loaded; QVERIFY(loaded.load(json));
+        QCOMPARE(loaded.submasters[0].mode, Submaster::Mode::Inhibitive);
+        QCOMPARE(loaded.submasters[0].level, 1.); QCOMPARE(loaded.submasters[0].phase, Submaster::Phase::Idle);
+        QCOMPARE(loaded.submasters[0].dwellTime, 3.); QCOMPARE(loaded.submasters[0].downTime, 4.);
+        for (const auto &bad : {QJsonValue(-1), QJsonValue("2"), QJsonValue(86401)}) {
+            auto invalid = json; auto subs = invalid["submasters"].toArray(); auto item = subs[0].toObject();
+            item["upTime"] = bad; subs[0] = item; invalid["submasters"] = subs;
+            QVERIFY(!loaded.load(invalid)); QCOMPARE(loaded.submasters[0].level, 1.);
+        }
+        auto legacy = json; legacy["version"] = 4; auto subs = legacy["submasters"].toArray(); auto item = subs[0].toObject();
+        for (const auto &key : {"mode", "dwell", "upTime", "dwellTime", "downTime"}) item.remove(key);
+        subs[0] = item; legacy["submasters"] = subs; QVERIFY(loaded.load(legacy));
+        QCOMPARE(loaded.submasters[0].mode, Submaster::Mode::Additive); QCOMPARE(loaded.submasters[0].level, 0.);
+    }
     void hiddenWhiteAndCompleteRgbRecording() {
         Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513;
         QVERIFY(e.colorPalettes.isEmpty()); QCOMPARE(e.colorPalette(0).red, 1.);

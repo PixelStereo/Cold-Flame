@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.8
+# Eos behavior audit — development version 0.9
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
@@ -17,7 +17,7 @@
 | Link | Change the pending cue. Follow/Hang can trigger that pending cue automatically. | Current library sequences link to explicit step IDs; legacy `eosLinkAndFollow` tests pending Link and automatic Follow using inline cue numbers. Cross-sequence fader selection is simplified. Loop counts and Go After Loop are missing. |
 | Follow / Hang | Follow counts from start; Hang from completion. Negative Hang permits overlap. | Positive Hang and Follow tested; negative Hang is accepted. All timing edge cases, multipart interactions and loop behavior are not exhaustively validated. |
 | Execute | Trigger a cue at source playback. Another list runs concurrently; the same list jumps. | One target supported. `eosHangAndExecute` tests another list. Multiple targets, macros, snapshots and external trigger actions are missing. |
-| Submasters | HTP by default, with additive/inhibitive/effect modes and many configurable properties. | Additive HTP intensity faders only. Recording, scaling, stable numbering, card controls, stored channel/level editing, Update/Delete and persistence implemented. Cold Flame’s editor requires Save rather than Eos’s immediate Blind storage. Other modes, timed bump, priorities and shielded behavior are absent. |
+| Submasters | HTP by default, with additive/inhibitive/effect modes and many configurable properties. | Additive HTP and inhibitive intensity, Up/Dwell/Down bump timing, Manual/Hold/Timed dwell, fader override, stable-number commands, editing and persistence are implemented. See SUBMASTERS.md for tested scenarios and overlap policy. The editor requires Save rather than immediate Eos Blind storage. Attribute/effect/LTP modes, priorities, exclusions and shielded behavior remain absent. |
 | Intensity palettes | References allow shared changes across cues. | Basic references tested. Other palette categories, by-type/default/discrete values, locked/absolute modes and full Update behavior are missing. |
 
 Additional verified intensity cases in 0.3:
@@ -77,3 +77,7 @@ Tests cover three occurrences of a shared cue, independent step times, exact lin
 Version 0.7 adds the [fixture and tracking workflow](FIXTURES-AND-TRACKING.md). Reviewed references include Eos Patch/About Patch, overlap restrictions, channel Block and Update Using Trace. The reusable-library model remains distinct from Eos cue lists.
 
 Version 0.8 adds independent Color Palettes referenced by cue parameter data, direct cue assignment and local overrides. The immutable hidden white default is a Cold Flame policy requested by the user, not an Eos factory behavior. See [PALETTES.md](PALETTES.md) for source references and differences.
+
+## Version 0.9: submaster operation
+
+Additive/inhibitive intensity and Manual/Hold/Timed bump follow the documented home/target and Up/Dwell/Down concepts. Tests cover partial release, zero-time flash, timed overshoot, fader override, Park, recording, definition Undo, legacy loading and Qt operation. Inhibitors reset to Full on show load; additive subs reset to Out. The lowest overlapping inhibitive fader applies in Cold Flame; equivalent overlap behavior has not been verified against an Eos console. Full priority/exclusion and non-intensity behavior remain outside this implementation. See [SUBMASTERS.md](SUBMASTERS.md).

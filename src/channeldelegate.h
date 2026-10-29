@@ -41,7 +41,8 @@ class ChannelDelegate : public QStyledItemDelegate {
         p->setPen(QColor(manual ? "#e0c998" : "#a3b0a8"));
         const QString flag = i.data(Qt::UserRole + 4).toString();
         if (!flag.isEmpty())
-            p->drawText(QRect(r.left() + 4, r.top() + 15, r.width() - 8, 12), Qt::AlignLeft, flag == "PARK" ? "P" : "C");
+            p->drawText(QRect(r.left() + 4, r.top() + 15, r.width() - 8, 12), Qt::AlignLeft,
+                flag == "PARK" ? "P" : flag == "INHIBIT" ? "I" : "C");
         else if (manual && !i.data(Qt::UserRole + 5).value<QColor>().isValid()) {
             p->setBrush(QColor("#e0c998")); p->setPen(Qt::NoPen);
             p->drawEllipse(QPointF(r.right() - 7, r.top() + 10), 2, 2);

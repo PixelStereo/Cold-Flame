@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.21)
-project(ColdFlame VERSION 0.8.0 LANGUAGES CXX)
+project(ColdFlame VERSION 0.9.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network Test)
 find_package(ZLIB REQUIRED)
-add_library(flame src/colorpalettes.cpp src/colorcontrols.h src/fixtures.cpp src/engine.cpp src/engine.h src/network.cpp src/network.h src/gdtf.cpp src/gdtf.h)
+add_library(flame src/submasters.cpp src/colorpalettes.cpp src/colorcontrols.h src/fixtures.cpp src/engine.cpp src/engine.h src/network.cpp src/network.h src/gdtf.cpp src/gdtf.h)
 target_link_libraries(flame PUBLIC Qt6::Core Qt6::Network ZLIB::ZLIB)
 target_include_directories(flame PUBLIC src)
 add_library(flame-ui src/colorpalettepanel.cpp src/colorpalettepanel.h src/fixturecolor.cpp src/fixturecolor.h src/parameterpanel.cpp src/parameterpanel.h src/patchdialog.cpp src/patchdialog.h src/blinddialog.cpp src/blinddialog.h src/outputpanel.cpp src/outputpanel.h src/tabledelegate.h src/numberdrag.h src/steptable.h src/cuelibrary.cpp src/cuelibrary.h)
@@ -38,7 +38,7 @@ set_tests_properties(interface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen
 add_test(NAME interface-hidpi COMMAND ${CMAKE_COMMAND}
     "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
     "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-hidpi.log"
-    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace;channelColorSwatchContextAndCancel;cueColorPaletteUpdatesKeepIntensityAndStepScope;directCuePaletteAssignmentDialog;updatingPartialLocalColorDoesNotLeakToSharedCue;paletteReferencesVisibleInCueAndStepLists"
+    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace;channelColorSwatchContextAndCancel;cueColorPaletteUpdatesKeepIntensityAndStepScope;directCuePaletteAssignmentDialog;updatingPartialLocalColorDoesNotLeakToSharedCue;paletteReferencesVisibleInCueAndStepLists;submasterBumpModesAndSettings"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-hidpi PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=2")
 add_test(NAME interface-windows-style COMMAND ${CMAKE_COMMAND}

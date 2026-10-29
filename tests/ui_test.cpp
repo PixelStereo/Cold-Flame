@@ -28,6 +28,47 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void submasterBumpModesAndSettings() {
+        Engine e; Submaster sub; sub.values[1] = 80; e.submasters << sub;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.show();
+        window.findChild<QTabWidget *>("workspaceTabs")->setCurrentIndex(1);
+        auto list = window.findChild<QListWidget *>("channelList");
+        auto bump = window.findChild<QPushButton *>("subBump1"); QVERIFY(bump);
+        QTest::mousePress(bump, Qt::LeftButton); QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 80.);
+        QEvent deactivate(QEvent::WindowDeactivate); QApplication::sendEvent(&window, &deactivate);
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 0.);
+        QTest::mouseRelease(bump, Qt::LeftButton); QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 0.);
+        auto configure = [&](int mode, int dwell, double down) {
+            bool handled = false;
+            QTimer::singleShot(0, &window, [&] {
+                auto dialog = window.findChild<QDialog *>("submasterDialog"); if (!dialog) return;
+                dialog->findChild<QComboBox *>("submasterMode")->setCurrentIndex(mode);
+                dialog->findChild<QComboBox *>("submasterDwell")->setCurrentIndex(dwell);
+                QCOMPARE(dialog->findChild<QDoubleSpinBox *>("submasterDwellTime")->isEnabled(), dwell == 2);
+                QCOMPARE(dialog->findChild<QTableWidget *>("submasterEditor")->isColumnHidden(2), mode == 1);
+                dialog->findChild<QDoubleSpinBox *>("submasterDown")->setValue(down);
+                handled = true; dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+            });
+            window.findChild<QPushButton *>("editSub1")->click(); QVERIFY(handled);
+        };
+        configure(0, 1, 0);
+        bump = window.findChild<QPushButton *>("subBump1"); bump->click();
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 80.);
+        bump->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 0.);
+        configure(1, 0, .1);
+        QLineEdit *input = nullptr;
+        for (auto edit : window.findChildren<QLineEdit *>()) if (edit->placeholderText().startsWith("Channel")) input = edit;
+        QVERIFY(input); input->setText("1 at 80"); window.execute();
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 80.);
+        bump = window.findChild<QPushButton *>("subBump1"); QTest::mousePress(bump, Qt::LeftButton);
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 0.);
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 4).toString(), QString("INHIBIT"));
+        QVERIFY(list->item(0)->toolTip().contains("Inhibited by Sub 1"));
+        QTest::mouseRelease(bump, Qt::LeftButton);
+        QTRY_COMPARE_WITH_TIMEOUT(list->item(0)->data(Qt::UserRole + 1).toDouble(), 80., 1500);
+        QCOMPARE(window.findChild<QSlider *>("subFader1")->value(), 100);
+    }
     void paletteReferencesVisibleInCueAndStepLists() {
         Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
         int red = e.findOrCreateColorPalette({"Red front", 1, 0, 0});

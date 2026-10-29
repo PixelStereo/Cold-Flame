@@ -37,7 +37,14 @@ class EditHistory {
                 }
         for (auto &sub : definitions.submasters)
             for (const auto &live : engine.submasters)
-                if (sub.number == live.number) sub.level = live.level;
+                if (sub.number == live.number && sub.mode == live.mode) {
+                    sub.level = live.level;
+                    if (sub.dwell == live.dwell && sub.upTime == live.upTime &&
+                        sub.dwellTime == live.dwellTime && sub.downTime == live.downTime) {
+                        sub.phase = live.phase; sub.pressed = live.pressed;
+                        sub.elapsed = live.elapsed; sub.start = live.start;
+                    }
+                }
         // Undo may remove a fixture definition while its parameters are live. Do not
         // reinterpret an ordinal control key as a different fixture's parameter.
         QSet<int> incompatible;

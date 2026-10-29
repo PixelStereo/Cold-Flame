@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.8.0: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.9.0: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -50,7 +50,7 @@ Native release packaging is enabled with `-DCOLD_FLAME_DEPLOY=ON`; it deploys th
 6. **Link…** selects the exact occurrence, including its sequence, step ID, cue and name. For example, steps 1, 3 and 7 can all use cue 10; linking to step 7 always chooses that occurrence, even after reordering. Link queues the target; Follow / Hang can fire it automatically. The Link cell accepts a step ID or `sequence/step`.
 7. Use **+ / −** above the step sheet to create or delete sequences (1, 2, 3…). One must remain. Double-click a sequence tab to rename it. Drag the workspace tabs to arrange them. Each sequence retains its own state and fade. Higher priority wins; at equal priority, the most recently triggered move wins for the channels it owns.
 8. **Edit content…** in the cue library edits the shared cue. **Update from manual** merges manual values; all referencing steps use the new look on their next playback, without changing active fades. A referenced library cue cannot be deleted until its occurrences are removed. **Update** on a sequence step updates its shared cue, unless Cue Only is enabled, which creates local step overrides. Existing local overrides remain local.
-9. Save as `.cfl`. Format 4 contains color palette definitions/references as well as the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1–3 shows still load; saving writes format 4. Older Cold Flame builds cannot open format 4. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
+9. Save as `.cfl`. Format 5 contains submaster mode and bump timing, and color palette definitions/references as well as the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1–4 shows still load; saving writes format 5. Older Cold Flame builds cannot open format 5. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
 
 The reusable-look model follows [Congo/Cobalt’s documented preset-and-sequence model](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo). Eos uses cue numbers within cue lists; its [Link](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/04_Cue_Attributes/Link_Loop.htm) addresses such cues. Cold Flame explicitly addresses sequence steps to distinguish repeated stored cues.
 
@@ -144,3 +144,5 @@ Color palettes are stored independently and referenced by cues. RGB recordings i
 `examples/color-palettes.cfl` demonstrates shared Color Palettes, repeated cue occurrences and hidden default white.
 
 ![Color palette bank](color-palettes-preview.png)
+
+Submasters now support additive HTP or inhibitive intensity, with timed bump controls (Up / Dwell / Down; Manual, Hold or Timed). See [Submaster operation](docs/SUBMASTERS.md).

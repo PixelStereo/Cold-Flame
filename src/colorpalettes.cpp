@@ -91,7 +91,8 @@ Value Engine::trackedValue(int s, int step, int key) const {
     return value;
 }
 Value Engine::recordedValue(int key, const Values &live) const {
-    if (manual.contains(key)) return manual.value(key);
+    if (manual.contains(key) && qAbs(resolve(key, manual.value(key)) - live.value(key, controlDefault(key))) < 1e-7)
+        return manual.value(key);
     Value result{live.value(key, controlDefault(key)), 0};
     if (colorComponent(key, 0) < 0) return result;
     QPair<int, quint64> owner{-1, 0};

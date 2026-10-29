@@ -14,10 +14,22 @@ struct ChannelTiming {
     double up = 2, down = 2, wait = 0;
 };
 struct Submaster {
+    enum class Mode { Additive, Inhibitive };
+    enum class Dwell { Manual, Hold, Timed };
+    enum class Phase { Idle, Up, Dwell, Down };
     int number = 1;
     QString name;
     Values values;
     double level = 0;
+    Mode mode = Mode::Additive;
+    Dwell dwell = Dwell::Manual;
+    double upTime = 0, dwellTime = 0, downTime = 0;
+    // Transport state is deliberately excluded from saved show definitions.
+    Phase phase = Phase::Idle;
+    bool pressed = false;
+    double elapsed = 0, start = 0;
+    double home() const { return mode == Mode::Inhibitive ? 1 : 0; }
+    double target() const { return 1 - home(); }
 };
 struct StoredCue {
     QString number, label;
@@ -110,7 +122,7 @@ class Engine {
     Values tracked(int sequence, int cue) const;
     Value trackedValue(int sequence, int cue, int control) const;
     double resolve(int channel, Value value) const;
-    Values output(bool mastered = true, bool includePark = true) const;
+    Values output(bool mastered = true, bool includePark = true, bool includeInhibition = true) const;
     void toggleCapture();
     void parkSelection(bool enabled);
     void setBlock(int sequence, int cue, bool enabled);
@@ -132,6 +144,9 @@ class Engine {
     int nextCueIndex(int sequence) const;
     bool setNextCue(int sequence, int cue);
     void recordSubmaster();
+    bool setSubmasterLevel(int index, double level);
+    bool bumpSubmaster(int index, bool pressed);
+    void advanceSubmasters(double dt);
     void level(double percent);
     void applyPalette(int id);
     void recordPalette(int id);

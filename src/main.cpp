@@ -140,6 +140,11 @@ class Console : public QMainWindow {
         // Structural changes remain in rebuild(), with normal model notifications.
         QSignalBlocker channelModelBlock(channels->model());
         bool repaintChannels = false;
+        QMap<int, QStringList> inhibitors;
+        for (const auto &sub : engine.submasters)
+            if (sub.mode == Submaster::Mode::Inhibitive && sub.level < 1)
+                for (int channel : sub.values.keys())
+                    inhibitors[channel] << QString("Sub %1 · %2%").arg(sub.number).arg(qRound(sub.level * 100));
         for (int i = 0; i < channels->count(); ++i) {
             auto item = channels->item(i);
             int id = item->data(Qt::UserRole).toInt();
@@ -151,6 +156,7 @@ class Console : public QMainWindow {
             const bool manual = engine.manual.contains(id);
             const QString flag = engine.parked.contains(id)     ? "PARK"
                                  : engine.captured.contains(id) ? "CAPTURE"
+                                 : inhibitors.contains(id)      ? "INHIBIT"
                                                                 : "";
             const QColor color = fixtureColor(engine, id, &out);
             bool colorManual = false;
@@ -163,13 +169,12 @@ class Console : public QMainWindow {
             item->setText(valueText);
             item->setData(Qt::UserRole + 1, v);
             item->setData(Qt::UserRole + 2, engine.manual.contains(id));
-            item->setData(Qt::UserRole + 4, engine.parked.contains(id)     ? "PARK"
-                                            : engine.captured.contains(id) ? "CAPTURE"
-                                                                           : "");
+            item->setData(Qt::UserRole + 4, flag);
             item->setData(Qt::UserRole + 5, color);
             item->setData(Qt::UserRole + 6, colorManual);
             item->setToolTip(QString("Channel %1 · %2%3").arg(id).arg(engine.channels[id],
-                color.isValid() ? " · Click its color swatch, double-click or right-click to choose a color" : ""));
+                color.isValid() ? " · Click its color swatch, double-click or right-click to choose a color" : "") +
+                (inhibitors.contains(id) && !engine.parked.contains(id) ? " · Inhibited by " + inhibitors[id].join(", ") : ""));
         }
         if (repaintChannels)
             channels->viewport()->update();
@@ -177,6 +182,17 @@ class Console : public QMainWindow {
         selection->setText(QString("%1 shown / %2 matching · %3 selected · %4 manual")
                                .arg(channels->count()).arg(matchingChannels)
                                .arg(engine.selection.size()).arg(engine.manual.size()));
+        for (const auto &sub : engine.submasters) {
+            if (auto fader = subBank->findChild<QSlider *>(QString("subFader%1").arg(sub.number))) {
+                QSignalBlocker block(fader);
+                if (!fader->isSliderDown()) fader->setValue(qRound(sub.level * 100));
+            }
+            if (auto label = subBank->findChild<QLabel *>(QString("subLevel%1").arg(sub.number))) {
+                const QString phase = sub.phase == Submaster::Phase::Up ? " · Bump in" : sub.phase == Submaster::Phase::Down ? " · Bump out"
+                    : sub.phase == Submaster::Phase::Dwell ? (sub.dwell == Submaster::Dwell::Timed ? " · Timed dwell" : " · Holding") : "";
+                label->setText(QString::number(qRound(sub.level * 100)) + " %" + phase);
+            }
+        }
         auto &s = engine.sequences[selectedSequence];
         cues->setSequenceContext(QString::number(s.number));
         cues->setRowCount(s.cues.size());
@@ -484,12 +500,28 @@ class Console : public QMainWindow {
     }
     void editSubmaster(int index) {
         QDialog dialog(this);
+        dialog.setObjectName("submasterDialog");
         dialog.setWindowTitle("Edit submaster · stored intensities");
         dialog.resize(520, 640);
         QVBoxLayout layout(&dialog);
         QLineEdit name(engine.submasters[index].name);
         layout.addWidget(new QLabel("Name"));
         layout.addWidget(&name);
+        QComboBox mode; mode.setObjectName("submasterMode"); mode.addItems({"Additive · HTP intensity", "Inhibitive · intensity master"});
+        mode.setCurrentIndex(engine.submasters[index].mode == Submaster::Mode::Inhibitive ? 1 : 0);
+        QComboBox dwell; dwell.setObjectName("submasterDwell"); dwell.addItems({"Manual · while held", "Hold · press again to release", "Timed"});
+        dwell.setCurrentIndex(int(engine.submasters[index].dwell));
+        QDoubleSpinBox up, down, duration;
+        for (auto spin : {&up, &down, &duration}) { spin->setRange(0, 86400); spin->setDecimals(2); spin->setSuffix(" s"); enableNumberDrag(spin); }
+        up.setObjectName("submasterUp"); down.setObjectName("submasterDown"); duration.setObjectName("submasterDwellTime");
+        up.setValue(engine.submasters[index].upTime); down.setValue(engine.submasters[index].downTime); duration.setValue(engine.submasters[index].dwellTime);
+        QFormLayout properties; properties.addRow("Mode", &mode); properties.addRow("Bump dwell", &dwell);
+        QHBoxLayout times; times.addWidget(new QLabel("Up")); times.addWidget(&up); times.addWidget(new QLabel("Dwell")); times.addWidget(&duration); times.addWidget(new QLabel("Down")); times.addWidget(&down);
+        properties.addRow("Bump timing", &times); layout.addLayout(&properties);
+        duration.setEnabled(dwell.currentIndex() == 2);
+        connect(&dwell, &QComboBox::currentIndexChanged, &dialog, [&](int value) { duration.setEnabled(value == 2); });
+        auto membership = new QLabel("Inhibitive mode uses channel membership only. Its home is Full; Bump fades to Out.");
+        membership->setWordWrap(true); membership->setVisible(mode.currentIndex() == 1); layout.addWidget(membership);
         QTableWidget table(engine.channels.size(), 3);
         table.setObjectName("submasterEditor");
         table.setItemDelegate(new TableDelegate(&table));
@@ -508,6 +540,10 @@ class Console : public QMainWindow {
             table.setItem(row, 1, channel);
             table.setItem(row, 2, new QTableWidgetItem(QString::number(engine.submasters[index].values.value(it.key()))));
         }
+        table.setColumnHidden(2, mode.currentIndex() == 1);
+        connect(&mode, &QComboBox::currentIndexChanged, &dialog, [&](int value) {
+            table.setColumnHidden(2, value == 1); membership->setVisible(value == 1);
+        });
         layout.addWidget(&table);
         QLabel error;
         layout.addWidget(&error);
@@ -519,14 +555,20 @@ class Console : public QMainWindow {
             for (int r = 0; r < table.rowCount(); ++r) {
                 if (table.item(r, 0)->checkState() != Qt::Checked) continue;
                 bool ok;
-                double value = table.item(r, 2)->text().toDouble(&ok);
+                double value = mode.currentIndex() == 1 ? (ok = true, 100.) : table.item(r, 2)->text().toDouble(&ok);
                 if (!ok || !std::isfinite(value) || value < 0 || value > 100) {
                     error.setText("Included levels must be between 0 and 100.");
                     return;
                 }
                 values[table.item(r, 0)->data(Qt::UserRole).toInt()] = value;
             }
-            engine.submasters[index].name = name.text().trimmed();
+            auto &sub = engine.submasters[index];
+            const auto nextMode = mode.currentIndex() == 1 ? Submaster::Mode::Inhibitive : Submaster::Mode::Additive;
+            if (sub.mode != nextMode) { sub.mode = nextMode; engine.setSubmasterLevel(index, sub.home()); }
+            else engine.setSubmasterLevel(index, sub.level); // Editing timing cancels the current bump without jumping.
+            sub.dwell = Submaster::Dwell(dwell.currentIndex());
+            sub.upTime = up.value(); sub.downTime = down.value(); sub.dwellTime = duration.value();
+            sub.name = name.text().trimmed();
             engine.submasters[index].values = values;
             changed();
             dialog.accept();
@@ -534,6 +576,10 @@ class Console : public QMainWindow {
         if (dialog.exec() == QDialog::Accepted) rebuildSubmasters();
     }
     void rebuildSubmasters() {
+        // A rebuilt bank must not leave a momentary button held after its widget disappears.
+        for (int i = 0; i < engine.submasters.size(); ++i)
+            if (engine.submasters[i].dwell == Submaster::Dwell::Manual && engine.submasters[i].pressed)
+                engine.bumpSubmaster(i, false);
         auto content = new QWidget;
         auto grid = new QGridLayout(content);
         grid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -542,8 +588,12 @@ class Console : public QMainWindow {
             auto card = new QGroupBox(QString("SUB %1 · %2").arg(sub.number).arg(sub.name));
             card->setMinimumWidth(220);
             auto layout = new QVBoxLayout(card);
-            layout->addWidget(new QLabel(QString("HTP intensity · %1 channels").arg(sub.values.size())));
+            layout->addWidget(new QLabel(QString("%1 · %2 channels").arg(sub.mode == Submaster::Mode::Inhibitive ? "INHIBITIVE" : "HTP intensity").arg(sub.values.size())));
+            const QString dwellText = sub.dwell == Submaster::Dwell::Timed ? QString::number(sub.dwellTime) + " s"
+                : sub.dwell == Submaster::Dwell::Hold ? "Hold" : "Manual";
+            layout->addWidget(new QLabel(QString("Bump  %1 s / %2 / %3 s").arg(sub.upTime).arg(dwellText).arg(sub.downTime)));
             auto value = new QLabel(QString::number(qRound(sub.level * 100)) + " %");
+            value->setObjectName(QString("subLevel%1").arg(sub.number));
             layout->addWidget(value);
             auto fader = new QSlider(Qt::Horizontal);
             fader->setObjectName(QString("subFader%1").arg(sub.number));
@@ -551,20 +601,25 @@ class Console : public QMainWindow {
             fader->setValue(qRound(sub.level * 100));
             layout->addWidget(fader);
             connect(fader, &QSlider::valueChanged, this, [this, i, value](int v) {
-                engine.submasters[i].level = v / 100.;
+                engine.setSubmasterLevel(i, v / 100.);
                 value->setText(QString::number(v) + " %");
                 refresh();
             });
             auto controls = new QHBoxLayout;
-            button("Out", controls, [fader] { fader->setValue(0); });
-            button("Full", controls, [fader] { fader->setValue(100); });
+            button("Out", controls, [this, i] { engine.setSubmasterLevel(i, 0); refresh(); });
+            button("Full", controls, [this, i] { engine.setSubmasterLevel(i, 1); refresh(); });
+            auto bump = button("BUMP", controls, [] {});
+            bump->setObjectName(QString("subBump%1").arg(sub.number));
+            bump->setStatusTip("Bump uses Up / Dwell / Down timing. Manual: hold the button. Hold: press again to release. Inhibitive bumps go to Out.");
+            connect(bump, &QPushButton::pressed, this, [this, i] { engine.bumpSubmaster(i, true); refresh(); });
+            connect(bump, &QPushButton::released, this, [this, i] { engine.bumpSubmaster(i, false); refresh(); });
             layout->addLayout(controls);
             auto edit = new QHBoxLayout;
-            button("Edit…", edit, [this, i] { editSubmaster(i); });
+            button("Edit…", edit, [this, i] { editSubmaster(i); })->setObjectName(QString("editSub%1").arg(sub.number));
             button("Update", edit, [this, i] {
                 // Updating stored content must not record this submaster's own contribution.
                 const double level = engine.submasters[i].level;
-                engine.submasters[i].level = 0;
+                engine.submasters[i].level = engine.submasters[i].home();
                 auto live = engine.output(false, false);
                 engine.submasters[i].level = level;
                 Values values;
@@ -720,6 +775,12 @@ class Console : public QMainWindow {
     bool eventFilter(QObject *o, QEvent *e) override {
         auto widget = qobject_cast<QWidget *>(o);
         const bool owned = widget && (widget == this || isAncestorOf(widget));
+        if (o == this && e->type() == QEvent::WindowDeactivate) {
+            for (int i = 0; i < engine.submasters.size(); ++i)
+                if (engine.submasters[i].dwell == Submaster::Dwell::Manual && engine.submasters[i].pressed)
+                    engine.bumpSubmaster(i, false);
+            refresh();
+        }
         if (owned && e->type() == QEvent::Polish)
             if (auto spin = qobject_cast<QAbstractSpinBox *>(widget)) enableNumberDrag(spin);
         if (owned && o == channels->viewport() && e->type() == QEvent::MouseButtonRelease) {
@@ -1069,7 +1130,7 @@ class Console : public QMainWindow {
         sequenceLayout->addLayout(extra);
         auto subPage = new QWidget;
         auto subLayout = new QVBoxLayout(subPage);
-        subLayout->addWidget(new QLabel("SUBMASTERS · HTP INTENSITY"));
+        subLayout->addWidget(new QLabel("SUBMASTERS · INTENSITY PLAYBACK"));
         auto recordSub = button("+ Record submaster", subLayout, [this] {
             engine.recordSubmaster(); changed(); rebuildSubmasters();
         });
@@ -1598,6 +1659,11 @@ int main(int argc, char **argv) {
             tabs->setCurrentIndex(2);
             w.findChild<QPushButton *>("addDmxOutput")->click();
             QTimer::singleShot(150, [&w] { w.grab().save("network-preview.png"); });
+        });
+    if (app.arguments().contains("--submasters-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            w.findChild<QTabWidget *>("workspaceTabs")->setCurrentIndex(1);
+            QTimer::singleShot(150, [&w] { w.grab().save("submasters-preview.png"); });
         });
     if (app.arguments().contains("--library-screenshot"))
         QTimer::singleShot(50, [&w] {

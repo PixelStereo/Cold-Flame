@@ -2,7 +2,7 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.8 | Remaining work |
+| Area | Implemented and tested in 0.9 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity references; shared normalized RGB/RGBW/CMY Color Palettes; hidden immutable white; direct cue assignment; local step overrides; saved references | Focus/position and Beam palettes; calibrated color, Eos by-type/default/discrete options, locking, nested references |
@@ -18,7 +18,7 @@ The reference is the Eos family, rather than Element. Documentation review and t
 | Effects | 1D intensity wave generator | Absolute/relative/step effects, phases, variables, curves, tempo |
 | Pixel mapping | 1D generator | RGB/RGBW matrices, free geometry, video, masks, layers, GPU |
 | Usability | 120-channel ALL/USED/EDIT pages, balanced button targets, grouped sequence actions, palette/sequence/library/tracking/playback views, contextual footer help, NyxMap numeric dragging; virtual keypad | Workspaces, interactive magic sheets, touch, accessibility, 3D visualization |
-| Submasters | Record selected/live intensity, HTP card bank, channel/level editor, Update/Delete/Out/Full, names, stable numbers, saved definitions | Inhibitive masters, timed bump/flash, configurable buttons |
+| Submasters | Record selected/live intensity, additive HTP and inhibitive card bank, channel/level editor, Update/Delete/Out/Full, Manual/Hold/Timed bump with Up/Dwell/Down, fader override, stable-number commands, saved definitions | Effect/LTP/attribute subs, priority, exclusions, configurable button mappings |
 | Hardware | On-screen actions, computer keyboard | USB HID/MIDI interface, firmware, mapping, encoders, indicator feedback |
 | Reliability | Unit tests, UDP, Qt interaction test, offscreen launch | Endurance, load, physical rig, network loss, multiple users, backup |
 
@@ -47,6 +47,6 @@ Record stores changed intensity values from the live look while unchanged values
 
 ## Workspace and submaster references
 
-The tabbed target views and explicit stored-content editor are informed by ETC’s [Submasters display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submasters_%5BTab_15%5D.htm) and [Submaster Properties](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submaster_Properties.htm). Cold Flame uses an explicit Save in its submaster editor; Eos Blind edits store immediately. Only additive HTP intensity is implemented here, without Eos’s other submaster modes and timing options. No comparative usability superiority has been measured.
+The tabbed target views and explicit stored-content editor are informed by ETC’s [Submasters display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submasters_%5BTab_15%5D.htm) and [Submaster Properties](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submaster_Properties.htm). Cold Flame uses an explicit Save in its submaster editor; Eos Blind edits store immediately. Additive HTP and inhibitive intensity plus Manual/Hold/Timed bump timing are implemented. Attribute/effect submasters, LTP priorities, exclusions and custom button mappings remain incomplete. See [Submaster operation](SUBMASTERS.md). No comparative usability superiority has been measured.
 
 The supported fixture subset, file formats and tracking edit behavior are documented in [FIXTURES-AND-TRACKING.md](FIXTURES-AND-TRACKING.md).

@@ -47,14 +47,13 @@ bool Engine::storeCue(QString number, QString label, bool manualOnly) {
     StoredCue cue;
     cue.number = number;
     cue.label = label.isEmpty() ? "cue-" + number : label;
+    const auto live = output(false, false);
     if (!manualOnly) {
-        auto live = output(false, false);
         for (int channel : controlIds()) cue.values[channel] = recordedValue(channel, live);
     }
     for (auto it = manual.begin(); it != manual.end(); ++it)
-        if (controlExists(it.key())) cue.values[it.key()] = it.value();
+        if (controlExists(it.key())) cue.values[it.key()] = recordedValue(it.key(), live);
     // RGB fixtures record intensity and color together, including Record Only.
-    const auto live = output(false, false);
     QSet<int> touched;
     for (int key : cue.values.keys()) touched.insert(channelForControl(key));
     for (int channel : touched) {
@@ -146,7 +145,7 @@ Values Engine::tracked(int s, int c) const {
     }
     return out;
 }
-Values Engine::output(bool mastered, bool includePark) const {
+Values Engine::output(bool mastered, bool includePark, bool includeInhibition) const {
     Values out;
     QMap<int, QPair<int, quint64>> owners;
     auto compose = [&](const Sequence &s) {
@@ -162,7 +161,7 @@ Values Engine::output(bool mastered, bool includePark) const {
         compose(s);
     for (const auto &s : linkedPlaybacks)
         compose(s);
-    for (const auto &sub : submasters)
+    for (const auto &sub : submasters) if (sub.mode == Submaster::Mode::Additive)
         for (auto it = sub.values.begin(); it != sub.values.end(); ++it)
             out[it.key()] = qMax(out.value(it.key()), it.value() * sub.level);
     for (auto it = pixels.begin(); it != pixels.end(); ++it)
@@ -171,6 +170,13 @@ Values Engine::output(bool mastered, bool includePark) const {
         out[it.key()] = resolve(it.key(), it.value());
     for (int key : controlIds())
         if (key < 0 && !out.contains(key)) out[key] = controlDefault(key);
+    // Inhibitors scale intensity after live/manual composition. Overlapping
+    // inhibitors use the lowest fader, avoiding compounded attenuation.
+    QMap<int, double> inhibition;
+    for (const auto &sub : submasters) if (includeInhibition && sub.mode == Submaster::Mode::Inhibitive)
+        for (int channel : sub.values.keys()) inhibition[channel] = qMin(inhibition.value(channel, 1.), sub.level);
+    for (auto it = inhibition.cbegin(); it != inhibition.cend(); ++it)
+        if (out.contains(it.key())) out[it.key()] *= it.value();
     if (mastered)
         for (auto it = out.begin(); it != out.end(); ++it)
             if (it.key() > 0) it.value() = blackout ? 0 : qBound(0., it.value() * master, 100.);
@@ -184,7 +190,7 @@ void Engine::toggleCapture() {
     for (int key : controlIds()) if (selection.contains(channelForControl(key))) controls << key;
     bool any = false;
     for (int key : controls) if (captured.contains(key)) any = true;
-    const auto live = output(false, false);
+    const auto live = output(false, false, false);
     for (int key : controls) {
         if (any) captured.remove(key);
         else {
@@ -550,6 +556,7 @@ void Engine::tick(double dt) {
     if (ticking)
         return;
     ticking = true;
+    advanceSubmasters(dt);
     auto advance = [](Sequence &s, double dt) {
         if (s.paused || s.current < 0)
             return;
@@ -636,6 +643,19 @@ bool Engine::command(QString text, QString *error) {
     text.remove(QRegularExpression("\\s+enter$"));
     if (commandSequence < 0 || commandSequence >= sequences.size())
         commandSequence = 0;
+    auto subCommand = QRegularExpression("^sub(?:master)? (\\d+) (?:at (\\d+(?:\\.\\d+)?)|(full|out|home|bump|release))$").match(text);
+    if (subCommand.hasMatch()) {
+        bool valid; const int number = subCommand.captured(1).toInt(&valid);
+        int index = -1;
+        if (valid) for (int i = 0; i < submasters.size(); ++i) if (submasters[i].number == number) index = i;
+        if (index < 0) return fail("Submaster not found");
+        const auto action = subCommand.captured(3);
+        if (action == "bump") return bumpSubmaster(index, true);
+        if (action == "release") return bumpSubmaster(index, false);
+        const double level = action == "full" ? 1 : action == "out" ? 0 : action == "home" ? submasters[index].home()
+            : subCommand.captured(2).toDouble() / 100.;
+        return setSubmasterLevel(index, level) || fail("Submaster level must be between 0 and 100");
+    }
     if (text == "go") {
         go(commandSequence);
         return true;
@@ -903,7 +923,7 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 4;
+    root["version"] = 5;
     QJsonArray colors;
     for (auto it = colorPalettes.begin(); it != colorPalettes.end(); ++it) if (it.key() > 0)
         colors << QJsonObject{{"id", it.key()}, {"name", it->name}, {"red", it->red}, {"green", it->green}, {"blue", it->blue}};
@@ -986,7 +1006,10 @@ QJsonObject Engine::json() const {
         QJsonObject values;
         for (auto it = sub.values.begin(); it != sub.values.end(); ++it)
             values[QString::number(it.key())] = it.value();
-        subs.append(QJsonObject{{"number", sub.number}, {"name", sub.name}, {"values", values}});
+        subs.append(QJsonObject{{"number", sub.number}, {"name", sub.name}, {"values", values},
+            {"mode", sub.mode == Submaster::Mode::Inhibitive ? "inhibitive" : "additive"},
+            {"dwell", sub.dwell == Submaster::Dwell::Manual ? "manual" : sub.dwell == Submaster::Dwell::Hold ? "hold" : "timed"},
+            {"upTime", sub.upTime}, {"dwellTime", sub.dwellTime}, {"downTime", sub.downTime}});
     }
     root["submasters"] = subs;
     return root;
@@ -997,7 +1020,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 4) || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 5) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;
@@ -1181,6 +1204,20 @@ bool Engine::load(const QJsonObject &r, QString *error) {
         for (const auto &existing : e.submasters)
             if (existing.number == sub.number) return fail();
         sub.name = o["name"].toString();
+        const QString mode = o.value("mode").toString("additive"), dwell = o.value("dwell").toString("manual");
+        if ((o.contains("mode") && !o["mode"].isString()) || (o.contains("dwell") && !o["dwell"].isString())) return fail();
+        if (mode != "additive" && mode != "inhibitive") return fail();
+        if (dwell != "manual" && dwell != "hold" && dwell != "timed") return fail();
+        sub.mode = mode == "inhibitive" ? Submaster::Mode::Inhibitive : Submaster::Mode::Additive;
+        sub.dwell = dwell == "manual" ? Submaster::Dwell::Manual : dwell == "hold" ? Submaster::Dwell::Hold : Submaster::Dwell::Timed;
+        auto time = [&](const char *key, double &destination) {
+            if (!o.contains(key)) return true;
+            if (!o[key].isDouble()) return false;
+            destination = o[key].toDouble();
+            return std::isfinite(destination) && destination >= 0 && destination <= 86400;
+        };
+        if (!time("upTime", sub.upTime) || !time("dwellTime", sub.dwellTime) || !time("downTime", sub.downTime)) return fail();
+        sub.level = sub.home();
         auto values = o["values"].toObject();
         for (auto it = values.begin(); it != values.end(); ++it) {
             double v = it.value().toDouble(-1);
