@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.7
+# Eos behavior audit — development version 0.8
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
@@ -37,7 +37,7 @@ Numbering new cues and sequences in increments of ten is the requested Cold Flam
 ## Major feature families without parity
 
 - Full GDTF interpretation: geometry/cells, compound fixtures, mode masters, multiple breaks, physical-unit conversion; MVR, RDM and device health. Supported direct modes now provide 8/16/24/32-bit parameter output.
-- Focus, Color and Beam palettes; presets; by-type and embedded reference handling; color tools and calibration.
+- Focus and Beam palettes; presets; full by-type and embedded reference handling; color tools and calibration. Basic normalized Color Palette references are implemented in 0.8.
 - Complete tracking range/update editing, per-parameter Assert, Mark/AutoMark, multipart cues, preheat, curves, rate and scene attributes.
 - Full target/category editing, complete selective Undo/Redo, Query, filters, partitions and user profiles.
 - Full playback/fader configuration, HTP cue lists, inhibitive/effect subs, background rules, shielded controls and backup operation.
@@ -75,3 +75,5 @@ The older Eos-style Link/Follow and tracking tests still cover legacy inline ste
 Tests cover three occurrences of a shared cue, independent step times, exact links after reorder, shared updates without live recall, rename and reference propagation, deletion guards, save/load, rejection of missing references, Undo/Redo, and legacy playback.
 
 Version 0.7 adds the [fixture and tracking workflow](FIXTURES-AND-TRACKING.md). Reviewed references include Eos Patch/About Patch, overlap restrictions, channel Block and Update Using Trace. The reusable-library model remains distinct from Eos cue lists.
+
+Version 0.8 adds independent Color Palettes referenced by cue parameter data, direct cue assignment and local overrides. The immutable hidden white default is a Cold Flame policy requested by the user, not an Eos factory behavior. See [PALETTES.md](PALETTES.md) for source references and differences.

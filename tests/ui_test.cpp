@@ -28,6 +28,71 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void updatingPartialLocalColorDoesNotLeakToSharedCue() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513; e.manual[1] = {50, 0};
+        e.storeCue("10"); e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10");
+        e.sequences[0].cues[1].values[e.parameterKey(1, 0)] = {50, 0};
+        for (auto &step : e.sequences[0].cues) step.time = 0;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.show(); QCoreApplication::processEvents();
+        auto list = window.findChild<QListWidget *>("channelList"); auto sheet = window.findChild<QTableWidget *>("cueSheet");
+        auto go = window.findChild<QPushButton *>("gotoButton"); sheet->selectRow(1); go->click();
+        QTimer responder;
+        connect(&responder, &QTimer::timeout, &window, [&] {
+            auto dialog = window.findChild<QColorDialog *>("fixtureColorDialog"); if (!dialog) return;
+            responder.stop(); dialog->setCurrentColor(Qt::blue); dialog->accept();
+        });
+        responder.start(5); list->itemDoubleClicked(list->item(0)); window.findChild<QPushButton *>("updateStepButton")->click();
+        sheet->selectRow(0); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::white).rgb());
+        sheet->selectRow(1); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::blue).rgb());
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 50.);
+    }
+    void directCuePaletteAssignmentDialog() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        e.manual[1] = {60, 0}; e.storeCue("10"); e.manual.clear();
+        int id = e.findOrCreateColorPalette({"Red", 1, 0, 0}); int changes = 0;
+        ColorPalettePanel panel(e, [&] { ++changes; }, [] {}); panel.show();
+        QTimer::singleShot(0, &panel, [&] {
+            auto dialog = panel.findChild<QDialog *>("assignCueColorDialog"); if (!dialog) return;
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Save)->click();
+        });
+        panel.assignToCue("10"); QCOMPARE(changes, 1);
+        QCOMPARE(e.cueLibrary["10"].values[e.parameterKey(1, 0)].colorPalette, id);
+        QCOMPARE(e.cueLibrary["10"].values[1].level, 60.); QVERIFY(e.manual.isEmpty());
+    }
+    void cueColorPaletteUpdatesKeepIntensityAndStepScope() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513; e.manual[1] = {50, 0};
+        e.storeCue("10"); e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10");
+        for (auto &step : e.sequences[0].cues) step.time = 0;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.show(); QCoreApplication::processEvents();
+        auto list = window.findChild<QListWidget *>("channelList");
+        auto sheet = window.findChild<QTableWidget *>("cueSheet");
+        auto go = window.findChild<QPushButton *>("gotoButton");
+        auto update = window.findChild<QPushButton *>("updateStepButton");
+        sheet->selectRow(0); go->click();
+        auto choose = [&](QColor color, const QString &name, std::function<void()> open) {
+            bool handled = false; QTimer responder;
+            connect(&responder, &QTimer::timeout, &window, [&] {
+                auto dialog = window.findChild<QColorDialog *>(name); if (!dialog) return;
+                responder.stop(); dialog->setCurrentColor(color); handled = true; dialog->accept();
+            });
+            responder.start(5); open(); QVERIFY(handled);
+        };
+        choose(Qt::red, "fixtureColorDialog", [&] { list->itemDoubleClicked(list->item(0)); });
+        update->click(); sheet->selectRow(1); go->click();
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 50.);
+        window.findChild<QCheckBox *>("cueOnlyMode")->setChecked(true);
+        choose(Qt::blue, "fixtureColorDialog", [&] { list->itemDoubleClicked(list->item(0)); }); update->click();
+        sheet->selectRow(0); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
+        sheet->selectRow(1); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::blue).rgb());
+        auto colors = window.findChild<QTableWidget *>("colorPaletteTable"); QCOMPARE(colors->rowCount(), 2); colors->selectRow(0);
+        choose(Qt::green, "editColorPaletteDialog", [&] { window.findChild<QPushButton *>("editColorPaletteButton")->click(); });
+        sheet->selectRow(0); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::green).rgb());
+        sheet->selectRow(1); go->click(); QCOMPARE(list->item(0)->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::blue).rgb());
+        QCOMPARE(list->item(0)->data(Qt::UserRole + 1).toDouble(), 50.);
+    }
     void startupArtNetBroadcastEnabled() {
         Console window;
         auto outputs = window.findChild<QTableWidget *>("dmxOutputsTable");
@@ -67,6 +132,7 @@ class UiTests : public QObject {
         Console window(file.fileName(), false); window.show(); QCoreApplication::processEvents();
         auto list = window.findChild<QListWidget *>("channelList"); auto item = list->item(0);
         QVERIFY(item->data(Qt::UserRole + 5).value<QColor>().isValid());
+        QCOMPARE(window.findChild<QTableWidget *>("colorPaletteTable")->rowCount(), 0);
         bool handled = false;
         QTimer responder;
         connect(&responder, &QTimer::timeout, &window, [&] {
@@ -79,6 +145,7 @@ class UiTests : public QObject {
         QCOMPARE(item->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
         QCOMPARE(item->data(Qt::UserRole + 1).toDouble(), 0.);
         QVERIFY(item->data(Qt::UserRole + 6).toBool());
+        QCOMPARE(window.findChild<QTableWidget *>("colorPaletteTable")->rowCount(), 1);
         handled = false;
         QObject::disconnect(&responder, nullptr, &window, nullptr);
         connect(&responder, &QTimer::timeout, &window, [&] {
@@ -92,6 +159,7 @@ class UiTests : public QObject {
         responder.start(5);
         list->customContextMenuRequested(list->visualItemRect(item).center());
         QVERIFY(handled);
+        QCOMPARE(window.findChild<QTableWidget *>("colorPaletteTable")->rowCount(), 1);
         QCOMPARE(item->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
         QStringList actions;
         QTimer::singleShot(0, &window, [&] {

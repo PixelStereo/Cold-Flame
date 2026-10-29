@@ -12,6 +12,7 @@
 #include "patchdialog.h"
 #include "parameterpanel.h"
 #include "fixturecolor.h"
+#include "colorpalettepanel.h"
 #include <QtWidgets>
 #include <cmath>
 using namespace Flame;
@@ -32,6 +33,8 @@ class Console : public QMainWindow {
     int channelPage = 0;
     PatchDialog *patchPanel;
     ParameterPanel *parameterPanel = nullptr;
+    ColorPalettePanel *colorPalettePanel = nullptr;
+    void rebuildColorPalettes() { if (colorPalettePanel) colorPalettePanel->reload(); }
     BlindDialog *trackingPanel = nullptr;
     StepTable *cues;
     enum ChannelView { AllChannels, UsedChannels, EditChannels };
@@ -65,6 +68,7 @@ class Console : public QMainWindow {
     }
     void changed() {
         history.commit(engine);
+        rebuildColorPalettes();
         dirty = true;
         setWindowModified(true);
         if (trackingPanel) trackingPanel->reload(selectedSequence);
@@ -256,6 +260,7 @@ class Console : public QMainWindow {
             palettes->addItem(item);
         }
         libraryPanel->reload();
+        rebuildColorPalettes();
         if (parameterPanel) parameterPanel->reload();
         if (trackingPanel) trackingPanel->reload(selectedSequence);
         fitChannels();
@@ -279,7 +284,19 @@ class Console : public QMainWindow {
             for (auto it = engine.manual.begin(); it != engine.manual.end(); ++it)
                 engine.editBlind(selectedSequence, index, it.key(), it.value(), true);
         } else {
-            engine.updateStoredCue(step.reference, engine.manual);
+            QMap<int, Value> shared;
+            QSet<int> localColors;
+            auto localKeys = step.values.keys(); for (int key : step.suppressed) localKeys << key;
+            for (int key : localKeys) {
+                const int channel = engine.channelForControl(key);
+                if (engine.colorControls(channel).keys().contains(key)) localColors.insert(channel);
+            }
+            for (auto it = engine.manual.begin(); it != engine.manual.end(); ++it)
+                if (step.values.contains(it.key()) || step.suppressed.contains(it.key()) ||
+                    (localColors.contains(engine.channelForControl(it.key())) && engine.colorControls(engine.channelForControl(it.key())).keys().contains(it.key())))
+                    engine.editBlind(selectedSequence, index, it.key(), it.value());
+                else shared[it.key()] = it.value();
+            engine.updateStoredCue(step.reference, shared);
         }
         changed(); libraryPanel->reload(step.reference);
     }
@@ -326,9 +343,15 @@ class Console : public QMainWindow {
         dialog.setObjectName("fixtureColorDialog");
         dialog.setWindowTitle(QString("Channel %1 · Color").arg(channel));
         connect(&dialog, &QColorDialog::currentColorChanged, this, [this, channel](QColor color) {
-            setFixtureColor(engine, channel, color); refresh();
+            setFixtureColor(engine, channel, color, false); refresh();
         });
-        if (dialog.exec() == QDialog::Accepted) setFixtureColor(engine, channel, dialog.currentColor());
+        if (dialog.exec() == QDialog::Accepted) {
+            if (!setFixtureColor(engine, channel, dialog.currentColor())) message("Cannot create a color palette");
+            else {
+                changed();
+                if (colorPalettePanel) colorPalettePanel->reload(engine.manual.value(controls.keys().first()).colorPalette);
+            }
+        }
         else for (int key : controls.keys()) {
             if (before.contains(key)) engine.manual[key] = before.value(key);
             else engine.manual.remove(key);
@@ -981,7 +1004,12 @@ class Console : public QMainWindow {
             auto remove = menu.addAction("Remove step");
             remove->setStatusTip("Remove this occurrence and its incoming links. Its stored cue remains available. Undo restores it.");
             connect(&menu, &QMenu::hovered, this, [this](QAction *action) { hoverHelp->setText(action->statusTip()); });
-            if (menu.exec(cues->viewport()->mapToGlobal(point)) == remove) removeSelectedStep();
+            QAction *assign = nullptr;
+            const auto step = engine.sequences[selectedSequence].cues[row];
+            if (!step.reference.isEmpty()) assign = menu.addAction("Assign color palette to stored cue…");
+            auto action = menu.exec(cues->viewport()->mapToGlobal(point));
+            if (action == remove) removeSelectedStep();
+            else if (assign && action == assign) colorPalettePanel->assignToCue(step.reference);
         });
         auto removeKey = new QShortcut(QKeySequence::Delete, cues);
         removeKey->setContext(Qt::WidgetShortcut);
@@ -993,10 +1021,10 @@ class Console : public QMainWindow {
         sequenceLayout->addWidget(cues, 1);
         auto edit = new QHBoxLayout;
         button("RECORD", edit, [this] { record(); })->setObjectName("recordButton");
-        button("UPDATE", edit, [this] { updateStep(); });
+        button("UPDATE", edit, [this] { updateStep(); })->setObjectName("updateStepButton");
         button("Record Only", edit, [this] { record(true); });
         edit->addStretch();
-        cueOnly = new QCheckBox("Cue Only"); edit->addWidget(cueOnly);
+        cueOnly = new QCheckBox("Cue Only"); cueOnly->setObjectName("cueOnlyMode"); edit->addWidget(cueOnly);
         sequenceLayout->addLayout(edit);
         auto steps = new QHBoxLayout;
         button("Insert cue…", steps, [this] { chooseCue(); })->setObjectName("insertCueButton");
@@ -1034,27 +1062,35 @@ class Console : public QMainWindow {
         workspaceTabs->addTab(subPage, "Submasters");
         auto palettePage = new QWidget;
         auto paletteLayout = new QVBoxLayout(palettePage);
+        auto paletteTabs = new QTabWidget; paletteTabs->setObjectName("paletteTabs");
+        paletteLayout->addWidget(paletteTabs);
+        auto intensityPage = new QWidget;
+        auto intensityLayout = new QVBoxLayout(intensityPage);
         palettes = new QListWidget;
         palettes->setViewMode(QListView::IconMode);
         palettes->setResizeMode(QListView::Adjust);
         palettes->setMovement(QListView::Static);
         palettes->setGridSize(QSize(170, 80));
-        paletteLayout->addWidget(palettes, 3);
+        intensityLayout->addWidget(palettes, 3);
         paletteId = new QSpinBox;
         paletteId->setRange(1, 9999);
         paletteId->setPrefix("IP  ");
-        paletteLayout->addWidget(paletteId);
-        button("Record palette", paletteLayout, [this] {
+        intensityLayout->addWidget(paletteId);
+        button("Record palette", intensityLayout, [this] {
             engine.recordPalette(paletteId->value());
             changed();
             rebuild();
         });
-        button("Apply palette", paletteLayout, [this] {
+        button("Apply palette", intensityLayout, [this] {
             engine.applyPalette(paletteId->value());
             refresh();
         });
+        colorPalettePanel = new ColorPalettePanel(engine, [this] { changed(); }, [this] { refresh(); });
+        paletteTabs->addTab(colorPalettePanel, "Color");
+        paletteTabs->addTab(intensityPage, "Intensity");
         workspaceTabs->addTab(palettePage, "Palettes");
         libraryPanel = new CueLibraryPanel(engine, [this] { changed(); }, [this](QString number) { insertCue(number); });
+        libraryPanel->assignColor = [this](QString number) { colorPalettePanel->assignToCue(number); };
         workspaceTabs->addTab(libraryPanel, "Cue library");
         trackingPanel = new BlindDialog(engine, selectedSequence, [this] { changed(); }, workspaceTabs, true);
         trackingPanel->sequenceSelected = [this](int index) {
@@ -1560,6 +1596,12 @@ int main(int argc, char **argv) {
             for (int i = 0; i < right->count(); ++i) if (right->tabText(i) == "Tracking") right->setCurrentIndex(i);
             w.findChild<QComboBox *>("trackingScope")->setCurrentIndex(2);
             QTimer::singleShot(150, [&w] { w.grab().save("fixtures-preview.png"); });
+        });
+    if (app.arguments().contains("--color-palettes-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            auto tabs = w.findChild<QTabWidget *>("workspaceTabs");
+            for (int i = 0; i < tabs->count(); ++i) if (tabs->tabText(i) == "Palettes") tabs->setCurrentIndex(i);
+            QTimer::singleShot(150, [&w] { w.grab().save("color-palettes-preview.png"); });
         });
     if (app.arguments().contains("--color-screenshot"))
         QTimer::singleShot(50, [&w] {

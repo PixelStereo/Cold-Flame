@@ -1,6 +1,31 @@
 #include "engine.h"
 #include <cmath>
 namespace Flame {
+QList<int> ColorControls::keys() const {
+    if (!available()) return {};
+    QList<int> keys = additive() ? red + green + blue + white + extra : QList<int>{};
+    if (subtractive()) keys += cyan + magenta + yellow;
+    return keys;
+}
+ColorControls Engine::colorControls(int channel) const {
+    ColorControls controls;
+    if (!channels.contains(channel)) return controls;
+    const auto mode = fixtureMode(channel);
+    for (int i = 0; i < mode.parameters.size(); ++i) {
+        const auto &attribute = mode.parameters[i].attribute;
+        const int key = parameterKey(channel, i);
+        if (attribute == "ColorAdd_R") controls.red << key;
+        else if (attribute == "ColorAdd_G") controls.green << key;
+        else if (attribute == "ColorAdd_B") controls.blue << key;
+        else if (attribute == "ColorAdd_W") controls.white << key;
+        else if (attribute == "ColorSub_C") controls.cyan << key;
+        else if (attribute == "ColorSub_M") controls.magenta << key;
+        else if (attribute == "ColorSub_Y") controls.yellow << key;
+        else if (attribute.startsWith("ColorAdd_")) controls.extra << key;
+    }
+    return controls;
+}
+
 FixtureMode Engine::fixtureMode(int channel) const {
     const auto assignment = fixtures.value(channel);
     return fixtureProfiles.value(assignment.profile).modes.value(assignment.mode);
@@ -30,7 +55,8 @@ bool Engine::controlExists(int key) const {
 double Engine::controlDefault(int key) const {
     if (key >= 0) return 0;
     int channel = channelForControl(key), index = (-qint64(key) - 1) % 512;
-    return fixtureMode(channel).parameters.value(index).home;
+    const double white = colorComponent(key, 0);
+    return white >= 0 ? white : fixtureMode(channel).parameters.value(index).home;
 }
 QString Engine::controlLabel(int key) const {
     int channel = channelForControl(key);
@@ -106,10 +132,10 @@ bool Engine::canChangeFixture(int channel, FixtureAssignment assignment) const {
 }
 void Engine::trackFromPrevious(int s, int step, int key, bool only) {
     if (s < 0 || s >= sequences.size() || step < 0 || step >= sequences[s].cues.size() || !controlExists(key)) return;
-    const double before = tracked(s, step).value(key, controlDefault(key));
+    const Value before = trackedValue(s, step, key);
     auto &list = sequences[s].cues;
     if (only && step + 1 < list.size() && !cueValues(list[step + 1]).contains(key) && !list[step + 1].blocked.contains(key))
-        list[step + 1].values[key] = {before, 0};
+        list[step + 1].values[key] = before;
     auto &c = list[step]; c.values.remove(key); c.blocked.remove(key);
     if (!c.reference.isEmpty() && cueLibrary.value(c.reference).values.contains(key)) c.suppressed.insert(key);
 }
@@ -117,8 +143,8 @@ void Engine::setChannelBlock(int s, int step, int key, bool enabled) {
     if (s < 0 || s >= sequences.size() || step < 0 || step >= sequences[s].cues.size() || !controlExists(key)) return;
     if (enabled) {
         // Capture before operator[] inserts a default block into the tracking source.
-        const double snapshot = tracked(s, step).value(key, controlDefault(key));
-        sequences[s].cues[step].blocked[key] = {snapshot, 0};
+        const Value snapshot = trackedValue(s, step, key);
+        sequences[s].cues[step].blocked[key] = snapshot;
     } else sequences[s].cues[step].blocked.remove(key);
 }
 int Engine::traceSource(int s, int step, int key) const {
@@ -130,6 +156,7 @@ int Engine::traceSource(int s, int step, int key) const {
 void Engine::traceEdit(int s, int step, int key, Value value, bool force, bool only) {
     if (s < 0 || s >= sequences.size() || step < 0 || step >= sequences[s].cues.size() || !controlExists(key)) return;
     const auto before = tracked(s, step);
+    const auto beforeReference = trackedValue(s, step, key);
     const double old = before.value(key, controlDefault(key));
     int source = traceSource(s, step, key);
     // Eos Trace does not push a newly active level backwards through an inactive track.
@@ -137,6 +164,6 @@ void Engine::traceEdit(int s, int step, int key, Value value, bool force, bool o
     editBlind(s, source < 0 ? step : source, key, value);
     auto &list = sequences[s].cues;
     if (only && step + 1 < list.size() && !cueValues(list[step + 1]).contains(key) && !list[step + 1].blocked.contains(key))
-        list[step + 1].values[key] = {old, 0};
+        list[step + 1].values[key] = beforeReference;
 }
 } // namespace Flame

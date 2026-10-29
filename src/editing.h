@@ -64,6 +64,10 @@ class EditHistory {
         };
         for (auto &s : definitions.sequences) purgePlayback(s);
         for (auto &s : engine.linkedPlaybacks) purgePlayback(s);
+        for (auto it = engine.manual.begin(); it != engine.manual.end(); ++it)
+            if (it->colorPalette > 0 && !definitions.colorPalettes.contains(it->colorPalette))
+                it.value() = {engine.resolve(it.key(), it.value()), 0, -1};
+        engine.colorPalettes = definitions.colorPalettes;
         engine.fixtureProfiles = definitions.fixtureProfiles;
         engine.fixtures = definitions.fixtures;
         engine.channels = definitions.channels;

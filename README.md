@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.7.0: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.8.0: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -44,13 +44,13 @@ Native release packaging is enabled with `-DCOLD_FLAME_DEPLOY=ON`; it deploys th
 
 1. A new show contains 120 dimmer channels patched to addresses 1–120. The live **Channels** tab shows numbers, levels and state marks (P for Park, C for Capture, a warm dot for manual), without patch addresses. Use the range selector for pages of 120; **+ Page** adds the next 120 channels, assigning unused DMX addresses. Selection can span pages. **Patch** is the adjacent tab with one wide spreadsheet. Edit labels and comma-separated DMX destinations; conflicts block Apply. Revert draft discards edits. Full view opens a larger patch editor.
 2. Select channels with the mouse (Ctrl / Shift for multiple selections), or type `Channel 1 Thru 12 At 50` and press Enter.
-3. Click **Record** to store a reusable look in the **Cue library**, without inserting it into a sequence. Cues receive numbers 10, 20, 30… and names cue-10, cue-20…. Record stores the full unmastered look, excludes Park, and preserves manual palette references. **Record Only** stores manual channels only. Rename and renumber stored cues in the library.
+3. Click **Record** to store a reusable look in the **Cue library**, without inserting it into a sequence. Cues receive numbers 10, 20, 30… and names cue-10, cue-20…. Record stores the full unmastered look, excludes Park, and preserves manual palette references. **Record Only** stores manual controls; touched RGB fixtures include intensity and current color. Rename and renumber stored cues in the library.
 4. Select a library cue and **Insert into sequence** to append it to the selected sequence. Alternatively, **Insert cue…** in the sequence inserts before the selected step. A stored cue may appear several times, and in several sequences. **STEP** identifies the occurrence; **CUE** identifies its shared content. Step IDs start at 1 and stay unchanged when reordered by dragging the dotted grip at the left of a row. The insertion line shows where it will land; the sheet scrolls when dragging near its edges. Right-click a row and choose **Remove step** (or press Delete while the sheet has focus) to remove the occurrence, keeping its stored cue.
 5. Edit Up / Down / Wait directly in the step sheet. There is no separate time field below the sequence. Each occurrence retains its own timing and triggers. Follow, Hang, Execute and After have dedicated editable columns. Default transfer time is 2 seconds. Select a step and **Set Next** to queue it without changing output; **Go To** plays it immediately. `Ctrl+Space` triggers Go; `Ctrl+S` saves.
 6. **Link…** selects the exact occurrence, including its sequence, step ID, cue and name. For example, steps 1, 3 and 7 can all use cue 10; linking to step 7 always chooses that occurrence, even after reordering. Link queues the target; Follow / Hang can fire it automatically. The Link cell accepts a step ID or `sequence/step`.
 7. Use **+ / −** above the step sheet to create or delete sequences (1, 2, 3…). One must remain. Double-click a sequence tab to rename it. Drag the workspace tabs to arrange them. Each sequence retains its own state and fade. Higher priority wins; at equal priority, the most recently triggered move wins for the channels it owns.
-8. **Edit content…** in the cue library edits the shared cue. **Update from manual** merges manual values; all referencing steps use the new look on their next playback, without changing active fades. A referenced library cue cannot be deleted until its occurrences are removed. **Update** on a sequence step updates its shared cue, unless Cue Only is enabled, which creates local step overrides.
-9. Save as `.cfl`. Format 3 contains the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1 and 2 shows still load; saving writes format 3. Older Cold Flame builds cannot open format 3. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
+8. **Edit content…** in the cue library edits the shared cue. **Update from manual** merges manual values; all referencing steps use the new look on their next playback, without changing active fades. A referenced library cue cannot be deleted until its occurrences are removed. **Update** on a sequence step updates its shared cue, unless Cue Only is enabled, which creates local step overrides. Existing local overrides remain local.
+9. Save as `.cfl`. Format 4 contains color palette definitions/references as well as the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1–3 shows still load; saving writes format 4. Older Cold Flame builds cannot open format 4. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
 
 The reusable-look model follows [Congo/Cobalt’s documented preset-and-sequence model](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo). Eos uses cue numbers within cue lists; its [Link](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/04_Cue_Attributes/Link_Loop.htm) addresses such cues. Cold Flame explicitly addresses sequence steps to distinguish repeated stored cues.
 
@@ -68,7 +68,7 @@ Buttons show immediate contextual help at the bottom right, without floating too
 
 ## Core editing and manual control
 
-- **Record Only** stores manual values in a reusable cue. **Cue Only** makes sequence Update and Blind edits local to that occurrence, preserving the next step where tracking would otherwise propagate the change.
+- **Record Only** stores manual values in a reusable cue, with intensity and color paired for touched RGB fixtures. **Cue Only** makes sequence Update and Blind edits local to that occurrence, preserving the next step where tracking would otherwise propagate the change.
 - **Tracking** is a workspace tab for channel and fixture-parameter values across sequence steps. M/T/B indicate moves, tracks and blocks. Edit locally in Blind, clear or right-click to track from the previous step, apply a channel/parameter Block, find its source, or use Trace edit (including Cue Only and forced tracing through zeros). See the [fixture and tracking guide](docs/FIXTURES-AND-TRACKING.md).
 - The stacked **B / A** buttons at the left of each step toggle Block and Assert. Block protects tracked values against upstream edits; Assert takes back tracked intensity when the step plays.
 - **Capture** toggles manual protection on selected channels. Playback and submasters cannot override captured channels; manual level changes still work. Release manual leaves captured values alone.
@@ -138,3 +138,9 @@ The interface palette follows [DMXPulse](https://github.com/PixelStereo/DMXPulse
 Color-capable channels have a clickable swatch. Click the swatch, double-click the tile, or right-click → **Choose color…** for live RGB/RGBW/CMY selection. Cancel restores previous manual color values; intensity is unchanged. Record/Update stores the color parameters normally.
 
 ![Channel color picker](color-preview.png)
+
+Color palettes are stored independently and referenced by cues. RGB recordings include intensity and color; default white is an invisible, immutable reference. Confirming a fixture color creates or reuses a palette. **Palettes → Color → Assign to cue…** assigns it directly to a stored cue, retaining intensity. Right-clicking a cue offers the same action. **Edit color…** changes the shared palette; Cue Only creates local step overrides. See [palette types and references](docs/PALETTES.md).
+
+`examples/color-palettes.cfl` demonstrates shared Color Palettes, repeated cue occurrences and hidden default white.
+
+![Color palette bank](color-palettes-preview.png)

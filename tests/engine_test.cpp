@@ -8,6 +8,70 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void hiddenWhiteAndCompleteRgbRecording() {
+        Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513;
+        QVERIFY(e.colorPalettes.isEmpty()); QCOMPARE(e.colorPalette(0).red, 1.);
+        QVERIFY(!e.updateColorPalette(0, {"Black", 0, 0, 0})); QVERIFY(!e.deleteColorPalette(0));
+        e.manual[1] = {50, 0}; QVERIFY(e.storeCue("10", {}, true));
+        QCOMPARE(e.cueLibrary["10"].values[1].level, 50.);
+        for (int key : e.colorControls(1).keys()) QCOMPARE(e.cueLibrary["10"].values[key].colorPalette, 0);
+        QVERIFY(e.colorPalettes.isEmpty());
+        auto frame = e.dmxFrames()[1]; QCOMPARE(frame.left(3), QByteArray(3, '\0')); QCOMPARE(quint8(frame[3]), 128);
+        Engine restored; QVERIFY(restored.load(e.json())); QVERIFY(restored.colorPalettes.isEmpty());
+        QCOMPARE(restored.cueLibrary["10"].values[e.parameterKey(1, 3)].colorPalette, 0);
+        auto invalid = e.json(); invalid["colorPalettes"] = QJsonArray{QJsonObject{{"id", 0}, {"red", 0}, {"green", 0}, {"blue", 0}}};
+        QVERIFY(!restored.load(invalid)); QCOMPARE(restored.colorPalette(0).red, 1.);
+    }
+    void assignPaletteDirectlyToStoredCue() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        e.fixtures[2] = {"rgbw", 0}; e.patch[2] = 520;
+        e.manual[1] = {60, 0}; e.manual[2] = {25, 0}; e.storeCue("10"); e.manual.clear();
+        int id = e.findOrCreateColorPalette({"Red", 1, 0, 0});
+        QCOMPARE(e.assignColorPaletteToCue("10", id, {1}), 1);
+        QCOMPARE(e.cueLibrary["10"].values[e.parameterKey(1, 0)].colorPalette, id);
+        QCOMPARE(e.cueLibrary["10"].values[e.parameterKey(2, 0)].colorPalette, 0);
+        QCOMPARE(e.assignColorPaletteToCue("10", id), 2);
+        QCOMPARE(e.cueLibrary["10"].values[1].level, 60.); QCOMPARE(e.cueLibrary["10"].values[2].level, 25.);
+        QVERIFY(e.manual.isEmpty()); auto before = e.json(); QCOMPARE(e.assignColorPaletteToCue("10", 999), 0); QCOMPARE(e.json(), before);
+    }
+    void colorPaletteCueReferencesAndLocalSteps() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        e.manual[1] = {45, 0}; QVERIFY(e.storeCue("10")); e.manual.clear();
+        int red = e.findOrCreateColorPalette({"Red", 1, 0, 0}); QVERIFY(red > 0);
+        QVERIFY(e.applyColorPalette(1, red)); QVERIFY(e.updateStoredCue("10", e.manual));
+        QCOMPARE(e.cueLibrary["10"].values[1].level, 45.);
+        int r = e.parameterKey(1, 0), g = e.parameterKey(1, 1), b = e.parameterKey(1, 2);
+        QCOMPARE(e.cueLibrary["10"].values[r].colorPalette, red);
+        e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10"); int other = e.addSequence(); e.insertStoredCue(other, "10");
+        QVERIFY(e.updateColorPalette(red, {"Blue now", 0, 0, 1}));
+        QCOMPARE(e.tracked(0, 0)[r], 0.); QCOMPARE(e.tracked(0, 1)[b], 100.); QCOMPARE(e.tracked(other, 0)[b], 100.);
+        QCOMPARE(e.tracked(0, 1)[1], 45.); QVERIFY(!e.deleteColorPalette(red));
+        int green = e.findOrCreateColorPalette({"Green", 0, 1, 0}); e.applyColorPalette(1, green);
+        for (int key : e.colorControls(1).keys()) e.editBlind(0, 0, key, e.manual.value(key));
+        QCOMPARE(e.tracked(0, 0)[g], 100.); QCOMPARE(e.tracked(0, 1)[b], 100.); QCOMPARE(e.tracked(other, 0)[b], 100.);
+        e.setChannelBlock(0, 1, r, true); QCOMPARE(e.sequences[0].cues[1].blocked[r].colorPalette, red);
+        Engine restored; QVERIFY(restored.load(e.json())); QCOMPARE(restored.tracked(0, 0)[g], 100.);
+        QCOMPARE(restored.cueLibrary["10"].values[b].colorPalette, red);
+    }
+    void colorReferencesSurviveRecallRecordingAndUndo() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        int id = e.findOrCreateColorPalette({"Red", 1, 0, 0}); e.applyColorPalette(1, id); e.manual[1] = {75, 0};
+        e.storeCue("10"); e.insertStoredCue(0, "10"); e.sequences[0].cues[0].time = 0; e.go(0);
+        QVERIFY(e.manual.isEmpty()); QVERIFY(e.storeCue("20")); int g = e.parameterKey(1, 1);
+        QCOMPARE(e.cueLibrary["20"].values[g].colorPalette, id);
+        e.recordLook(0, "30", "Playback snapshot", 0);
+        QCOMPARE(e.sequences[0].cues[1].values[g].colorPalette, id); QCOMPARE(e.tracked(0, 1)[1], 75.);
+        e.selection = {1}; e.toggleCapture(); QCOMPARE(e.manual[g].colorPalette, id); e.toggleCapture(); e.manual.clear();
+        EditHistory history; history.reset(e); QVERIFY(e.updateColorPalette(id, {"Green", 0, 1, 0})); history.commit(e);
+        QCOMPARE(e.tracked(0, 0)[g], 100.); QVERIFY(history.undo(e)); QCOMPARE(e.tracked(0, 0)[g], 0.);
+        Engine fresh; fresh.fixtures[1] = {"rgb", 0}; fresh.patch[1] = 513; history.reset(fresh);
+        id = fresh.findOrCreateColorPalette({"Red", 1, 0, 0}); fresh.applyColorPalette(1, id); history.commit(fresh);
+        QVERIFY(history.undo(fresh)); QVERIFY(fresh.colorPalettes.isEmpty());
+        QCOMPARE(fresh.manual[fresh.parameterKey(1, 0)].colorPalette, -1); QCOMPARE(fresh.output()[fresh.parameterKey(1, 0)], 100.);
+        auto bad = e.json(); auto library = bad["cueLibrary"].toArray(); auto cue = library[0].toObject(); auto values = cue["values"].toObject();
+        auto value = values[QString::number(g)].toObject(); value["colorPalette"] = 9999; values[QString::number(g)] = value; cue["values"] = values; library[0] = cue; bad["cueLibrary"] = library;
+        Engine rejected; QVERIFY(!rejected.load(bad));
+    }
     void startupBroadcastRoutePreservesSettings() {
         Network network; DmxOutput unicast, broadcast;
         broadcast.name = "Rig broadcast"; broadcast.mode = "Broadcast"; broadcast.firstUniverse = 42;

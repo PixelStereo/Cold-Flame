@@ -2,10 +2,10 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.7 | Remaining work |
+| Area | Implemented and tested in 0.8 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
-| Palettes | Intensity, referenced values | Position, color, beam, by-type, locking, nested references |
+| Palettes | Intensity references; shared normalized RGB/RGBW/CMY Color Palettes; hidden immutable white; direct cue assignment; local step overrides; saved references | Focus/position and Beam palettes; calibrated color, Eos by-type/default/discrete options, locking, nested references |
 | Cues | Shared cue library, repeated sequence occurrences, Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
 | Cue Only | Engine, Record/Update checkbox, Blind level edits | Full category filters and Eos range-update semantics |
 | Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults, movable tabs, stable step IDs, insertion, grip drag-and-drop, context-menu deletion, inline triggers and row Block/Assert controls, exact step links, one-shot Set Next | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |

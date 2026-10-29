@@ -11,6 +11,7 @@ class CueLibraryPanel : public QWidget {
     void edit();
     QString selected() const;
   public:
+    std::function<void(QString)> assignColor;
     CueLibraryPanel(Flame::Engine &, std::function<void()> changed,
                     std::function<void(QString)> insert, QWidget *parent = nullptr);
     QString selectedCue() const { return selected(); }

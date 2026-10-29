@@ -57,6 +57,13 @@ CueLibraryPanel::CueLibraryPanel(Engine &e, std::function<void()> editCallback,
             changed();
         }
     });
+    table->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(table, &QTableWidget::customContextMenuRequested, this, [this](QPoint point) {
+        auto item = table->itemAt(point); if (!item) return;
+        table->selectRow(item->row());
+        QMenu menu(table); auto assign = menu.addAction("Assign color palette…");
+        if (menu.exec(table->viewport()->mapToGlobal(point)) == assign && assignColor) assignColor(selected());
+    });
     reload();
 }
 QString CueLibraryPanel::selected() const {
@@ -88,14 +95,15 @@ void CueLibraryPanel::reload(QString select) {
 void CueLibraryPanel::edit() {
     QString number = selected();
     if (!engine.cueLibrary.contains(number)) return;
-    QDialog dialog(this); dialog.setWindowTitle("Stored cue " + number + " · shared content"); dialog.resize(560, 680);
+    QDialog dialog(this); dialog.setWindowTitle("Stored cue " + number + " · shared content"); dialog.resize(760, 680);
     QVBoxLayout layout(&dialog);
     auto note = new QLabel("Saving updates every use of this cue. Running fades keep their current targets.");
     note->setWordWrap(true); layout.addWidget(note);
-    QTableWidget editor(engine.controlIds().size(), 3); editor.setObjectName("storedCueEditor");
-    editor.setHorizontalHeaderLabels({"Include", "Channel", "Level %"});
+    QTableWidget editor(engine.controlIds().size(), 4); editor.setObjectName("storedCueEditor");
+    editor.setHorizontalHeaderLabels({"Include", "Channel", "Level %", "Reference"});
     editor.setItemDelegate(new TableDelegate(&editor)); editor.verticalHeader()->setDefaultSectionSize(30);
-    editor.horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    editor.horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    editor.horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     const auto values = engine.cueLibrary[number].values;
     int row = 0;
     for (int channel : engine.controlIds()) {
@@ -105,7 +113,11 @@ void CueLibraryPanel::edit() {
         check->setData(Qt::UserRole, channel); editor.setItem(row, 0, check);
         auto label = new QTableWidgetItem(engine.controlLabel(channel));
         label->setFlags(Qt::ItemIsEnabled); editor.setItem(row, 1, label);
-        editor.setItem(row++, 2, new QTableWidgetItem(QString::number(engine.resolve(channel, values.value(channel)))));
+        editor.setItem(row, 2, new QTableWidgetItem(QString::number(engine.resolve(channel, values.value(channel)), 'g', 12)));
+        const auto value = values.value(channel);
+        auto reference = new QTableWidgetItem(value.colorPalette > 0 ? QString("CP %1").arg(value.colorPalette)
+            : value.palette > 0 ? QString("IP %1").arg(value.palette) : "—");
+        reference->setFlags(reference->flags() & ~Qt::ItemIsEditable); editor.setItem(row++, 3, reference);
     }
     layout.addWidget(&editor); QLabel error; layout.addWidget(&error);
     QDialogButtonBox buttons(QDialogButtonBox::Save | QDialogButtonBox::Cancel); layout.addWidget(&buttons);
@@ -117,7 +129,7 @@ void CueLibraryPanel::edit() {
             bool ok; double level = editor.item(r, 2)->text().toDouble(&ok);
             if (!ok || !std::isfinite(level) || level < 0 || level > 100) { error.setText("Levels must be between 0 and 100."); return; }
             int channel = editor.item(r, 0)->data(Qt::UserRole).toInt();
-            content[channel] = values.contains(channel) && engine.resolve(channel, values[channel]) == level
+            content[channel] = values.contains(channel) && qAbs(engine.resolve(channel, values[channel]) - level) < 1e-7
                 ? values[channel] : Value{level, 0};
         }
         engine.updateStoredCue(number, content, true); changed(); dialog.accept();

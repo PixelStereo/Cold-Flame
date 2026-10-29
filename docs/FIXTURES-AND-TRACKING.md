@@ -1,4 +1,4 @@
-# Fixtures, patch and tracking (0.7)
+# Fixtures, patch and tracking (0.8)
 
 A console channel represents one fixture. Its intensity remains visible in the channel grid; its other parameters belong to that same channel in Parameters and Tracking. This follows the Eos [channel/fixture concept](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/06_Patch/About_Patch.htm). Shared reusable looks and repeated sequence occurrences retain Cold Flame's Congo/Cobalt-style model.
 
@@ -21,7 +21,7 @@ Supported modes have direct single-break offsets, one logical attribute per DMX 
 
 Modes requiring geometry-reference expansion, multiple DMX breaks, virtual channel relations, multiplexed logical channels, mode masters or multiple intensity cells are marked unsupported and cannot be applied. This is a supported subset of GDTF, not full GDTF or Eos fixture coverage. Import preserves the original archive; exporting an imported profile returns those original bytes. Built-in generic profiles can also be exported as GDTF.
 
-**Export applied patch…** writes a versioned `.cfp` JSON patch with channel names, addresses, assignments and fixture profiles. **Import patch…** loads a compatible file into the draft for review and Apply. It preserves existing channel IDs and rejects profile identity conflicts or changes that would reinterpret stored fixture parameters. This is Cold Flame patch transfer, not MVR interchange. `.cfl` show format 3 stores the same fixture data plus cue/sequence content and tracking overrides. Format 1 and 2 shows remain readable; older builds cannot open format 3.
+**Export applied patch…** writes a versioned `.cfp` JSON patch with channel names, addresses, assignments and fixture profiles. **Import patch…** loads a compatible file into the draft for review and Apply. It preserves existing channel IDs and rejects profile identity conflicts or changes that would reinterpret stored fixture parameters. This is Cold Flame patch transfer, not MVR interchange. `.cfl` show format 4 stores color palettes/references plus the same fixture data plus cue/sequence content and tracking overrides. Format 1–3 shows remain readable; older builds cannot open format 4.
 
 Changing start addresses keeps parameter identities and is supported with existing cues. Replacing a fixture type/mode once it has stored or live non-intensity data is rejected: use a new channel. Parameter migration between different fixture types remains future work. Undoing a fixture-type definition releases incompatible live non-intensity controls so their internal IDs cannot be reinterpreted as other parameters.
 
@@ -35,7 +35,7 @@ Record stores the unmastered look, including fixture parameters and their defaul
 
 RGB/RGBW and CMY fixtures show a color swatch on their channel tile. Click that swatch, double-click the tile or right-click and select **Choose color…**. Normal clicks elsewhere still select channels. **Fixture parameters…** in the context menu opens the numeric parameter editor.
 
-The picker previews manual color changes live without changing intensity, shutter, position or other controls. Cancel restores the previous manual color values and palette references; OK retains the chosen color for Record/Update. Swatches show the current programmed color independently of intensity and blackout. A warm border identifies manual intensity or color control.
+The picker previews manual color changes live without changing intensity, shutter, position or other controls. Confirming a color creates or reuses a shared Color Palette; preview and Cancel create none. White defaults to an immutable hidden palette. Cancel restores the previous manual color values and palette references; OK retains the chosen color reference for Record/Update. RGB recordings include both intensity and color. Updating color alone retains the cue intensity. Swatches show the current programmed color independently of intensity and blackout. A warm border identifies manual intensity or color control.
 
 RGBW mixing extracts the common RGB component into White. CMY converts to complementary percentages. On hybrid RGB/CMY fixtures the additive system is used with CMY open; other additive emitters are cleared. Repeated emitter attributes receive the same color. This is normalized DMX mixing, without vendor color calibration. Fixtures with only discrete color wheels remain editable through Parameters; their wheel slots are not mapped to arbitrary RGB colors.
 
@@ -53,3 +53,5 @@ Double-click a cell to edit its percentage. Edits save immediately to the occurr
 Right-click cells to **Track from previous**, **Block channel / parameter**, **Unblock channel / parameter**, or **Go to source instruction**. Clearing a cell also removes its move. Removing a move inherited from a shared cue creates a local suppression, without deleting data from other uses of that cue. A full-look library cue explicitly stores all controls, so it stops incoming tracking until those moves are removed locally. Record Only can create sparse shared cues.
 
 Enable **Trace edit** to edit the move or block that supplies the chosen cell. It traces into a block, but stops there. A newly active level on a zero/null track is written at the selected step; **Trace zeros** forces it backwards (the counterpart of Eos Trace Trace). Cue Only preserves the step after the selected occurrence even when the edited source is earlier. These behaviors are based on [Eos Tracking and Block](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/04_System_Basics/Important_Concepts.htm) and [Update Using Trace](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/07_%5BUpdate%5D/Update_Using_Trace.htm). Category filters, per-parameter Assert and full Eos range-edit/update semantics remain incomplete.
+
+For direct cue assignment, shared palette editing and Eos palette categories, see [PALETTES.md](PALETTES.md).

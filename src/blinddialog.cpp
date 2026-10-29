@@ -110,6 +110,8 @@ void BlindDialog::populate() {
             const int source = engine.traceSource(sequence, col, key);
             item->setToolTip(QString("%1 · %2%3").arg(engine.controlLabel(key), blocked ? "Block" : move ? "Move" : present ? "Tracked" : "Home value",
                 source >= 0 ? " · source step " + seq.cues[source].number : ""));
+            const auto reference = engine.trackedValue(sequence, col, key);
+            if (reference.colorPalette > 0) item->setToolTip(item->toolTip() + QString(" · CP %1 · %2").arg(reference.colorPalette).arg(engine.colorPalette(reference.colorPalette).name));
             item->setForeground(QColor(blocked ? "#e0c998" : move ? "#b7cfc1" : "#909995"));
             item->setTextAlignment(Qt::AlignCenter);
         }

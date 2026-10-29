@@ -18,7 +18,7 @@ ParameterPanel::ParameterPanel(Engine &e, std::function<void()> onLiveChange, QW
         this->onLiveChange(); refresh();
     });
     connect(home, &QPushButton::clicked, this, [this] {
-        for (int key : engine.controlIds()) if (key < 0 && engine.channelForControl(key) == shown) engine.manual[key] = {engine.controlDefault(key), 0};
+        for (int key : engine.controlIds()) if (key < 0 && engine.channelForControl(key) == shown) engine.manual[key] = {engine.controlDefault(key), 0, engine.colorComponent(key, 0) >= 0 ? 0 : -1};
         this->onLiveChange(); refresh();
     });
     reload();
@@ -53,6 +53,9 @@ void ParameterPanel::refresh() {
     for (int row = 0; row < table->rowCount(); ++row) {
         int key = table->item(row, 0)->data(Qt::UserRole).toInt(); auto spin = qobject_cast<QDoubleSpinBox *>(table->cellWidget(row, 2));
         if (!spin->hasFocus()) { QSignalBlocker block(spin); spin->setValue(values.value(key, engine.controlDefault(key))); }
-        table->item(row, 3)->setText(engine.manual.contains(key) ? "Manual" : "Playback / home");
+        const auto reference = engine.recordedValue(key, values);
+        QString source = engine.manual.contains(key) ? "Manual" : "Playback / home";
+        if (reference.colorPalette > 0) source = QString("CP %1 · ").arg(reference.colorPalette) + source;
+        table->item(row, 3)->setText(source);
     }
 }

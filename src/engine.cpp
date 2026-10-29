@@ -19,6 +19,10 @@ QList<int> Engine::dmxAddresses(int channel) const {
     return result;
 }
 double Engine::resolve(int channel, Value v) const {
+    if (v.colorPalette >= 0) {
+        const double component = colorComponent(channel, v.colorPalette);
+        if (component >= 0) return component;
+    }
     return v.palette ? palettes.value(v.palette).value(channel, v.level) : v.level;
 }
 QMap<int, Value> Engine::cueValues(const Cue &step) const {
@@ -45,18 +49,27 @@ bool Engine::storeCue(QString number, QString label, bool manualOnly) {
     cue.label = label.isEmpty() ? "cue-" + number : label;
     if (!manualOnly) {
         auto live = output(false, false);
-        for (int channel : controlIds()) cue.values[channel] = {live.value(channel), 0};
+        for (int channel : controlIds()) cue.values[channel] = recordedValue(channel, live);
     }
     for (auto it = manual.begin(); it != manual.end(); ++it)
         if (controlExists(it.key())) cue.values[it.key()] = it.value();
+    // RGB fixtures record intensity and color together, including Record Only.
+    const auto live = output(false, false);
+    QSet<int> touched;
+    for (int key : cue.values.keys()) touched.insert(channelForControl(key));
+    for (int channel : touched) {
+        const auto controls = colorControls(channel);
+        if (!controls.available()) continue;
+        if (!cue.values.contains(channel)) cue.values[channel] = recordedValue(channel, live);
+        for (int key : controls.keys()) if (!cue.values.contains(key)) cue.values[key] = recordedValue(key, live);
+    }
     cueLibrary[number] = cue;
     return true;
 }
 bool Engine::updateStoredCue(QString number, const QMap<int, Value> &values, bool replace) {
     if (!cueLibrary.contains(number)) return false;
     for (auto it = values.begin(); it != values.end(); ++it)
-        if (!controlExists(it.key()) || !std::isfinite(it->level) || it->level < 0 || it->level > 100 ||
-            (it->palette && !palettes.contains(it->palette))) return false;
+        if (!validValue(it.key(), it.value())) return false;
     if (replace) cueLibrary[number].values = values;
     else for (auto it = values.begin(); it != values.end(); ++it) cueLibrary[number].values[it.key()] = it.value();
     return true;
@@ -176,7 +189,10 @@ void Engine::toggleCapture() {
         if (any) captured.remove(key);
         else {
             captured.insert(key);
-            if (!manual.contains(key)) manual[key] = {live.value(key, controlDefault(key)), 0};
+            if (!manual.contains(key)) {
+                const Value snapshot = recordedValue(key, live);
+                manual[key] = snapshot;
+            }
         }
     }
 }
@@ -210,14 +226,14 @@ void Engine::editBlind(int s, int cue, int channel, Value value, bool only) {
     if (s < 0 || s >= sequences.size() || cue < 0 || cue >= sequences[s].cues.size() ||
         !controlExists(channel))
         return;
-    auto before = tracked(s, cue);
+    const auto before = trackedValue(s, cue, channel);
     auto &list = sequences[s].cues;
     list[cue].suppressed.remove(channel);
     list[cue].values[channel] = value;
     if (list[cue].blocked.contains(channel)) list[cue].blocked[channel] = value;
     if (only && cue + 1 < list.size() && !cueValues(list[cue + 1]).contains(channel) &&
         !list[cue + 1].blocked.contains(channel))
-        list[cue + 1].values[channel] = {before.value(channel, controlDefault(channel)), 0};
+        list[cue + 1].values[channel] = before;
 }
 void Engine::level(double p) {
     for (int c : selection)
@@ -280,7 +296,10 @@ void Engine::recordLook(int s, QString number, QString label, double time, bool 
     auto live = output(false, false);
     auto saved = manual;
     for (int key : controlIds())
-        if (!manual.contains(key)) manual[key] = {live.value(key), 0};
+        if (!manual.contains(key)) {
+            const Value snapshot = recordedValue(key, live);
+            manual[key] = snapshot;
+        }
     bool replacing = false;
     for (const auto &c : sequences[s].cues)
         if (c.number == number)
@@ -295,7 +314,7 @@ void Engine::recordLook(int s, QString number, QString label, double time, bool 
             auto previous = tracked(s, index - 1);
             auto &values = list[index].values;
             for (auto it = values.begin(); it != values.end();) {
-                if (!it->palette && previous.contains(it.key()) &&
+                if (!it->palette && it->colorPalette < 0 && previous.contains(it.key()) &&
                     qAbs(previous[it.key()] - it->level) < 1e-9)
                     it = values.erase(it);
                 else
@@ -646,7 +665,7 @@ bool Engine::command(QString text, QString *error) {
         return true;
     }
     if (text == "home") {
-        for (int key : controlIds()) if (selection.contains(channelForControl(key))) manual[key] = {controlDefault(key), 0};
+        for (int key : controlIds()) if (selection.contains(channelForControl(key))) manual[key] = {controlDefault(key), 0, colorComponent(key, 0) >= 0 ? 0 : -1};
         return true;
     }
     if (text == "release") {
@@ -884,7 +903,11 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 3;
+    root["version"] = 4;
+    QJsonArray colors;
+    for (auto it = colorPalettes.begin(); it != colorPalettes.end(); ++it) if (it.key() > 0)
+        colors << QJsonObject{{"id", it.key()}, {"name", it->name}, {"red", it->red}, {"green", it->green}, {"blue", it->blue}};
+    root["colorPalettes"] = colors;
     QJsonObject profiles;
     for (auto it = fixtureProfiles.begin(); it != fixtureProfiles.end(); ++it) profiles[it.key()] = fixtureJson(it.value());
     root["fixtureProfiles"] = profiles;
@@ -916,7 +939,7 @@ QJsonObject Engine::json() const {
             QJsonObject vs;
             for (auto i = c.values.begin(); i != c.values.end(); ++i)
                 vs[QString::number(i.key())] =
-                    QJsonObject{{"level", i->level}, {"palette", i->palette}};
+                    QJsonObject{{"level", i->level}, {"palette", i->palette}, {"colorPalette", i->colorPalette}};
             QJsonObject times;
             for (auto it = c.channelTimes.begin(); it != c.channelTimes.end(); ++it)
                 times[QString::number(it.key())] =
@@ -924,7 +947,7 @@ QJsonObject Engine::json() const {
             QJsonObject blocked;
             for (auto it = c.blocked.begin(); it != c.blocked.end(); ++it)
                 blocked[QString::number(it.key())] =
-                    QJsonObject{{"level", it->level}, {"palette", it->palette}};
+                    QJsonObject{{"level", it->level}, {"palette", it->palette}, {"colorPalette", it->colorPalette}};
             QJsonArray suppressed; for (int key : c.suppressed) suppressed << key;
             cs.append(QJsonObject{{"suppressed", suppressed}, {"blocked", blocked},
                                   {"number", c.number},
@@ -954,7 +977,7 @@ QJsonObject Engine::json() const {
     for (const auto &cue : cueLibrary) {
         QJsonObject values;
         for (auto it = cue.values.begin(); it != cue.values.end(); ++it)
-            values[QString::number(it.key())] = QJsonObject{{"level", it->level}, {"palette", it->palette}};
+            values[QString::number(it.key())] = QJsonObject{{"level", it->level}, {"palette", it->palette}, {"colorPalette", it->colorPalette}};
         library.append(QJsonObject{{"number", cue.number}, {"label", cue.label}, {"values", values}});
     }
     root["cueLibrary"] = library;
@@ -974,10 +997,18 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 3) || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 4) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;
+    for (auto entry : r["colorPalettes"].toArray()) {
+        const auto o = entry.toObject(); const int id = o["id"].toInt();
+        ColorPalette color{o["name"].toString(), o["red"].toDouble(-1), o["green"].toDouble(-1), o["blue"].toDouble(-1)};
+        if (id <= 0 || id > 9999 || e.colorPalettes.contains(id) ||
+            !std::isfinite(color.red) || !std::isfinite(color.green) || !std::isfinite(color.blue) ||
+            color.red < 0 || color.red > 1 || color.green < 0 || color.green > 1 || color.blue < 0 || color.blue > 1) return fail();
+        e.colorPalettes[id] = color;
+    }
     if (r.contains("fixtureProfiles")) {
         const auto profiles = r["fixtureProfiles"].toObject();
         for (auto it = profiles.begin(); it != profiles.end(); ++it) {
@@ -1045,9 +1076,9 @@ bool Engine::load(const QJsonObject &r, QString *error) {
         for (auto it = values.begin(); it != values.end(); ++it) {
             auto value = it.value().toObject();
             double level = value["level"].toDouble(-1); int palette = value["palette"].toInt();
-            if (!e.controlExists(it.key().toInt()) || !std::isfinite(level) || level < 0 || level > 100 ||
-                (palette && !e.palettes.contains(palette))) return fail();
-            cue.values[it.key().toInt()] = {level, palette};
+            Value stored{level, palette, value["colorPalette"].toInt(-1)};
+            if (!e.validValue(it.key().toInt(), stored)) return fail();
+            cue.values[it.key().toInt()] = stored;
         }
         e.cueLibrary[cue.number] = cue;
     }
@@ -1083,10 +1114,9 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 auto o = it.value().toObject();
                 double level = o["level"].toDouble(-1);
                 int palette = o["palette"].toInt();
-                if (!e.controlExists(it.key().toInt()) || level < 0 || level > 100 ||
-                    (palette && !e.palettes.contains(palette)))
-                    return fail();
-                c.blocked[it.key().toInt()] = {level, palette};
+                Value stored{level, palette, o["colorPalette"].toInt(-1)};
+                if (!e.validValue(it.key().toInt(), stored)) return fail();
+                c.blocked[it.key().toInt()] = stored;
             }
             c.time = co["time"].toDouble(-1);
             if (!ok || !std::isfinite(n) || n <= 0 || stepNumbers.contains(n) ||
@@ -1135,10 +1165,9 @@ bool Engine::load(const QJsonObject &r, QString *error) {
                 auto v = it.value().toObject();
                 double l = v["level"].toDouble(-1);
                 int p = v["palette"].toInt();
-                if (!e.controlExists(it.key().toInt()) || l < 0 || l > 100 ||
-                    (p && !e.palettes.contains(p)))
-                    return fail();
-                c.values[it.key().toInt()] = {l, p};
+                Value stored{l, p, v["colorPalette"].toInt(-1)};
+                if (!e.validValue(it.key().toInt(), stored)) return fail();
+                c.values[it.key().toInt()] = stored;
             }
             s.cues << c;
         }

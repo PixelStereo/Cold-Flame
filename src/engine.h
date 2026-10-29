@@ -1,12 +1,14 @@
 #pragma once
 #include <QtCore>
 #include "gdtf.h"
+#include "colorcontrols.h"
 #include <optional>
 namespace Flame {
 using Values = QMap<int, double>;
 struct Value {
     double level = 0;
     int palette = 0;
+    int colorPalette = -1; // -1: absolute; 0: immutable hidden white; >0: shared CP.
 };
 struct ChannelTiming {
     double up = 2, down = 2, wait = 0;
@@ -80,6 +82,17 @@ class Engine {
     static constexpr int ChannelsPerPage = 120;
     QMap<QString, StoredCue> cueLibrary;
     QMap<int, Values> palettes, groups;
+    QMap<int, ColorPalette> colorPalettes; // Only user palettes; white 0 is computed, never stored here.
+    ColorControls colorControls(int channel) const;
+    ColorPalette colorPalette(int id) const;
+    int findOrCreateColorPalette(ColorPalette color);
+    bool updateColorPalette(int id, ColorPalette color);
+    bool deleteColorPalette(int id);
+    bool applyColorPalette(int channel, int id);
+    int assignColorPaletteToCue(QString cue, int id, QSet<int> fixtures = {});
+    double colorComponent(int control, int palette) const;
+    bool validValue(int control, Value value) const;
+    Value recordedValue(int control, const Values &live) const;
     QList<Sequence> sequences;
     QList<Submaster> submasters;
     QMap<int, Sequence> linkedPlaybacks; // One automatic side playback per originating sequence.
@@ -95,6 +108,7 @@ class Engine {
     bool cueOnlyMode = false;
     Engine();
     Values tracked(int sequence, int cue) const;
+    Value trackedValue(int sequence, int cue, int control) const;
     double resolve(int channel, Value value) const;
     Values output(bool mastered = true, bool includePark = true) const;
     void toggleCapture();
