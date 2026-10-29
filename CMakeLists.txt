@@ -7,7 +7,7 @@ find_package(ZLIB REQUIRED)
 add_library(flame src/fixtures.cpp src/engine.cpp src/engine.h src/network.cpp src/network.h src/gdtf.cpp src/gdtf.h)
 target_link_libraries(flame PUBLIC Qt6::Core Qt6::Network ZLIB::ZLIB)
 target_include_directories(flame PUBLIC src)
-add_library(flame-ui src/parameterpanel.cpp src/parameterpanel.h src/patchdialog.cpp src/patchdialog.h src/blinddialog.cpp src/blinddialog.h src/outputpanel.cpp src/outputpanel.h src/tabledelegate.h src/numberdrag.h src/steptable.h src/cuelibrary.cpp src/cuelibrary.h)
+add_library(flame-ui src/fixturecolor.cpp src/fixturecolor.h src/parameterpanel.cpp src/parameterpanel.h src/patchdialog.cpp src/patchdialog.h src/blinddialog.cpp src/blinddialog.h src/outputpanel.cpp src/outputpanel.h src/tabledelegate.h src/numberdrag.h src/steptable.h src/cuelibrary.cpp src/cuelibrary.h)
 target_link_libraries(flame-ui PUBLIC flame Qt6::Widgets)
 qt_add_executable(cold-flame src/main.cpp)
 target_link_libraries(cold-flame PRIVATE flame-ui Qt6::Widgets)
@@ -38,7 +38,7 @@ set_tests_properties(interface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen
 add_test(NAME interface-hidpi COMMAND ${CMAKE_COMMAND}
     "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
     "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-hidpi.log"
-    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace"
+    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace;channelColorSwatchContextAndCancel"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-hidpi PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=2")
 add_test(NAME interface-windows-style COMMAND ${CMAKE_COMMAND}

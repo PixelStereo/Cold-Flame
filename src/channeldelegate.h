@@ -9,6 +9,10 @@ class ChannelDelegate : public QStyledItemDelegate {
                 return view->gridSize();
         return QSize(76, 62);
     }
+    static QRect colorSwatch(const QRect &rect) {
+        const QRect tile = rect.adjusted(3, 3, -3, -3);
+        return QRect(tile.right() - 14, tile.top() + 4, 10, 8);
+    }
     void paint(QPainter *p, const QStyleOptionViewItem &o, const QModelIndex &i) const override {
         p->save();
         QRect r = o.rect.adjusted(3, 3, -3, -3);
@@ -38,9 +42,15 @@ class ChannelDelegate : public QStyledItemDelegate {
         const QString flag = i.data(Qt::UserRole + 4).toString();
         if (!flag.isEmpty())
             p->drawText(QRect(r.left() + 4, r.top() + 15, r.width() - 8, 12), Qt::AlignLeft, flag == "PARK" ? "P" : "C");
-        else if (manual) {
+        else if (manual && !i.data(Qt::UserRole + 5).value<QColor>().isValid()) {
             p->setBrush(QColor("#e0c998")); p->setPen(Qt::NoPen);
             p->drawEllipse(QPointF(r.right() - 7, r.top() + 10), 2, 2);
+        }
+        const QColor color = i.data(Qt::UserRole + 5).value<QColor>();
+        if (color.isValid()) {
+            p->setPen(QPen(QColor((manual || i.data(Qt::UserRole + 6).toBool()) ? "#e0c998" : "#909995"), 1));
+            p->setBrush(color);
+            p->drawRoundedRect(colorSwatch(o.rect), 2, 2);
         }
         QRectF track(r.left() + 8, r.bottom() - 3, r.width() - 16, 2);
         p->fillRect(track, QColor("#383d3a"));

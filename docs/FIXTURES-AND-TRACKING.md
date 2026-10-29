@@ -27,9 +27,17 @@ Changing start addresses keeps parameter identities and is supported with existi
 
 ## Program fixture parameters
 
-Double-click a channel tile or open **Parameters**, then select the fixture. The panel exposes intensity and each DMX parameter, its resolution and manual status. Drag a numeric field sideways, or click to type. Home parameters loads non-intensity defaults; Release fixture clears its manual values except captured controls.
+Open **Parameters**, then select the fixture. Double-clicking a dimmer tile also opens Parameters. The panel exposes intensity and each DMX parameter, its resolution and manual status. Drag a numeric field sideways, or click to type. Home parameters loads non-intensity defaults; Release fixture clears its manual values except captured controls.
 
 Record stores the unmastered look, including fixture parameters and their defaults; Record Only stores manual controls. Update, shared-cue content editing, local tracking edits, fades and show files preserve parameter data. Grand master and blackout affect intensity, leaving position/color/beam values unchanged. RGB/RGBW profiles without a physical dimmer use the channel intensity to scale additive colors. Submasters remain HTP intensity only. Capture, Park, Home and selected-channel Release include the fixture's parameters; Park remains excluded from recordings.
+
+## Choose a color from the channel grid
+
+RGB/RGBW and CMY fixtures show a color swatch on their channel tile. Click that swatch, double-click the tile or right-click and select **Choose color…**. Normal clicks elsewhere still select channels. **Fixture parameters…** in the context menu opens the numeric parameter editor.
+
+The picker previews manual color changes live without changing intensity, shutter, position or other controls. Cancel restores the previous manual color values and palette references; OK retains the chosen color for Record/Update. Swatches show the current programmed color independently of intensity and blackout. A warm border identifies manual intensity or color control.
+
+RGBW mixing extracts the common RGB component into White. CMY converts to complementary percentages. On hybrid RGB/CMY fixtures the additive system is used with CMY open; other additive emitters are cleared. Repeated emitter attributes receive the same color. This is normalized DMX mixing, without vendor color calibration. Fixtures with only discrete color wheels remain editable through Parameters; their wheel slots are not mapped to arbitrary RGB colors.
 
 ## Track a channel through a sequence
 

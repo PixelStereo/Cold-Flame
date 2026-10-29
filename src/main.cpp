@@ -11,6 +11,7 @@
 #include "steptable.h"
 #include "patchdialog.h"
 #include "parameterpanel.h"
+#include "fixturecolor.h"
 #include <QtWidgets>
 #include <cmath>
 using namespace Flame;
@@ -146,7 +147,11 @@ class Console : public QMainWindow {
             const QString flag = engine.parked.contains(id)     ? "PARK"
                                  : engine.captured.contains(id) ? "CAPTURE"
                                                                 : "";
-            repaintChannels |= item->text() != valueText ||
+            const QColor color = fixtureColor(engine, id, &out);
+            bool colorManual = false;
+            for (int key : colorControls(engine, id).keys()) colorManual |= engine.manual.contains(key);
+            repaintChannels |= item->data(Qt::UserRole + 5).value<QColor>() != color ||
+                               item->data(Qt::UserRole + 6).toBool() != colorManual || item->text() != valueText ||
                                item->data(Qt::UserRole + 1).toDouble() != v ||
                                item->data(Qt::UserRole + 2).toBool() != manual ||
                                item->data(Qt::UserRole + 4).toString() != flag;
@@ -156,7 +161,10 @@ class Console : public QMainWindow {
             item->setData(Qt::UserRole + 4, engine.parked.contains(id)     ? "PARK"
                                             : engine.captured.contains(id) ? "CAPTURE"
                                                                            : "");
-            item->setToolTip(QString("Channel %1 · %2").arg(id).arg(engine.channels[id]));
+            item->setData(Qt::UserRole + 5, color);
+            item->setData(Qt::UserRole + 6, colorManual);
+            item->setToolTip(QString("Channel %1 · %2%3").arg(id).arg(engine.channels[id],
+                color.isValid() ? " · Click its color swatch, double-click or right-click to choose a color" : ""));
         }
         if (repaintChannels)
             channels->viewport()->update();
@@ -307,6 +315,25 @@ class Console : public QMainWindow {
         if (!current.isEmpty() && !current.contains('/')) current = QString::number(engine.sequences[selectedSequence].number) + "/" + current;
         QString chosen = QInputDialog::getItem(this, "Link to sequence step", "Choose the exact occurrence", labels, qMax(0, targets.indexOf(current)), false, &ok);
         if (ok) { engine.sequences[selectedSequence].cues[row].link = targets[labels.indexOf(chosen)]; changed(); }
+    }
+    void chooseChannelColor(int channel) {
+        const auto controls = colorControls(engine, channel);
+        if (!controls.available()) return;
+        QMap<int, Value> before;
+        for (int key : controls.keys()) if (engine.manual.contains(key)) before[key] = engine.manual.value(key);
+        QColorDialog dialog(fixtureColor(engine, channel), this);
+        dialog.setOption(QColorDialog::DontUseNativeDialog);
+        dialog.setObjectName("fixtureColorDialog");
+        dialog.setWindowTitle(QString("Channel %1 · Color").arg(channel));
+        connect(&dialog, &QColorDialog::currentColorChanged, this, [this, channel](QColor color) {
+            setFixtureColor(engine, channel, color); refresh();
+        });
+        if (dialog.exec() == QDialog::Accepted) setFixtureColor(engine, channel, dialog.currentColor());
+        else for (int key : controls.keys()) {
+            if (before.contains(key)) engine.manual[key] = before.value(key);
+            else engine.manual.remove(key);
+        }
+        refresh();
     }
     void fitChannels() {
         if (!channels)
@@ -658,6 +685,16 @@ class Console : public QMainWindow {
         const bool owned = widget && (widget == this || isAncestorOf(widget));
         if (owned && e->type() == QEvent::Polish)
             if (auto spin = qobject_cast<QAbstractSpinBox *>(widget)) enableNumberDrag(spin);
+        if (owned && o == channels->viewport() && e->type() == QEvent::MouseButtonRelease) {
+            auto event = static_cast<QMouseEvent *>(e);
+            if (event->button() == Qt::LeftButton) {
+                auto item = channels->itemAt(event->position().toPoint());
+                if (item && ChannelDelegate::colorSwatch(channels->visualItemRect(item)).adjusted(-3, -3, 3, 3).contains(event->position().toPoint())) {
+                    const int id = item->data(Qt::UserRole).toInt();
+                    if (colorControls(engine, id).available()) QTimer::singleShot(0, this, [this, id] { chooseChannelColor(id); });
+                }
+            }
+        }
         if (owned && hoverHelp) {
             if (o == channels->viewport() && e->type() == QEvent::MouseMove) {
                 auto event = static_cast<QMouseEvent *>(e);
@@ -1034,7 +1071,21 @@ class Console : public QMainWindow {
         parameterPanel = new ParameterPanel(engine, [this] { refresh(); }, channelTabs);
         channelTabs->addTab(parameterPanel, "Parameters");
         connect(channels, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
-            parameterPanel->selectChannel(item->data(Qt::UserRole).toInt()); channelTabs->setCurrentWidget(parameterPanel);
+            const int id = item->data(Qt::UserRole).toInt();
+            if (colorControls(engine, id).available()) chooseChannelColor(id);
+            else { parameterPanel->selectChannel(id); channelTabs->setCurrentWidget(parameterPanel); }
+        });
+        channels->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(channels, &QListWidget::customContextMenuRequested, this, [this](QPoint point) {
+            auto item = channels->itemAt(point); if (!item) return;
+            const int id = item->data(Qt::UserRole).toInt();
+            QMenu menu(channels); menu.setObjectName("channelContextMenu");
+            QAction *color = nullptr;
+            if (colorControls(engine, id).available()) color = menu.addAction("Choose color…");
+            auto parameters = menu.addAction("Fixture parameters…");
+            auto action = menu.exec(channels->viewport()->mapToGlobal(point));
+            if (color && action == color) chooseChannelColor(id);
+            else if (action == parameters) { parameterPanel->selectChannel(id); channelTabs->setCurrentWidget(parameterPanel); }
         });
         connect(channelTabs, &QTabWidget::currentChanged, this, [this] {
             if (channelTabs->currentWidget() == parameterPanel) {
@@ -1503,6 +1554,21 @@ int main(int argc, char **argv) {
             for (int i = 0; i < right->count(); ++i) if (right->tabText(i) == "Tracking") right->setCurrentIndex(i);
             w.findChild<QComboBox *>("trackingScope")->setCurrentIndex(2);
             QTimer::singleShot(150, [&w] { w.grab().save("fixtures-preview.png"); });
+        });
+    if (app.arguments().contains("--color-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            auto list = w.findChild<QListWidget *>("channelList");
+            for (int i = 0; i < list->count(); ++i) {
+                auto item = list->item(i);
+                if (!item->data(Qt::UserRole + 5).value<QColor>().isValid()) continue;
+                list->scrollToItem(item);
+                QTimer::singleShot(150, [&w] {
+                    if (auto dialog = w.findChild<QColorDialog *>("fixtureColorDialog")) {
+                        dialog->grab().save("color-preview.png"); dialog->reject();
+                    }
+                });
+                list->itemDoubleClicked(item); break;
+            }
         });
     if (app.arguments().contains("--smoke-test"))
         QTimer::singleShot(300, &app, &QApplication::quit);

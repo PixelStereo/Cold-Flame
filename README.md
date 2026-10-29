@@ -134,3 +134,7 @@ See the [Eos behavior audit](docs/EOS-COMPATIBILITY.md), [feature matrix](docs/F
 The interface palette follows [DMXPulse](https://github.com/PixelStereo/DMXPulse/blob/main/src/window.cpp): charcoal surfaces, neutral text, sage accents and warm state indicators. Channel tiles use compact numeric information; patch details remain in their own tab.
 
 `examples/fixtures-and-tracking.cfl` demonstrates generic fixtures, sparse shared cues, tracked parameters and a channel block. See the [fixture and tracking guide](docs/FIXTURES-AND-TRACKING.md).
+
+Color-capable channels have a clickable swatch. Click the swatch, double-click the tile, or right-click → **Choose color…** for live RGB/RGBW/CMY selection. Cancel restores previous manual color values; intensity is unchanged. Record/Update stores the color parameters normally.
+
+![Channel color picker](color-preview.png)

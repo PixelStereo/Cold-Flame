@@ -28,6 +28,68 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void fixtureColorConversionAndRecall() {
+        Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513; e.manual[1] = {70, 0};
+        const QColor color = QColor::fromRgbF(.8, .6, .4);
+        QVERIFY(setFixtureColor(e, 1, color));
+        QCOMPARE(e.manual[1].level, 70.); // Color never raises or changes intensity.
+        QVERIFY(qAbs(e.manual[e.parameterKey(1, 0)].level - 40.) < .01);
+        QVERIFY(qAbs(e.manual[e.parameterKey(1, 3)].level - 40.) < .01);
+        QCOMPARE(fixtureColor(e, 1).rgb(), color.rgb());
+        auto frame = e.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 71); QCOMPARE(quint8(frame[1]), 36);
+        QCOMPARE(quint8(frame[2]), 0); QCOMPARE(quint8(frame[3]), 71);
+        QVERIFY(e.storeCue("10", {}, true)); e.insertStoredCue(0, "10"); e.sequences[0].cues[0].time = 0;
+        QVERIFY(setFixtureColor(e, 1, Qt::blue)); e.go(0); QCOMPARE(fixtureColor(e, 1).rgb(), color.rgb());
+        Engine restored; QVERIFY(restored.load(e.json())); restored.go(0); QCOMPARE(fixtureColor(restored, 1).rgb(), color.rgb());
+        QVERIFY(!setFixtureColor(e, 2, Qt::red)); QVERIFY(!fixtureColor(e, 2).isValid());
+        auto profile = genericFixtures()["rgbd"];
+        profile.modes[0].parameters[1].attribute = "ColorSub_C";
+        profile.modes[0].parameters[2].attribute = "ColorSub_M";
+        profile.modes[0].parameters[3].attribute = "ColorSub_Y";
+        e.fixtureProfiles["cmy"] = profile; e.fixtures[2] = {"cmy", 0}; e.patch[2] = 530;
+        QVERIFY(setFixtureColor(e, 2, Qt::red)); QCOMPARE(fixtureColor(e, 2).rgb(), QColor(Qt::red).rgb());
+        frame = e.dmxFrames()[1]; QCOMPARE(quint8(frame[18]), 0); QCOMPARE(quint8(frame[19]), 255); QCOMPARE(quint8(frame[20]), 255);
+    }
+    void channelColorSwatchContextAndCancel() {
+        Engine e; e.fixtures[1] = {"rgbw", 0}; e.patch[1] = 513;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName()); window.show(); QCoreApplication::processEvents();
+        auto list = window.findChild<QListWidget *>("channelList"); auto item = list->item(0);
+        QVERIFY(item->data(Qt::UserRole + 5).value<QColor>().isValid());
+        bool handled = false;
+        QTimer responder;
+        connect(&responder, &QTimer::timeout, &window, [&] {
+            auto dialog = window.findChild<QColorDialog *>("fixtureColorDialog"); if (!dialog) return;
+            responder.stop(); dialog->setCurrentColor(Qt::red); handled = true; dialog->accept();
+        });
+        responder.start(5);
+        QTest::mouseClick(list->viewport(), Qt::LeftButton, Qt::NoModifier, ChannelDelegate::colorSwatch(list->visualItemRect(item)).center());
+        QTRY_VERIFY(handled);
+        QCOMPARE(item->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
+        QCOMPARE(item->data(Qt::UserRole + 1).toDouble(), 0.);
+        QVERIFY(item->data(Qt::UserRole + 6).toBool());
+        handled = false;
+        QObject::disconnect(&responder, nullptr, &window, nullptr);
+        connect(&responder, &QTimer::timeout, &window, [&] {
+            auto dialog = window.findChild<QColorDialog *>("fixtureColorDialog"); if (!dialog) return;
+            responder.stop(); dialog->setCurrentColor(Qt::blue); handled = true; dialog->reject();
+        });
+        QTimer::singleShot(0, &window, [&] {
+            auto menu = window.findChild<QMenu *>("channelContextMenu"); if (!menu) return;
+            menu->setActiveAction(menu->actions().first()); QTest::keyClick(menu, Qt::Key_Return);
+        });
+        responder.start(5);
+        list->customContextMenuRequested(list->visualItemRect(item).center());
+        QVERIFY(handled);
+        QCOMPARE(item->data(Qt::UserRole + 5).value<QColor>().rgb(), QColor(Qt::red).rgb());
+        QStringList actions;
+        QTimer::singleShot(0, &window, [&] {
+            auto menu = window.findChild<QMenu *>("channelContextMenu"); if (!menu) return;
+            for (auto action : menu->actions()) actions << action->text(); menu->close();
+        });
+        list->customContextMenuRequested(list->visualItemRect(list->item(1)).center());
+        QVERIFY(!actions.contains("Choose color…"));
+    }
     void fixturePatchParameterEditorAndRecall() {
         Engine e; PatchDialog patch(e); auto table = patch.findChild<QTableWidget *>("patchBank0");
         auto mode = patch.findChild<QComboBox *>("fixtureMode1"); QVERIFY(mode);
