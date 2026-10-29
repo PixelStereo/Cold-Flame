@@ -30,9 +30,16 @@ add_test(NAME engine COMMAND engine-tests)
 install(TARGETS cold-flame RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 add_executable(ui-tests tests/ui_test.cpp)
 target_link_libraries(ui-tests PRIVATE flame-ui Qt6::Test Qt6::Widgets)
-add_test(NAME interface COMMAND ui-tests)
+add_test(NAME interface COMMAND ${CMAKE_COMMAND}
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
+    "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface.log"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-add_test(NAME interface-hidpi COMMAND ui-tests channelGridRemainsStable channelGridStaysPutDuringFade tableEditorsAndSubmasterBank contextualFooterAndNumberDragging inlineTriggersFlagsAndDragValidation liveChannelModesAndSelectedMembership balancedButtonLayout fixturePatchParameterEditorAndRecall trackingViewEditingAndTrace)
+add_test(NAME interface-hidpi COMMAND ${CMAKE_COMMAND}
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
+    "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-hidpi.log"
+    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-hidpi PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=2")
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter)
