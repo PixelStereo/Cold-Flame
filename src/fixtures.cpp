@@ -115,8 +115,11 @@ void Engine::trackFromPrevious(int s, int step, int key, bool only) {
 }
 void Engine::setChannelBlock(int s, int step, int key, bool enabled) {
     if (s < 0 || s >= sequences.size() || step < 0 || step >= sequences[s].cues.size() || !controlExists(key)) return;
-    if (enabled) sequences[s].cues[step].blocked[key] = {tracked(s, step).value(key, controlDefault(key)), 0};
-    else sequences[s].cues[step].blocked.remove(key);
+    if (enabled) {
+        // Capture before operator[] inserts a default block into the tracking source.
+        const double snapshot = tracked(s, step).value(key, controlDefault(key));
+        sequences[s].cues[step].blocked[key] = {snapshot, 0};
+    } else sequences[s].cues[step].blocked.remove(key);
 }
 int Engine::traceSource(int s, int step, int key) const {
     if (s < 0 || s >= sequences.size() || step < 0 || step >= sequences[s].cues.size()) return -1;
