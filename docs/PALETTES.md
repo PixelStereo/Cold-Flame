@@ -36,3 +36,7 @@ The same dialog is available by right-clicking a cue in the Cue library or a ref
 Eos offers several Update styles, including updating references or making data absolute. Their defaults depend on console/user configuration; Cold Flame does not implement the full Update dialog. See [Eos Update Dialogue Box](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/07_%5BUpdate%5D/Update_Dialogue_Box.htm).
 
 Color references survive recordings made from a completed playback, save/load, cue/step edits, channel blocks and definition Undo/Redo. Recording a fade in progress captures intermediate values rather than substituting the final palette target. Show format 4 stores color palette definitions and references. Formats 1–3 remain readable; earlier application versions cannot read format 4.
+
+### References in cue and sequence lists
+
+The **PALETTES** column beside the cue name shows each stored color (`CP`) and intensity (`IP`) palette once. Color references include the palette name. Sequence rows distinguish **Cue:** references from the shared look and **Step:** references from local overrides or blocks. A fully overridden or suppressed shared reference is omitted; partial overrides show both. These columns show instructions stored at that step, rather than palettes tracked from earlier steps. Hover a cell to read the affected controls in the footer. Reserved white remains hidden.

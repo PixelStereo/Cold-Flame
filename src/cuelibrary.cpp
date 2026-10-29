@@ -1,3 +1,4 @@
+#include "palettereferences.h"
 #include "cuelibrary.h"
 #include "tabledelegate.h"
 #include <cmath>
@@ -9,14 +10,17 @@ CueLibraryPanel::CueLibraryPanel(Engine &e, std::function<void()> editCallback,
     auto hint = new QLabel("Stored cues are shared looks. Insert the same cue into any sequence more than once. "
                            "Each occurrence has its own step number and timing.");
     hint->setWordWrap(true); layout->addWidget(hint);
-    table = new QTableWidget(0, 4); table->setObjectName("storedCueTable");
-    table->setHorizontalHeaderLabels({"CUE", "NAME", "VALUES", "USES"});
+    table = new QTableWidget(0, 5); table->setObjectName("storedCueTable");
+    table->setHorizontalHeaderLabels({"CUE", "NAME", "VALUES", "USES", "PALETTES"});
     table->setItemDelegate(new TableDelegate(table));
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setSelectionMode(QAbstractItemView::SingleSelection);
     table->verticalHeader()->hide(); table->verticalHeader()->setDefaultSectionSize(32);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+    table->setColumnWidth(4, 210);
+    table->horizontalHeader()->moveSection(4, 2);
     layout->addWidget(table, 1);
     auto actions = new QGridLayout;
     auto add = [&](QString text, int row, int col, std::function<void()> action, QString object, QString help) {
@@ -81,10 +85,12 @@ void CueLibraryPanel::reload(QString select) {
         const auto &cue = engine.cueLibrary[number]; int uses = 0;
         for (const auto &sequence : engine.sequences)
             for (const auto &step : sequence.cues) if (step.reference == number) ++uses;
-        QStringList fields{number, cue.label, QString::number(cue.values.size()), QString::number(uses)};
+        const auto palettes = paletteReferences(engine, cue.values);
+        QStringList fields{number, cue.label, QString::number(cue.values.size()), QString::number(uses), palettes.text};
         for (int col = 0; col < fields.size(); ++col) {
             auto item = new QTableWidgetItem(fields[col]); item->setData(Qt::UserRole, number);
             if (col >= 2) item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            if (col == 4) item->setToolTip(palettes.help);
             table->setItem(row, col, item);
         }
         if (number == select) table->selectRow(row);

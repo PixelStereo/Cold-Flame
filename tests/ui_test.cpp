@@ -28,6 +28,41 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void paletteReferencesVisibleInCueAndStepLists() {
+        Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513;
+        int red = e.findOrCreateColorPalette({"Red front", 1, 0, 0});
+        int blue = e.findOrCreateColorPalette({"Blue wash", 0, 0, 1});
+        e.manual[1] = {50, 0}; e.applyColorPalette(1, red); e.storeCue("10");
+        e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10");
+        auto keys = e.colorControls(1).keys();
+        for (int key : keys) e.sequences[0].cues[1].values[key] = {0, 0, blue};
+        e.palettes[3][1] = 50; e.cueLibrary["10"].values[1] = {50, 3};
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(e.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.show(); QCoreApplication::processEvents();
+        auto library = window.findChild<QTableWidget *>("storedCueTable");
+        auto sheet = window.findChild<QTableWidget *>("cueSheet");
+        QVERIFY(library->item(0, 4)->text().contains("CP 1 · Red front"));
+        QVERIFY(library->item(0, 4)->text().contains("IP 3"));
+        QVERIFY(sheet->item(0, 15)->text().contains("Cue: CP 1 · Red front"));
+        QVERIFY(sheet->item(1, 15)->text().contains("Step: CP 2 · Blue wash"));
+        QVERIFY(!sheet->item(1, 15)->text().contains("CP 1"));
+        QVERIFY(sheet->item(1, 15)->text().contains("Cue: IP 3"));
+        QVERIFY(!sheet->item(1, 15)->flags().testFlag(Qt::ItemIsEditable));
+        QVERIFY(!library->isColumnHidden(4)); QVERIFY(!sheet->isColumnHidden(15));
+        QCOMPARE(sheet->horizontalHeader()->visualIndex(15), 4);
+        // Partial overrides show both references; suppressed shared moves disappear.
+        auto step = e.sequences[0].cues[0];
+        step.values[keys.first()] = {0, 0, blue};
+        auto refs = paletteReferences(e, e.cueValues(step), &step);
+        QVERIFY(refs.text.contains("Cue: CP 1")); QVERIFY(refs.text.contains("Step: CP 2"));
+        for (int key : keys) step.suppressed.insert(key);
+        step.values.clear(); refs = paletteReferences(e, e.cueValues(step), &step);
+        QVERIFY(!refs.text.contains("CP"));
+        e.colorPalettes[red].name = "Renamed red";
+        QVERIFY(paletteReferences(e, e.cueLibrary["10"].values).text.contains("Renamed red"));
+        QMap<int, Value> white; white[keys.first()] = {100, 0, 0};
+        QCOMPARE(paletteReferences(e, white).text, QString("—"));
+    }
     void updatingPartialLocalColorDoesNotLeakToSharedCue() {
         Engine e; e.fixtures[1] = {"rgb", 0}; e.patch[1] = 513; e.manual[1] = {50, 0};
         e.storeCue("10"); e.insertStoredCue(0, "10"); e.insertStoredCue(0, "10");
@@ -264,7 +299,7 @@ class UiTests : public QObject {
         auto record = window.findChild<QPushButton *>("recordButton");
         auto table = window.findChild<QTableWidget *>("cueSheet");
         auto list = window.findChild<QListWidget *>("channelList");
-        QCOMPARE(table->columnCount(), 15);
+        QCOMPARE(table->columnCount(), 16);
         QCOMPARE(table->horizontalHeaderItem(1)->text(), QString("CUE"));
         QVERIFY(!table->isColumnHidden(1));
         input->setText("1 at 20");

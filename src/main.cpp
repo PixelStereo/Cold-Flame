@@ -1,3 +1,4 @@
+#include "palettereferences.h"
 #include "blinddialog.h"
 #include "channeldelegate.h"
 #include "editing.h"
@@ -214,6 +215,19 @@ class Console : public QMainWindow {
                     item->setText(vals[j]);
                 item->setForeground(QColor(i == s.current ? "#c2e5d3" : "#e5e5e5"));
             }
+            auto references = c.blocked;
+            const auto instructions = engine.cueValues(c);
+            for (auto it = instructions.cbegin(); it != instructions.cend(); ++it) references[it.key()] = it.value();
+            const auto palettes = paletteReferences(engine, references, &c);
+            auto paletteItem = cues->item(i, 15);
+            if (!paletteItem) {
+                paletteItem = new QTableWidgetItem;
+                paletteItem->setFlags(paletteItem->flags() & ~Qt::ItemIsEditable);
+                cues->setItem(i, 15, paletteItem);
+            }
+            if (paletteItem->text() != palettes.text) paletteItem->setText(palettes.text);
+            paletteItem->setToolTip(palettes.help);
+            paletteItem->setForeground(QColor(i == s.current ? "#c2e5d3" : "#e5e5e5"));
             stepFlags(i, s, c);
         }
         QString current = s.current >= 0
@@ -988,12 +1002,16 @@ class Console : public QMainWindow {
         cues->setItemDelegate(new TableDelegate(cues));
         cues->verticalHeader()->setDefaultSectionSize(32);
         cues->setHorizontalHeaderLabels(
-            {"STEP", "CUE", "NAME", "UP", "DOWN", "WAIT", "LINK", "VALUES", "INDIV.", "STATE", "FOLLOW", "HANG", "EXEC", "AFTER", "B/A"});
+            {"STEP", "CUE", "NAME", "UP", "DOWN", "WAIT", "LINK", "VALUES", "INDIV.", "STATE", "FOLLOW", "HANG", "EXEC", "AFTER", "B/A", "PALETTES"});
         cues->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
         cues->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
         cues->setColumnWidth(2, 128); // Preserve legible cue names; scroll at narrow widths.
         cues->horizontalHeader()->setSectionResizeMode(14, QHeaderView::Fixed); cues->setColumnWidth(14, 30);
         cues->horizontalHeader()->moveSection(14, 0);
+        cues->horizontalHeader()->setSectionResizeMode(15, QHeaderView::Interactive);
+        cues->setColumnWidth(15, 210);
+        cues->horizontalHeader()->moveSection(cues->horizontalHeader()->visualIndex(15), 4);
+        cues->horizontalHeaderItem(15)->setToolTip("Stored palette references: Cue = shared cue; Step = local override or block. Hover a cell for affected controls.");
         cues->horizontalHeader()->viewport()->setStatusTip("Times are in seconds. Follow/Hang are mutually exclusive. Link, Execute and After target step IDs.");
         cues->hideColumn(7); cues->hideColumn(8); // Counts remain in row help, leaving space for editable triggers.
         cues->setContextMenuPolicy(Qt::CustomContextMenu);

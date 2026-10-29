@@ -59,7 +59,7 @@ class StepTable : public QTableWidget {
     void clearDrop() { insertion = -1; scrollTimer.stop(); viewport()->update(); }
   public:
     std::function<void(int, int)> reorder;
-    explicit StepTable(QWidget *parent = nullptr) : QTableWidget(0, 15, parent) {
+    explicit StepTable(QWidget *parent = nullptr) : QTableWidget(0, 16, parent) {
         auto grip = new StepGripHeader(this); setVerticalHeader(grip);
         gripViewport = grip->viewport(); gripViewport->setAcceptDrops(true);
         gripViewport->installEventFilter(this);
