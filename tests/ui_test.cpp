@@ -70,14 +70,18 @@ class UiTests : public QObject {
         if (windowSize == QSize(1440, 940)) {
             QTest::qWait(50);
             auto channels = window.findChild<QListWidget *>("channelList");
-            QVERIFY(channels->viewport()->rect().contains(channels->visualItemRect(channels->item(119))));
+            const QRect last = channels->visualItemRect(channels->item(119));
+            QVERIFY2(channels->viewport()->rect().contains(last), qPrintable(QString("Viewport %1x%2, cell %3x%4, last %5,%6 %7x%8")
+                .arg(channels->viewport()->width()).arg(channels->viewport()->height()).arg(channels->gridSize().width()).arg(channels->gridSize().height())
+                .arg(last.x()).arg(last.y()).arg(last.width()).arg(last.height())));
         }
         QVERIFY(record->height() >= 32); QVERIFY(record->height() <= 42);
         QCOMPARE(insert->mapTo(&window, QPoint()).y(), next->mapTo(&window, QPoint()).y());
         QVERIFY(record->mapTo(&window, QPoint()).y() < insert->mapTo(&window, QPoint()).y());
         auto sheet = window.findChild<QTableWidget *>("cueSheet"); QVERIFY(sheet->height() > 100);
         for (auto control : {record, insert, next}) {
-            QVERIFY(control->width() >= control->fontMetrics().horizontalAdvance(control->text()) + 20);
+            QVERIFY2(control->width() >= control->fontMetrics().horizontalAdvance(control->text()) + 20,
+                qPrintable(QString("Button %1: width %2, text %3").arg(control->text()).arg(control->width()).arg(control->fontMetrics().horizontalAdvance(control->text()))));
             QVERIFY(control->mapTo(&window, control->rect().bottomRight()).x() < window.width());
         }
         window.findChild<QPushButton *>("trackingButton")->click();

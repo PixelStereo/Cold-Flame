@@ -55,7 +55,7 @@ class Console : public QMainWindow {
     QPushButton *button(QString text, QLayout *layout, std::function<void()> action,
                         QString style = {}) {
         auto b = new QPushButton(text);
-        b->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         if (!style.isEmpty())
             b->setStyleSheet(style);
         layout->addWidget(b);
@@ -314,7 +314,10 @@ class Console : public QMainWindow {
         const auto size = channels->viewport()->size();
         int columns = qMax(1, size.width() / 64);
         int fittingColumns = (channels->count() + qMax(1, size.height() / 38) - 1) / qMax(1, size.height() / 38);
-        columns = qMax(columns, qMin(qMax(1, size.width() / 54), fittingColumns));
+        // Use the actual minimum tile width, with the same gutter as the cell
+        // calculation. Native style margins can put the viewport just below 11 * 54.
+        const int maximumColumns = qMax(1, (size.width() - 6) / 52);
+        columns = qBound(1, qMax(columns, fittingColumns), maximumColumns);
         const QSize cell(qMax(52, (size.width() - 6) / columns), 38);
         if (cell != channels->gridSize())
             channels->setGridSize(cell);
@@ -603,7 +606,7 @@ class Console : public QMainWindow {
             {"SET NEXT", "Queue the selected step for the next GO without changing live output or stored links."},
             {"GO TO", "Play the selected step now, including its tracked values."},
             {"Insert cue…", "Insert a stored cue before the selected step, or append if no step is selected."},
-            {"Link to step…", "Choose the exact sequence and step to play next; repeated cues have different step IDs."},
+            {"Link…", "Choose the exact sequence and step to play next; repeated cues have different step IDs."},
             {"Remove step", "Remove this occurrence from the sequence. Its stored cue remains in the library."},
             {"▶  GO", "Play the pending step of the selected sequence. Shortcut: Ctrl+Space."},
             {"↶ BACK", "Play the preceding step of the selected sequence."},
@@ -960,7 +963,7 @@ class Console : public QMainWindow {
         sequenceLayout->addLayout(edit);
         auto steps = new QHBoxLayout;
         button("Insert cue…", steps, [this] { chooseCue(); })->setObjectName("insertCueButton");
-        button("Link to step…", steps, [this] { linkStep(); })->setObjectName("linkStepButton");
+        button("Link…", steps, [this] { linkStep(); })->setObjectName("linkStepButton");
         steps->addStretch();
         button("SET NEXT", steps, [this] {
             if (engine.setNextCue(selectedSequence, cues->currentRow())) {
