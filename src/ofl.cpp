@@ -191,7 +191,7 @@ bool expandMode(const Catalogue &catalogue, const QJsonArray &entries, FixtureMo
         } else {
             auto ordered = matrixPixels; const auto type = repeat.toString();
             if (type == "eachPixelABC") {
-                QCollator collator(QLocale(QLocale::English)); collator.setNumericMode(true);
+                QCollator collator{QLocale{QLocale::English}}; collator.setNumericMode(true);
                 std::sort(ordered.begin(), ordered.end(), [&](const Pixel &a, const Pixel &b) { return collator.compare(a.key, b.key) < 0; });
             } else if (QRegularExpression("^eachPixel(XYZ|XZY|YXZ|YZX|ZXY|ZYX)$").match(type).hasMatch()) {
                 const QString axes = type.right(3);

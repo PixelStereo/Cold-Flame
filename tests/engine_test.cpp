@@ -617,27 +617,30 @@ class Tests : public QObject {
         n.protocol = "sACN";
         n.firstUniverse = 1;
         n.send(e);
-        QVERIFY(receiver.waitForReadyRead(1000));
         QMap<int, QByteArray> frames;
-        while (receiver.hasPendingDatagrams()) {
-            auto p = receiver.receiveDatagram().data();
-            int universe = (quint8(p[113]) << 8) | quint8(p[114]);
-            frames[universe] = p.mid(126);
-        }
+        auto receiveUniverses = [&] {
+            while (receiver.hasPendingDatagrams()) {
+                const auto packet = receiver.receiveDatagram().data();
+                if (packet.size() < 126) return false;
+                const int universe = (quint8(packet[113]) << 8) | quint8(packet[114]);
+                frames[universe] = packet.mid(126);
+            }
+            return frames.contains(22) && frames.contains(3);
+        };
+        // UDP readiness can signal the first packet before the second has arrived.
+        QTRY_VERIFY_WITH_TIMEOUT(receiveUniverses(), 1000);
         QVERIFY(frames.contains(22));
         QVERIFY(frames.contains(3));
         QCOMPARE(quint8(frames[22][12]), 255);
         QCOMPARE(quint8(frames[3][17]), 255);
         QCOMPARE(quint8(frames[3][511]), 255);
         e.blackout = true;
+        frames.clear();
         n.send(e);
-        QVERIFY(receiver.waitForReadyRead(1000));
-        while (receiver.hasPendingDatagrams()) {
-            auto p = receiver.receiveDatagram().data();
-            QCOMPARE(quint8(p[138]), 0);
-            QCOMPARE(quint8(p[143]), 0);
-            QCOMPARE(quint8(p[637]), 0);
-        }
+        QTRY_VERIFY_WITH_TIMEOUT(receiveUniverses(), 1000);
+        QCOMPARE(quint8(frames[22][12]), 0);
+        QCOMPARE(quint8(frames[3][17]), 0);
+        QCOMPARE(quint8(frames[3][511]), 0);
     }
     void automaticLinkKeepsMainCursor() {
         Engine e;

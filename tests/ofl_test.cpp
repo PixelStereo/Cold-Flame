@@ -106,6 +106,11 @@ class OflTests : public QObject {
         json["modes"] = QJsonArray{mode}; FixtureProfile profile; QString issue; QVERIFY(read(json, profile, issue)); QVERIFY(available(profile, 0));
         QCOMPARE(profile.modes[0].footprint, 8); QCOMPARE(profile.modes[0].parameters[0].cell, QString("Left"));
         QCOMPARE(profile.modes[0].parameters[3].cell, QString("Right"));
+        json["matrix"] = QJsonObject{{"pixelKeys", QJsonArray{QJsonArray{QJsonArray{"10", "2", "1"}}}}};
+        auto insert = mode["channels"].toArray()[0].toObject(); insert["repeatFor"] = "eachPixelABC";
+        mode["channels"] = QJsonArray{insert}; json["modes"] = QJsonArray{mode};
+        QVERIFY(read(json, profile, issue)); QVERIFY(available(profile, 0));
+        QCOMPARE(profile.modes[0].parameters[0].cell, QString("1")); QCOMPARE(profile.modes[0].parameters[3].cell, QString("2")); QCOMPARE(profile.modes[0].parameters[6].cell, QString("10"));
         json["matrix"] = QJsonObject{{"pixelCount", QJsonArray{512, 512, 512}}}; QVERIFY(read(json, profile, issue)); QVERIFY(!available(profile, 0));
         QVERIFY(profile.modes[0].unsupported.contains("512 pixels"));
     }

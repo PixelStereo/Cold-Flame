@@ -40,6 +40,15 @@ claim of full Eos parity or a physical-rig qualification.
 
 ## Validation and limits
 
+Reviewing the previous GitHub run also identified a macOS UDP test race and
+unequal native Windows submaster button minimum widths. The packet test now
+waits for both expected universe packets for Full and Blackout. Submaster action
+columns share the largest native button minimum, and card reflow uses actual
+minimum sizes. Controls inherit the application style before measurement.
+The first 0.12 native builds also exposed an ambiguous C++ collator declaration
+accepted by GCC but rejected by Clang/MSVC. Explicit brace initialization fixes
+the declaration, with a numeric/alphabetical pixel-order regression added.
+
 The CTest suite includes engine, OFL fixtures, full interface, high-DPI interface,
 Windows-style interface, macOS build script, packaging and offline OFL-schema
 checks. The schema suite validates eight generated fixtures plus two input

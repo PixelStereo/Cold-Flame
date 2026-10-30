@@ -585,7 +585,7 @@ class Console : public QMainWindow {
         auto content = new CardBank(subBank);
         for (int i = 0; i < engine.submasters.size(); ++i) {
             const auto &sub = engine.submasters[i];
-            auto card = new QGroupBox(QString("SUB %1").arg(sub.number));
+            auto card = new QGroupBox(QString("SUB %1").arg(sub.number), content);
             card->setObjectName(QString("subCard%1").arg(sub.number));
             card->setMinimumWidth(280);
             auto layout = new QVBoxLayout(card);
@@ -612,7 +612,7 @@ class Console : public QMainWindow {
             });
             auto actions = new QGridLayout; actions->setSpacing(6);
             auto action = [&](QString text, int row, int col, QString object, std::function<void()> callback) {
-                auto control = new QPushButton(text);
+                auto control = new QPushButton(text, card);
                 control->setObjectName(object + QString::number(sub.number));
                 control->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
                 actions->addWidget(control, row, col);
@@ -649,6 +649,13 @@ class Console : public QMainWindow {
                 QTimer::singleShot(0, this, [this] { rebuildSubmasters(); });
             });
             layout->addLayout(actions);
+            // Equal stretches alone retain unequal native minimum sizes on Windows.
+            int actionWidth = 0;
+            for (int item = 0; item < actions->count(); ++item) {
+                auto control = actions->itemAt(item)->widget(); control->ensurePolished();
+                actionWidth = qMax(actionWidth, control->minimumSizeHint().width());
+            }
+            for (int col = 0; col < 3; ++col) actions->setColumnMinimumWidth(col, actionWidth);
             content->addCard(card);
         }
         if (engine.submasters.isEmpty())

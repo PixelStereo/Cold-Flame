@@ -11,8 +11,10 @@ class CardBank : public QWidget {
     void reflow(bool force = false) {
         const auto margins = grid->contentsMargins();
         const int available = scroll->viewport()->width() - margins.left() - margins.right();
+        int minimumCardWidth = 280;
+        for (auto card : cards) minimumCardWidth = qMax(minimumCardWidth, qMax(card->minimumWidth(), card->minimumSizeHint().width()));
         const int next = qMax(1, qMin(int(cards.size()), (available + grid->horizontalSpacing()) /
-            (280 + grid->horizontalSpacing())));
+            (minimumCardWidth + grid->horizontalSpacing())));
         if (next == columns && !force) return;
         for (int col = 0; col < columns; ++col) grid->setColumnStretch(col, 0);
         while (auto item = grid->takeAt(0)) delete item;
@@ -22,7 +24,7 @@ class CardBank : public QWidget {
         grid->invalidate(); updateGeometry();
     }
   public:
-    explicit CardBank(QScrollArea *area) : scroll(area), grid(new QGridLayout(this)) {
+    explicit CardBank(QScrollArea *area) : QWidget(area->viewport()), scroll(area), grid(new QGridLayout(this)) {
         setObjectName("submasterCards");
         grid->setContentsMargins(10, 8, 10, 8); grid->setSpacing(12);
         grid->setAlignment(Qt::AlignTop);
