@@ -48,6 +48,13 @@ minimum sizes. Controls inherit the application style before measurement.
 The first 0.12 native builds also exposed an ambiguous C++ collator declaration
 accepted by GCC but rejected by Clang/MSVC. Explicit brace initialization fixes
 the declaration, with a numeric/alphabetical pixel-order regression added.
+Qt 6.9 native testing then caught nested `QJsonArray` brace initializers choosing
+copy construction instead of adding array levels. Explicit append calls now
+preserve the required matrix Z/Y/X structure across Qt versions. Windows
+offscreen GUI tests use installed system fonts rather than placeholder glyphs;
+the packaged application still launches with the native Windows platform.
+OFL tests write explicit text reports, including when invoked from Python, so
+Windows failures remain diagnosable even without a usable stdout handle.
 
 The CTest suite includes engine, OFL fixtures, full interface, high-DPI interface,
 Windows-style interface, macOS build script, packaging and offline OFL-schema

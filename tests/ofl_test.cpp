@@ -9,6 +9,10 @@ class OflTests : public QObject {
     QJsonObject desk() { return QJsonDocument::fromJson(fixture("fixtures/ofl-desk-channel.json")).object(); }
     static bool read(QJsonObject json, FixtureProfile &profile, QString &issue) { return readOfl(QJsonDocument(json).toJson(), profile, issue, "Generic"); }
     static bool available(const FixtureProfile &profile, int mode) { QString issue; return validateMode(profile.modes[mode], issue); }
+    static QJsonObject matrixRow(QJsonArray keys) {
+        QJsonArray rows; rows.append(keys); QJsonArray layers; layers.append(rows);
+        return {{"pixelKeys", layers}};
+    }
   private slots:
     void upstreamDeskChannelResolutionsAndOriginalExport() {
         const auto bytes = fixture("fixtures/ofl-desk-channel.json"); QVERIFY(!bytes.isEmpty());
@@ -101,12 +105,12 @@ class OflTests : public QObject {
     }
     void sparseMatrixFineAliasesAndLimits() {
         auto json = QJsonDocument::fromJson(fixture("fixtures/ofl-matrix.json")).object();
-        json["matrix"] = QJsonObject{{"pixelKeys", QJsonArray{QJsonArray{QJsonArray{"Left", QJsonValue(QJsonValue::Null), "Right"}}}}};
+        json["matrix"] = matrixRow(QJsonArray{"Left", QJsonValue(QJsonValue::Null), "Right"});
         auto mode = json["modes"].toArray()[0].toObject(); mode["channels"] = QJsonArray{QJsonObject{{"insert", "matrixChannels"}, {"repeatFor", "eachPixelXYZ"}, {"channelOrder", "perPixel"}, {"templateChannels", QJsonArray{"Red $pixelKey", "Red fine $pixelKey", "Green $pixelKey", "Blue $pixelKey"}}}};
         json["modes"] = QJsonArray{mode}; FixtureProfile profile; QString issue; QVERIFY(read(json, profile, issue)); QVERIFY(available(profile, 0));
         QCOMPARE(profile.modes[0].footprint, 8); QCOMPARE(profile.modes[0].parameters[0].cell, QString("Left"));
         QCOMPARE(profile.modes[0].parameters[3].cell, QString("Right"));
-        json["matrix"] = QJsonObject{{"pixelKeys", QJsonArray{QJsonArray{QJsonArray{"10", "2", "1"}}}}};
+        json["matrix"] = matrixRow(QJsonArray{"10", "2", "1"});
         auto insert = mode["channels"].toArray()[0].toObject(); insert["repeatFor"] = "eachPixelABC";
         mode["channels"] = QJsonArray{insert}; json["modes"] = QJsonArray{mode};
         QVERIFY(read(json, profile, issue)); QVERIFY(available(profile, 0));

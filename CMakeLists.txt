@@ -29,7 +29,10 @@ target_link_libraries(engine-tests PRIVATE flame Qt6::Test)
 add_test(NAME engine COMMAND engine-tests)
 add_executable(ofl-tests tests/ofl_test.cpp)
 target_link_libraries(ofl-tests PRIVATE flame Qt6::Test)
-add_test(NAME ofl-fixtures COMMAND ofl-tests)
+add_test(NAME ofl-fixtures COMMAND ${CMAKE_COMMAND}
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:ofl-tests>"
+    "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/ofl-fixtures.log"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 install(TARGETS cold-flame RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 add_executable(ui-tests tests/ui_test.cpp)
 target_link_libraries(ui-tests PRIVATE flame-ui Qt6::Test Qt6::Widgets)
@@ -50,6 +53,13 @@ add_test(NAME interface-windows-style COMMAND ${CMAKE_COMMAND}
     "-DTEST_ARGUMENTS=-style;windows;balancedButtonLayout;channelGridRemainsStable;channelGridStaysPutDuringFade;submasterCardActionsStayGroupedOnResize;submasterTimesAcceptTypedInput;fixtureDefinitionEditorModesValidationAndRoundtrip;fixtureDefinitionPatchDraftAndUsedProfileCopy;patchConflictResolutionPreservesOtherStartsAndCueData;batchPatchConflictIncludesFineByteAndKeepsOtherCopies;multicellParameterScopeColorAndCancel;fixtureSearchScalesAndKeepsSelectionOnCancel;oflPatchImportExportDraftAndSaveReload"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-windows-style PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(WIN32)
+    # Qt's offscreen platform does not use the native Windows font database.
+    # Load installed fonts for meaningful metrics instead of placeholder glyphs.
+    file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" FLAME_TEST_FONT_DIR)
+    set_property(TEST interface interface-hidpi interface-windows-style APPEND
+        PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=${FLAME_TEST_FONT_DIR}")
+endif()
 if(UNIX)
     find_package(Python3 COMPONENTS Interpreter)
     if(Python3_Interpreter_FOUND)

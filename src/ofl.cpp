@@ -336,7 +336,10 @@ QByteArray Flame::writeOfl(const FixtureProfile &profile, QString &error) {
     if (!available.isEmpty()) json["availableChannels"] = available;
     if (!templates.isEmpty()) {
         QJsonArray keys; for (const auto &cell : cells) keys << QUrl::fromPercentEncoding(cell.toLatin1());
-        json["templateChannels"] = templates; json["matrix"] = QJsonObject{{"pixelKeys", QJsonArray{QJsonArray{keys}}}};
+        // A single QJsonArray in braces can select the copy constructor in Qt 6.9.
+        // Append each level explicitly: pixelKeys[z][y][x].
+        QJsonArray rows; rows.append(keys); QJsonArray layers; layers.append(rows);
+        json["templateChannels"] = templates; json["matrix"] = QJsonObject{{"pixelKeys", layers}};
     }
     if (available.isEmpty() && templates.isEmpty()) return fail("OFL export needs at least one physical channel");
     return QJsonDocument(json).toJson();

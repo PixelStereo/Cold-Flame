@@ -20,8 +20,12 @@ for path in (root / "ofl-schema").glob("*.json"):
 schema = json.loads((root / "ofl-schema/fixture.json").read_text(encoding="utf-8"))
 validator = Draft202012Validator(schema, registry=registry, format_checker=FormatChecker())
 with tempfile.TemporaryDirectory() as directory:
-    subprocess.run([sys.argv[1], "nativeExportsPreserveSupportedParametersAndValidateWithOflSchema"],
-                   env={**os.environ, "FLAME_OFL_EXPORT_DIR": directory}, check=True)
+    report = Path(directory) / "qt-report.txt"
+    result = subprocess.run([sys.argv[1], "nativeExportsPreserveSupportedParametersAndValidateWithOflSchema", "-o", f"{report},txt"],
+                            env={**os.environ, "FLAME_OFL_EXPORT_DIR": directory})
+    if report.exists():
+        print(report.read_text(encoding="utf-8"), end="")
+    result.check_returncode()
     files = list(Path(directory).glob("*.json"))
     assert len(files) == 8, f"Expected eight exported fixtures, got {len(files)}"
     files += [root / "fixtures/ofl-desk-channel.json", root / "fixtures/ofl-matrix.json"]
