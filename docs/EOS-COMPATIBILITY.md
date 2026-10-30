@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.10
+# Eos behavior audit — development version 0.11
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
@@ -36,7 +36,7 @@ Numbering new cues and sequences in increments of ten is the requested Cold Flam
 
 ## Major feature families without parity
 
-- Full GDTF interpretation: geometry/cells, compound fixtures, mode masters, multiple breaks, physical-unit conversion; MVR, RDM and device health. Supported direct modes now provide 8/16/24/32-bit parameter output.
+- Full GDTF interpretation: full compound-fixture semantics, conditional mode masters, multiple output breaks, physical-unit conversion; MVR, RDM and device health. Supported direct modes now provide 8/16/24/32-bit parameter output.
 - Focus and Beam palettes; presets; full by-type and embedded reference handling; color tools and calibration. Basic normalized Color Palette references are implemented in 0.8.
 - Complete tracking range/update editing, per-parameter Assert, Mark/AutoMark, multipart cues, preheat, curves, rate and scene attributes.
 - Full target/category editing, complete selective Undo/Redo, Query, filters, partitions and user profiles.
@@ -87,3 +87,7 @@ Additive/inhibitive intensity and Manual/Hold/Timed bump follow the documented h
 The fixture-definition editor follows the Eos New/Copy, parameter, coarse/fine address, raw Home and Snap workflow. It supports multiple direct DMX modes and 8/16/24/32-bit parameters. Copying an assigned definition preserves the original parameter identities; fixture replacement with stored parameter data still requires migration support. See [FIXTURE-EDITOR.md](FIXTURE-EDITOR.md) for implemented scope and the official reference.
 
 Patch conflict resolution previews conflicting starts and preserves unaffected copies, channels and cue data. Self-overlapping new fixtures and universe crossings remain errors. This is an explicit Cold Flame workflow; identical Eos conflict-dialog behavior is not claimed.
+
+## Version 0.11: multicell import and operation
+
+Geometry references and single-break cell expansion, including nested offsets and additive-color Multiply relations driven by virtual dimmers, are supported. Cell intensities default to Full relative to the fixture master, following the documented Eos multicell concept. Parameters exposes master/cell scope and per-cell color; `101.2 At 50` addresses a displayed cell number. Full Eos cell-selection grammar and per-cell submaster recording are not implemented. See [MULTICELL.md](MULTICELL.md) for the supplied Flash profiles, exact mode availability, validation and remaining limits.

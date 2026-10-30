@@ -8,6 +8,123 @@ using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
   private slots:
+    void barFx89ModeKeepsPhysicalGroupsAndVirtualCellsSeparate() {
+        QFile input(QFINDTESTDATA("fixtures/flash-barfx-multicell.xml")); QVERIFY(input.open(QIODevice::ReadOnly));
+        FixtureProfile profile; QString issue; QVERIFY(parseGdtfDescription(input.readAll(), profile, issue));
+        FixtureMode selected; for (const auto &mode : profile.modes) if (mode.name == "89 channel") selected = mode;
+        QCOMPARE(selected.footprint, 89); profile.modes = {selected};
+        Engine engine; engine.fixtureProfiles["bar"] = profile; engine.fixtures[1] = {"bar", 0}; engine.patch[1] = 513; engine.manual[1] = {50, 0};
+        auto frame = engine.dmxFrames().value(1);
+        QCOMPARE(quint8(frame[0]), 128); QCOMPARE(quint8(frame[1]), 128); // W and RGBW group physical dimmers carry the master.
+        QCOMPARE(quint8(frame[9]), 255); QCOMPARE(quint8(frame[28]), 255); // Cell dimmer and white stay relative Full.
+        const auto rgb = engine.colorControls(1, "RGBW all/RGBW 1"); QVERIFY(rgb.available());
+        for (int i = 0; i < selected.parameters.size(); ++i)
+            if (selected.parameters[i].cell == "RGBW all/RGBW 1" && selected.parameters[i].intensity) engine.manual[engine.parameterKey(1, i)] = {25, 0};
+        frame = engine.dmxFrames().value(1); QCOMPARE(quint8(frame[28]), 64); QCOMPARE(quint8(frame[32]), 255);
+        QCOMPARE(quint8(frame[1]), 128); // Editing one virtual cell does not alter its physical group master.
+    }
+    void multicellExampleLoadsAndRecalls() {
+        QFile input(QFINDTESTDATA("../examples/multicell.cfl")); QVERIFY(input.open(QIODevice::ReadOnly));
+        Engine engine; QString issue; QVERIFY2(engine.load(QJsonDocument::fromJson(input.readAll()).object(), &issue), qPrintable(issue));
+        QCOMPARE(engine.fixtureCells(101).size(), 12); engine.go(0); engine.tick(0);
+        auto frame = engine.dmxFrames().value(1); QCOMPARE(quint8(frame[0]), 128); QCOMPARE(quint8(frame[6]), 128);
+        engine.go(0); engine.tick(2); frame = engine.dmxFrames().value(1); QCOMPARE(quint8(frame[2]), 128); QCOMPARE(quint8(frame[4]), 128);
+    }
+    void multicellIntensityColorCueAndArchiveRoundtrip() {
+        QFile input(QFINDTESTDATA("fixtures/flash-vintage-multicell.xml")); QVERIFY(input.open(QIODevice::ReadOnly));
+        FixtureProfile profile; QString issue; QVERIFY(parseGdtfDescription(input.readAll(), profile, issue));
+        FixtureMode mode; for (const auto &candidate : profile.modes) if (candidate.name == "12xRGBW") mode = candidate;
+        QCOMPARE(mode.footprint, 48); profile.modes = {mode};
+        Engine engine; engine.fixtureProfiles["cells"] = profile; engine.fixtures[1] = {"cells", 0}; engine.patch[1] = 513;
+        const auto cells = engine.fixtureCells(1); QCOMPARE(cells.size(), 12);
+        engine.manual[1] = {50, 0}; const int red = engine.findOrCreateColorPalette({"Red", 1, 0, 0});
+        QVERIFY(engine.applyColorPalette(1, red, cells[0]));
+        QVERIFY(engine.command("1.1 At 50")); QCOMPARE(engine.manual[1].level, 50.);
+        auto frame = engine.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 64); QCOMPARE(quint8(frame[3]), 0);
+        QCOMPARE(quint8(frame[7]), 128); // The second cell remains white at the fixture master level.
+        QVERIFY(engine.storeCue("10")); engine.insertStoredCue(0, "10"); engine.sequences[0].cues[0].time = 0;
+        engine.manual.clear(); engine.go(0); engine.tick(0);
+        QCOMPARE(engine.dmxFrames()[1], frame);
+        Engine restored; QVERIFY2(restored.load(engine.json(), &issue), qPrintable(issue));
+        QCOMPARE(restored.fixtureCells(1), cells); restored.go(0); restored.tick(0); QCOMPARE(restored.dmxFrames()[1], frame);
+        auto exported = writeGdtf(profile); QVERIFY(!exported.isEmpty()); FixtureProfile reimported;
+        QVERIFY2(readGdtf(exported, reimported, issue), qPrintable(issue)); QCOMPARE(reimported.modes[0].parameters.size(), mode.parameters.size());
+        for (int i = 0; i < mode.parameters.size(); ++i) {
+            QCOMPARE(reimported.modes[0].parameters[i].cell, mode.parameters[i].cell);
+            QCOMPARE(reimported.modes[0].parameters[i].offsets, mode.parameters[i].offsets);
+        }
+        QVERIFY(!engine.command("1.999999999999999999 At 50"));
+        engine.blackout = true; const auto blackFrame = engine.dmxFrames().value(1);
+        for (char byte : blackFrame) QCOMPARE(quint8(byte), 0);
+    }
+    void multicellPhysicalMastersDoNotDoubleScale() {
+        FixtureMode mode; mode.name = "Grouped"; mode.footprint = 3;
+        mode.parameters = {{"Dimmer", {1}, 0, true, false, "Group"},
+            {"Dimmer", {2}, 0, true, false, "Group/Cell"}, {"ColorAdd_R", {3}, 100, false, false, "Group/Cell"}};
+        Engine engine; engine.fixtureProfiles["group"] = {"Test", "Group", {mode}, {}}; engine.fixtures[1] = {"group", 0}; engine.patch[1] = 513;
+        engine.manual[1] = {50, 0}; engine.manual[engine.parameterKey(1, 0)] = {20, 0}; engine.manual[engine.parameterKey(1, 1)] = {50, 0};
+        auto frame = engine.dmxFrames()[1]; QCOMPARE(quint8(frame[0]), 26); QCOMPARE(quint8(frame[1]), 128); QCOMPARE(quint8(frame[2]), 255);
+        // A virtual group above a physical cell scales its dimmer, not its color a second time.
+        mode.parameters[0].offsets.clear(); engine.fixtureProfiles["group"].modes[0] = mode;
+        frame = engine.dmxFrames()[1]; QCOMPARE(quint8(frame[1]), 13); QCOMPARE(quint8(frame[2]), 255);
+    }
+    void geometryReferenceErrorsAreScopedAndBounded() {
+        auto description = [](QString references, QString channels) {
+            return ("<GDTF><FixtureType Name='Test' Manufacturer='Test'><Geometries><Geometry Name='Body'>" + references +
+                "</Geometry><Geometry Name='Cell'/></Geometries><DMXModes><DMXMode Name='Mode' Geometry='Body'><DMXChannels>" + channels +
+                "</DMXChannels></DMXMode></DMXModes></FixtureType></GDTF>").toUtf8();
+        };
+        const QString channel = "<DMXChannel Geometry='Cell' DMXBreak='Overwrite' Offset='1'><LogicalChannel Attribute='Dimmer'/></DMXChannel>";
+        FixtureProfile profile; QString issue;
+        QVERIFY(parseGdtfDescription(description("<GeometryReference Name='One' Geometry='Cell'><Break DMXBreak='1' DMXOffset='512'/></GeometryReference>", channel), profile, issue));
+        QVERIFY(validateMode(profile.modes[0], issue)); QCOMPARE(profile.modes[0].footprint, 512);
+        QVERIFY(parseGdtfDescription(description("<GeometryReference Name='One' Geometry='Missing'/>", channel), profile, issue));
+        QVERIFY(!validateMode(profile.modes[0], issue)); QVERIFY(issue.contains("referenced geometry"));
+        QVERIFY(parseGdtfDescription(description("<GeometryReference Name='One' Geometry='Body'/>", channel), profile, issue));
+        QVERIFY(!validateMode(profile.modes[0], issue)); QVERIFY(issue.contains("Cyclic"));
+        QVERIFY(parseGdtfDescription(description("<GeometryReference Name='One' Geometry='Cell'/>", channel), profile, issue));
+        QVERIFY(!validateMode(profile.modes[0], issue)); QVERIFY(issue.contains("Overwrite"));
+        QVERIFY(parseGdtfDescription(description("<GeometryReference Name='One' Geometry='Cell'><Break DMXOffset='1'/></GeometryReference><GeometryReference Name='Two' Geometry='Cell'><Break DMXOffset='1'/></GeometryReference>", channel), profile, issue));
+        QVERIFY(!validateMode(profile.modes[0], issue)); QVERIFY(issue.contains("Overlapping"));
+        auto nested = description("<GeometryReference Name='Outer' Geometry='Sub'><Break DMXOffset='5'/></GeometryReference>", channel);
+        nested.replace("<Geometry Name='Cell'/>", "<Geometry Name='Sub'><GeometryReference Name='Inner' Geometry='Cell'><Break DMXOffset='3'/></GeometryReference></Geometry><Geometry Name='Cell'/>");
+        QVERIFY(parseGdtfDescription(nested, profile, issue)); QVERIFY2(validateMode(profile.modes[0], issue), qPrintable(issue));
+        QCOMPARE(profile.modes[0].parameters[0].offsets, QList<int>({7})); QCOMPARE(profile.modes[0].parameters[0].cell, QString("Outer/Inner"));
+        const QString direct = "<DMXChannel Geometry='One' Offset='1'><LogicalChannel Attribute='Dimmer'/></DMXChannel><DMXChannel Geometry='Two' Offset='2'><LogicalChannel Attribute='Dimmer'/></DMXChannel>";
+        QVERIFY(parseGdtfDescription(description("<Geometry Name='One'/><Geometry Name='Two'/>", direct), profile, issue));
+        QVERIFY2(validateMode(profile.modes[0], issue), qPrintable(issue)); QCOMPARE(profile.modes[0].parameters[0].cell, QString("One"));
+        QCOMPARE(profile.modes[0].parameters[1].cell, QString("Two"));
+        QVERIFY(!parseGdtfDescription(description("<Geometry Name='" + QString(300, 'x') + "'/>", direct), profile, issue));
+        QVERIFY(issue.contains("256"));
+    }
+    void suppliedMulticellDescriptionsExpand() {
+        for (const auto &file : {QString("flash-vintage-multicell.xml"), QString("flash-barfx-multicell.xml")}) {
+            QFile input(QFINDTESTDATA("fixtures/" + file)); QVERIFY(input.open(QIODevice::ReadOnly));
+            FixtureProfile profile; QString issue; QVERIFY2(parseGdtfDescription(input.readAll(), profile, issue), qPrintable(issue));
+            int supported = 0;
+            for (const auto &mode : profile.modes) {
+                if (mode.name.endsWith("-NET") || mode.unsupported == "Mode-dependent channels are not supported") { QVERIFY(!mode.unsupported.isEmpty()); continue; }
+                QVERIFY2(validateMode(mode, issue), qPrintable(mode.name + ": " + issue));
+                ++supported;
+                if (mode.name == "12xRGBW 16bit") {
+                    QCOMPARE(mode.footprint, 104); QCOMPARE(mode.parameters[13].offsets, QList<int>({17,18}));
+                }
+            }
+            QCOMPARE(supported, file.contains("vintage") ? 22 : 3);
+        }
+    }
+    void suppliedOriginalMulticellArchives() {
+        const QString folder = qEnvironmentVariable("FLAME_GDTF_ARCHIVE_DIR");
+        if (folder.isEmpty()) QSKIP("Set FLAME_GDTF_ARCHIVE_DIR to additionally test the original uploaded archives");
+        QDirIterator files(folder, {"*.gdtf"}, QDir::Files, QDirIterator::Subdirectories); int count = 0;
+        while (files.hasNext()) {
+            QFile input(files.next()); QVERIFY(input.open(QIODevice::ReadOnly)); const auto archive = input.readAll();
+            FixtureProfile profile; QString issue; QVERIFY2(readGdtf(archive, profile, issue), qPrintable(issue));
+            for (const auto &mode : profile.modes) if (!mode.name.endsWith("-NET") && mode.unsupported != "Mode-dependent channels are not supported") QVERIFY2(validateMode(mode, issue), qPrintable(mode.name + ": " + issue));
+            QCOMPARE(writeGdtf(profile), archive); ++count;
+        }
+        QCOMPARE(count, 2);
+    }
     void gdtfExportRejectsLossyAndInvalidNativeDefinitions() {
         auto profile = genericFixtures().value("dimmer8");
         profile.modes[0].footprint = 3;
@@ -16,7 +133,7 @@ class Tests : public QObject {
         const auto bytes = writeGdtf(profile); QVERIFY(!bytes.isEmpty());
         FixtureProfile loaded; QString issue; QVERIFY2(readGdtf(bytes, loaded, issue), qPrintable(issue));
         QCOMPARE(loaded.modes[0].footprint, 3);
-        profile.modes[0].parameters[0].offsets.clear(); QVERIFY(writeGdtf(profile).isEmpty());
+        profile.modes[0].parameters[0].offsets.clear(); QVERIFY(!writeGdtf(profile).isEmpty()); // Virtual dimmers are now supported.
         profile.modes[0].parameters[0].offsets = {1,2,3,4,5,6,7,8}; profile.modes[0].footprint = 8;
         QVERIFY(writeGdtf(profile).isEmpty());
         profile = genericFixtures().value("dimmer8"); profile.modes[0].parameters[0].attribute = "Pan";

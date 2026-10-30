@@ -7,11 +7,26 @@ QList<int> ColorControls::keys() const {
     if (subtractive()) keys += cyan + magenta + yellow;
     return keys;
 }
-ColorControls Engine::colorControls(int channel) const {
+QStringList Engine::fixtureCells(int channel) const {
+    QStringList cells;
+    for (const auto &parameter : fixtureMode(channel).parameters) if (!parameter.cell.isEmpty() && !cells.contains(parameter.cell)) cells << parameter.cell;
+    return cells;
+}
+ColorControls Engine::colorControls(int channel, QString cell) const {
     ColorControls controls;
     if (!channels.contains(channel)) return controls;
     const auto mode = fixtureMode(channel);
+    if (cell == "*") {
+        auto groups = fixtureCells(channel); groups.prepend(QString());
+        for (const auto &group : groups) {
+            const auto part = colorControls(channel, group); if (!part.available()) continue;
+            controls.red += part.red; controls.green += part.green; controls.blue += part.blue; controls.white += part.white;
+            controls.cyan += part.cyan; controls.magenta += part.magenta; controls.yellow += part.yellow; controls.extra += part.extra;
+        }
+        return controls;
+    }
     for (int i = 0; i < mode.parameters.size(); ++i) {
+        if (mode.parameters[i].cell != cell) continue;
         const auto &attribute = mode.parameters[i].attribute;
         const int key = parameterKey(channel, i);
         if (attribute == "ColorAdd_R") controls.red << key;
@@ -33,7 +48,7 @@ FixtureMode Engine::fixtureMode(int channel) const {
 int Engine::parameterKey(int channel, int index) const {
     const auto mode = fixtureMode(channel);
     if (index < 0 || index >= mode.parameters.size()) return 0;
-    return mode.parameters[index].intensity ? channel : -((channel - 1) * 512 + index + 1);
+    return mode.parameters[index].intensity && mode.parameters[index].cell.isEmpty() ? channel : -((channel - 1) * 512 + index + 1);
 }
 int Engine::channelForControl(int key) const { return key > 0 ? key : ((-qint64(key) - 1) / 512) + 1; }
 QList<int> Engine::controlIds() const {
@@ -42,7 +57,7 @@ QList<int> Engine::controlIds() const {
         ids << channel;
         const auto mode = fixtureMode(channel);
         for (int index = 0; index < mode.parameters.size(); ++index)
-            if (!mode.parameters[index].intensity) ids << parameterKey(channel, index);
+            if (parameterKey(channel, index) != channel) ids << parameterKey(channel, index);
     }
     return ids;
 }
@@ -55,12 +70,15 @@ bool Engine::controlExists(int key) const {
 double Engine::controlDefault(int key) const {
     if (key >= 0) return 0;
     int channel = channelForControl(key), index = (-qint64(key) - 1) % 512;
+    const auto parameter = fixtureMode(channel).parameters.value(index);
+    if (parameter.intensity && !parameter.cell.isEmpty()) return 100.;
     const double white = colorComponent(key, 0);
     return white >= 0 ? white : fixtureMode(channel).parameters.value(index).home;
 }
 QString Engine::controlLabel(int key) const {
     int channel = channelForControl(key);
-    QString attr = key > 0 ? "Intensity" : fixtureMode(channel).parameters.value((-qint64(key) - 1) % 512).attribute;
+    const auto parameter = key > 0 ? FixtureParameter{} : fixtureMode(channel).parameters.value((-qint64(key) - 1) % 512);
+    QString attr = key > 0 ? "Intensity" : (parameter.cell.isEmpty() ? QString() : parameter.cell + " / ") + parameter.attribute;
     return QString("%1 · %2 · %3").arg(channel).arg(channels.value(channel), attr);
 }
 QList<int> Engine::occupiedAddresses(int channel) const {
@@ -94,15 +112,31 @@ QMap<int, QByteArray> Engine::dmxFrames() const {
     for (int channel : channels.keys()) {
         const auto mode = fixtureMode(channel);
         bool realDimmer = false;
-        for (const auto &p : mode.parameters) realDimmer |= p.intensity;
+        for (const auto &p : mode.parameters) realDimmer |= p.intensity && p.cell.isEmpty() && !p.offsets.isEmpty();
+        auto isAncestor = [](const QString &ancestor, const QString &cell) { return ancestor.isEmpty() || cell == ancestor || cell.startsWith(ancestor + '/'); };
         for (int start : dmxAddresses(channel)) {
             if (start < 1 || (start - 1) % 512 + mode.footprint > 512) continue;
             int u = (start - 1) / 512;
             if (!frames.contains(u)) frames[u] = QByteArray(512, '\0');
             for (int index = 0; index < mode.parameters.size(); ++index) {
                 const auto &p = mode.parameters[index]; int key = parameterKey(channel, index);
+                if (p.offsets.isEmpty()) continue;
                 double level = values.value(key, controlDefault(key));
-                if (!realDimmer && p.attribute.startsWith("ColorAdd_")) level *= values.value(channel) / 100.;
+                if (!p.cell.isEmpty() && (p.intensity || p.attribute.startsWith("ColorAdd_"))) {
+                    int physicalDepth = realDimmer ? 0 : -1;
+                    for (int masterIndex = 0; masterIndex < mode.parameters.size(); ++masterIndex) {
+                        const auto &master = mode.parameters[masterIndex];
+                        if (master.intensity && !master.offsets.isEmpty() && masterIndex != index && isAncestor(master.cell, p.cell))
+                            physicalDepth = qMax(physicalDepth, int(master.cell.size()));
+                    }
+                    for (int masterIndex = 0; masterIndex < mode.parameters.size(); ++masterIndex) {
+                        const auto &master = mode.parameters[masterIndex];
+                        if (master.intensity && master.offsets.isEmpty() && !master.cell.isEmpty() &&
+                            isAncestor(master.cell, p.cell) && master.cell.size() > physicalDepth)
+                            level *= values.value(parameterKey(channel, masterIndex), 100.) / 100.;
+                    }
+                    if (physicalDepth < 0) level *= values.value(channel) / 100.;
+                } else if (!realDimmer && p.attribute.startsWith("ColorAdd_")) level *= values.value(channel) / 100.;
                 quint64 max = (quint64(1) << (8 * p.offsets.size())) - 1;
                 quint64 raw = quint64(qRound64(qBound(0., level, 100.) * double(max) / 100.));
                 for (int byte = 0; byte < p.offsets.size(); ++byte)

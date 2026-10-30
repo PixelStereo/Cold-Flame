@@ -1,0 +1,3 @@
+These two reduced XML descriptions retain the geometry, DMX mode, default and relation mappings from the user-supplied flashPRO Vintage LED Washer and Flash ART BarFX profiles. Artwork, models, wheel data, ranges and descriptive metadata are omitted. They test mapping and mode availability, not complete vendor-profile or physical-fixture conformance.
+
+To additionally test the original uploaded `.gdtf` archives locally, set `FLAME_GDTF_ARCHIVE_DIR` to a directory containing those two files and run `engine-tests suppliedOriginalMulticellArchives`. CI tests the reduced descriptions; the optional archive case is skipped when that directory is not provided.

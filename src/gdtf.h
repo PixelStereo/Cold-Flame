@@ -6,6 +6,7 @@ struct FixtureParameter {
     QList<int> offsets; // Most significant byte first, 1-based within the fixture.
     double home = 0;    // Normalized DMX percentage, independent of physical units.
     bool intensity = false, snap = false;
+    QString cell; // Empty = fixture master; otherwise a stable geometry instance path.
 };
 struct FixtureMode {
     QString name;
@@ -25,4 +26,6 @@ QMap<QString, FixtureProfile> genericFixtures();
 QJsonObject fixtureJson(const FixtureProfile &profile);
 bool fixtureFromJson(const QJsonObject &json, FixtureProfile &profile, QString &error);
 bool validateMode(const FixtureMode &mode, QString &error);
+void ensureCellControls(FixtureMode &mode);
+bool parseGdtfDescription(const QByteArray &xml, FixtureProfile &profile, QString &error);
 } // namespace Flame

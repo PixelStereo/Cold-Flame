@@ -3,9 +3,10 @@
 #include <QtWidgets>
 class ParameterPanel : public QWidget {
     Flame::Engine &engine;
-    QComboBox *channel;
+    QComboBox *channel, *cell;
+    QPushButton *color;
     QTableWidget *table;
-    QLabel *description;
+    QLabel *description, *masterLevel;
     std::function<void()> onLiveChange;
     int shown = 0;
     void populate(int id);
@@ -14,4 +15,5 @@ class ParameterPanel : public QWidget {
     void reload();
     void refresh();
     void selectChannel(int id);
+    std::function<void()> paletteChanged;
 };

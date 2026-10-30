@@ -2,17 +2,17 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.10 | Remaining work |
+| Area | Implemented and tested in 0.11 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity references; shared normalized RGB/RGBW/CMY Color Palettes; hidden immutable white; direct cue assignment; local step overrides; saved references | Focus/position and Beam palettes; calibrated color, Eos by-type/default/discrete options, locking, nested references |
 | Cues | Shared cue library, repeated sequence occurrences, Record look, Update, deletion, automatic numbering, up/down/wait, Link, Follow/Hang, single Execute target, per-channel times | Multipart, per-attribute timing, loop counts, multiple Execute targets, mark |
 | Cue Only | Engine, Record/Update checkbox, Blind level edits | Full category filters and Eos range-update semantics |
 | Sequences | Simultaneous playback, priority, Go/Back/Pause, release, numbered defaults, movable tabs, stable step IDs, insertion, grip drag-and-drop, context-menu deletion, inline triggers and row Block/Assert controls, exact step links, one-shot Set Next | full multi-attribute Move Fade ownership, Assert, HTP, configurable background |
-| Editing | Live parameters, channel/parameter tracking spreadsheet, source navigation, channel Block, Trace/Trace zeros, Cue Only, show-definition Undo/Redo, full-cue Block/Assert | Per-parameter Assert, selective/live Undo, tracking change preview |
+| Editing | Live parameters with master/cell scope and per-cell color chooser, basic decimal cell intensity commands, channel/parameter tracking spreadsheet, source navigation, channel Block, Trace/Trace zeros, Cue Only, show-definition Undo/Redo, full-cue Block/Assert | Per-parameter Assert, selective/live Undo, tracking change preview |
 | Files | Versioned JSON, atomic save, validated loading | Migration, autosave, recovery, selective merge |
 | Patch | Editable channel overview, footprint-aware batch stride, complete footprint overlap checks, explicit conflict-resolution preview, custom fixture/mode editor with copy protection, multiple fixture starts, unpatching, 8/16-bit dimmers and generic fixtures, patch transfer | Geometry, MVR, fixture replacement/migration |
-| GDTF | Import/export, preserved original archives, direct single-break modes, 8/16/24/32-bit offsets, default/Snap, cue parameter recording/output | Physical units, curves, relations, multi-break, mode masters and geometry/cells |
+| GDTF | Import/export, preserved original archives, single output-break modes, geometry-reference/cell expansion, nested offsets, virtual dimmer color multiplication, 8/16/24/32-bit offsets, default/Snap, cue parameter recording/output | Physical units, curves, general relations, multiple output breaks and conditional mode masters |
 | Network | Multiple ArtDmx/sACN outputs, interface selection, multi-IP unicast/broadcast/multicast, route ranges, rates, sACN priority/source/termination, packet counters, UDP tests | ArtPoll, sACN sync, RDM, redundancy, dedicated output thread |
 | OSC | Float messages and three local receive actions | Full dictionary, feedback, bundles, timing |
 | Effects | 1D intensity wave generator | Absolute/relative/step effects, phases, variables, curves, tempo |

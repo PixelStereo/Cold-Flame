@@ -1196,6 +1196,7 @@ class Console : public QMainWindow {
         });
         channelTabs->addTab(outputPanel, "Network");
         parameterPanel = new ParameterPanel(engine, [this] { refresh(); }, channelTabs);
+        parameterPanel->paletteChanged = [this] { changed(); };
         channelTabs->addTab(parameterPanel, "Parameters");
         connect(channels, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
             const int id = item->data(Qt::UserRole).toInt();
@@ -1672,6 +1673,14 @@ int main(int argc, char **argv) {
             tabs->setCurrentIndex(2);
             w.findChild<QPushButton *>("addDmxOutput")->click();
             QTimer::singleShot(150, [&w] { w.grab().save("network-preview.png"); });
+        });
+    if (app.arguments().contains("--multicell-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            auto sheet = w.findChild<QTableWidget *>("cueSheet"); sheet->selectRow(0); w.findChild<QPushButton *>("gotoButton")->click();
+            w.findChild<QTabWidget *>("channelTabs")->setCurrentIndex(3);
+            auto channels = w.findChild<QComboBox *>("parameterChannel"); channels->setCurrentIndex(channels->findData(101));
+            w.findChild<QComboBox *>("parameterCell")->setCurrentIndex(2);
+            QTimer::singleShot(150, &w, [&w] { w.grab().save("multicell-preview.png"); });
         });
     if (app.arguments().contains("--fixture-editor-screenshot"))
         QTimer::singleShot(50, [&w] {

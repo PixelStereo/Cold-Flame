@@ -1,0 +1,2461 @@
+{
+  "format": "cold-flame",
+  "version": 6,
+  "channels": [
+    {
+      "id": 1,
+      "name": "Channel 1",
+      "address": 1,
+      "addresses": [
+        1
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 2,
+      "name": "Channel 2",
+      "address": 2,
+      "addresses": [
+        2
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 3,
+      "name": "Channel 3",
+      "address": 3,
+      "addresses": [
+        3
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 4,
+      "name": "Channel 4",
+      "address": 4,
+      "addresses": [
+        4
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 5,
+      "name": "Channel 5",
+      "address": 5,
+      "addresses": [
+        5
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 6,
+      "name": "Channel 6",
+      "address": 6,
+      "addresses": [
+        6
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 7,
+      "name": "Channel 7",
+      "address": 7,
+      "addresses": [
+        7
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 8,
+      "name": "Channel 8",
+      "address": 8,
+      "addresses": [
+        8
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 9,
+      "name": "Channel 9",
+      "address": 9,
+      "addresses": [
+        9
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 10,
+      "name": "Channel 10",
+      "address": 10,
+      "addresses": [
+        10
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 11,
+      "name": "Channel 11",
+      "address": 11,
+      "addresses": [
+        11
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 12,
+      "name": "Channel 12",
+      "address": 12,
+      "addresses": [
+        12
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 13,
+      "name": "Channel 13",
+      "address": 13,
+      "addresses": [
+        13
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 14,
+      "name": "Channel 14",
+      "address": 14,
+      "addresses": [
+        14
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 15,
+      "name": "Channel 15",
+      "address": 15,
+      "addresses": [
+        15
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 16,
+      "name": "Channel 16",
+      "address": 16,
+      "addresses": [
+        16
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 17,
+      "name": "Channel 17",
+      "address": 17,
+      "addresses": [
+        17
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 18,
+      "name": "Channel 18",
+      "address": 18,
+      "addresses": [
+        18
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 19,
+      "name": "Channel 19",
+      "address": 19,
+      "addresses": [
+        19
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 20,
+      "name": "Channel 20",
+      "address": 20,
+      "addresses": [
+        20
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 21,
+      "name": "Channel 21",
+      "address": 21,
+      "addresses": [
+        21
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 22,
+      "name": "Channel 22",
+      "address": 22,
+      "addresses": [
+        22
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 23,
+      "name": "Channel 23",
+      "address": 23,
+      "addresses": [
+        23
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 24,
+      "name": "Channel 24",
+      "address": 24,
+      "addresses": [
+        24
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 25,
+      "name": "Channel 25",
+      "address": 25,
+      "addresses": [
+        25
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 26,
+      "name": "Channel 26",
+      "address": 26,
+      "addresses": [
+        26
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 27,
+      "name": "Channel 27",
+      "address": 27,
+      "addresses": [
+        27
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 28,
+      "name": "Channel 28",
+      "address": 28,
+      "addresses": [
+        28
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 29,
+      "name": "Channel 29",
+      "address": 29,
+      "addresses": [
+        29
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 30,
+      "name": "Channel 30",
+      "address": 30,
+      "addresses": [
+        30
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 31,
+      "name": "Channel 31",
+      "address": 31,
+      "addresses": [
+        31
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 32,
+      "name": "Channel 32",
+      "address": 32,
+      "addresses": [
+        32
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 33,
+      "name": "Channel 33",
+      "address": 33,
+      "addresses": [
+        33
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 34,
+      "name": "Channel 34",
+      "address": 34,
+      "addresses": [
+        34
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 35,
+      "name": "Channel 35",
+      "address": 35,
+      "addresses": [
+        35
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 36,
+      "name": "Channel 36",
+      "address": 36,
+      "addresses": [
+        36
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 37,
+      "name": "Channel 37",
+      "address": 37,
+      "addresses": [
+        37
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 38,
+      "name": "Channel 38",
+      "address": 38,
+      "addresses": [
+        38
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 39,
+      "name": "Channel 39",
+      "address": 39,
+      "addresses": [
+        39
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 40,
+      "name": "Channel 40",
+      "address": 40,
+      "addresses": [
+        40
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 41,
+      "name": "Channel 41",
+      "address": 41,
+      "addresses": [
+        41
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 42,
+      "name": "Channel 42",
+      "address": 42,
+      "addresses": [
+        42
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 43,
+      "name": "Channel 43",
+      "address": 43,
+      "addresses": [
+        43
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 44,
+      "name": "Channel 44",
+      "address": 44,
+      "addresses": [
+        44
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 45,
+      "name": "Channel 45",
+      "address": 45,
+      "addresses": [
+        45
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 46,
+      "name": "Channel 46",
+      "address": 46,
+      "addresses": [
+        46
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 47,
+      "name": "Channel 47",
+      "address": 47,
+      "addresses": [
+        47
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 48,
+      "name": "Channel 48",
+      "address": 48,
+      "addresses": [
+        48
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 49,
+      "name": "Channel 49",
+      "address": 49,
+      "addresses": [
+        49
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 50,
+      "name": "Channel 50",
+      "address": 50,
+      "addresses": [
+        50
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 51,
+      "name": "Channel 51",
+      "address": 51,
+      "addresses": [
+        51
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 52,
+      "name": "Channel 52",
+      "address": 52,
+      "addresses": [
+        52
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 53,
+      "name": "Channel 53",
+      "address": 53,
+      "addresses": [
+        53
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 54,
+      "name": "Channel 54",
+      "address": 54,
+      "addresses": [
+        54
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 55,
+      "name": "Channel 55",
+      "address": 55,
+      "addresses": [
+        55
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 56,
+      "name": "Channel 56",
+      "address": 56,
+      "addresses": [
+        56
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 57,
+      "name": "Channel 57",
+      "address": 57,
+      "addresses": [
+        57
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 58,
+      "name": "Channel 58",
+      "address": 58,
+      "addresses": [
+        58
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 59,
+      "name": "Channel 59",
+      "address": 59,
+      "addresses": [
+        59
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 60,
+      "name": "Channel 60",
+      "address": 60,
+      "addresses": [
+        60
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 61,
+      "name": "Channel 61",
+      "address": 61,
+      "addresses": [
+        61
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 62,
+      "name": "Channel 62",
+      "address": 62,
+      "addresses": [
+        62
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 63,
+      "name": "Channel 63",
+      "address": 63,
+      "addresses": [
+        63
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 64,
+      "name": "Channel 64",
+      "address": 64,
+      "addresses": [
+        64
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 65,
+      "name": "Channel 65",
+      "address": 65,
+      "addresses": [
+        65
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 66,
+      "name": "Channel 66",
+      "address": 66,
+      "addresses": [
+        66
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 67,
+      "name": "Channel 67",
+      "address": 67,
+      "addresses": [
+        67
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 68,
+      "name": "Channel 68",
+      "address": 68,
+      "addresses": [
+        68
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 69,
+      "name": "Channel 69",
+      "address": 69,
+      "addresses": [
+        69
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 70,
+      "name": "Channel 70",
+      "address": 70,
+      "addresses": [
+        70
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 71,
+      "name": "Channel 71",
+      "address": 71,
+      "addresses": [
+        71
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 72,
+      "name": "Channel 72",
+      "address": 72,
+      "addresses": [
+        72
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 73,
+      "name": "Channel 73",
+      "address": 73,
+      "addresses": [
+        73
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 74,
+      "name": "Channel 74",
+      "address": 74,
+      "addresses": [
+        74
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 75,
+      "name": "Channel 75",
+      "address": 75,
+      "addresses": [
+        75
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 76,
+      "name": "Channel 76",
+      "address": 76,
+      "addresses": [
+        76
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 77,
+      "name": "Channel 77",
+      "address": 77,
+      "addresses": [
+        77
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 78,
+      "name": "Channel 78",
+      "address": 78,
+      "addresses": [
+        78
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 79,
+      "name": "Channel 79",
+      "address": 79,
+      "addresses": [
+        79
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 80,
+      "name": "Channel 80",
+      "address": 80,
+      "addresses": [
+        80
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 81,
+      "name": "Channel 81",
+      "address": 81,
+      "addresses": [
+        81
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 82,
+      "name": "Channel 82",
+      "address": 82,
+      "addresses": [
+        82
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 83,
+      "name": "Channel 83",
+      "address": 83,
+      "addresses": [
+        83
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 84,
+      "name": "Channel 84",
+      "address": 84,
+      "addresses": [
+        84
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 85,
+      "name": "Channel 85",
+      "address": 85,
+      "addresses": [
+        85
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 86,
+      "name": "Channel 86",
+      "address": 86,
+      "addresses": [
+        86
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 87,
+      "name": "Channel 87",
+      "address": 87,
+      "addresses": [
+        87
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 88,
+      "name": "Channel 88",
+      "address": 88,
+      "addresses": [
+        88
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 89,
+      "name": "Channel 89",
+      "address": 89,
+      "addresses": [
+        89
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 90,
+      "name": "Channel 90",
+      "address": 90,
+      "addresses": [
+        90
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 91,
+      "name": "Channel 91",
+      "address": 91,
+      "addresses": [
+        91
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 92,
+      "name": "Channel 92",
+      "address": 92,
+      "addresses": [
+        92
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 93,
+      "name": "Channel 93",
+      "address": 93,
+      "addresses": [
+        93
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 94,
+      "name": "Channel 94",
+      "address": 94,
+      "addresses": [
+        94
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 95,
+      "name": "Channel 95",
+      "address": 95,
+      "addresses": [
+        95
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 96,
+      "name": "Channel 96",
+      "address": 96,
+      "addresses": [
+        96
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 97,
+      "name": "Channel 97",
+      "address": 97,
+      "addresses": [
+        97
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 98,
+      "name": "Channel 98",
+      "address": 98,
+      "addresses": [
+        98
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 99,
+      "name": "Channel 99",
+      "address": 99,
+      "addresses": [
+        99
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 100,
+      "name": "Channel 100",
+      "address": 100,
+      "addresses": [
+        100
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 101,
+      "name": "Vintage \u00b7 12 cells",
+      "address": 513,
+      "addresses": [
+        513
+      ],
+      "profile": "vintage-12cell-example",
+      "mode": 0
+    },
+    {
+      "id": 102,
+      "name": "Channel 102",
+      "address": 102,
+      "addresses": [
+        102
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 103,
+      "name": "Channel 103",
+      "address": 103,
+      "addresses": [
+        103
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 104,
+      "name": "Channel 104",
+      "address": 104,
+      "addresses": [
+        104
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 105,
+      "name": "Channel 105",
+      "address": 105,
+      "addresses": [
+        105
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 106,
+      "name": "Channel 106",
+      "address": 106,
+      "addresses": [
+        106
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 107,
+      "name": "Channel 107",
+      "address": 107,
+      "addresses": [
+        107
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 108,
+      "name": "Channel 108",
+      "address": 108,
+      "addresses": [
+        108
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 109,
+      "name": "Channel 109",
+      "address": 109,
+      "addresses": [
+        109
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 110,
+      "name": "Channel 110",
+      "address": 110,
+      "addresses": [
+        110
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 111,
+      "name": "Channel 111",
+      "address": 111,
+      "addresses": [
+        111
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 112,
+      "name": "Channel 112",
+      "address": 112,
+      "addresses": [
+        112
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 113,
+      "name": "Channel 113",
+      "address": 113,
+      "addresses": [
+        113
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 114,
+      "name": "Channel 114",
+      "address": 114,
+      "addresses": [
+        114
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 115,
+      "name": "Channel 115",
+      "address": 115,
+      "addresses": [
+        115
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 116,
+      "name": "Channel 116",
+      "address": 116,
+      "addresses": [
+        116
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 117,
+      "name": "Channel 117",
+      "address": 117,
+      "addresses": [
+        117
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 118,
+      "name": "Channel 118",
+      "address": 118,
+      "addresses": [
+        118
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 119,
+      "name": "Channel 119",
+      "address": 119,
+      "addresses": [
+        119
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    },
+    {
+      "id": 120,
+      "name": "Channel 120",
+      "address": 120,
+      "addresses": [
+        120
+      ],
+      "profile": "dimmer8",
+      "mode": 0
+    }
+  ],
+  "cueLibrary": [
+    {
+      "number": "10",
+      "label": "cue-10",
+      "values": {
+        "101": {
+          "level": 50,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51201": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51202": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51203": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51204": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51205": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51206": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51207": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51208": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51209": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51210": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51211": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51212": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51213": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51214": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51215": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51216": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51217": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51218": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51219": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51220": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51221": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51222": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51223": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51224": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51225": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51226": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51227": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51228": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51229": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51230": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51231": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51232": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51233": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51234": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51235": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51236": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51237": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51238": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51239": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51240": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51241": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51242": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51243": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51244": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51245": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51246": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51247": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51248": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51249": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51250": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51251": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51252": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51253": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51254": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51255": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51256": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51257": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51258": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51259": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51260": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        }
+      }
+    },
+    {
+      "number": "20",
+      "label": "cue-20",
+      "values": {
+        "101": {
+          "level": 50,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51201": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51202": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51203": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51204": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51205": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51206": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51207": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51208": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51209": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51210": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51211": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51212": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": -1
+        },
+        "-51213": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51214": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51215": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51216": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51217": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51218": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51219": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51220": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51221": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51222": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51223": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51224": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51225": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51226": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51227": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51228": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51229": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51230": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51231": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51232": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51233": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51234": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51235": {
+          "level": 40,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51236": {
+          "level": 20,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51237": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51238": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51239": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51240": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51241": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51242": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51243": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51244": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51245": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51246": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51247": {
+          "level": 100,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51248": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51249": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51250": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51251": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51252": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51253": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51254": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51255": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51256": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51257": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51258": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        },
+        "-51259": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 2
+        },
+        "-51260": {
+          "level": 0,
+          "palette": 0,
+          "colorPalette": 1
+        }
+      }
+    }
+  ],
+  "sequences": [
+    {
+      "number": 1,
+      "name": "Multicell demo",
+      "priority": 4,
+      "cues": [
+        {
+          "number": "1",
+          "reference": "10",
+          "time": 0,
+          "values": {}
+        },
+        {
+          "number": "2",
+          "reference": "20",
+          "time": 2,
+          "values": {}
+        }
+      ]
+    }
+  ],
+  "palettes": [],
+  "groups": [],
+  "submasters": [],
+  "colorPalettes": [
+    {
+      "id": 1,
+      "name": "Warm",
+      "red": 1,
+      "green": 0.2,
+      "blue": 0
+    },
+    {
+      "id": 2,
+      "name": "Blue",
+      "red": 0,
+      "green": 0.4,
+      "blue": 1
+    }
+  ],
+  "fixtureProfiles": {
+    "vintage-12cell-example": {
+      "name": "Vintage \u00b7 12-cell RGBW",
+      "manufacturer": "flashPRO",
+      "gdtf": "",
+      "modes": [
+        {
+          "name": "12xRGBW",
+          "footprint": 48,
+          "parameters": [
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 1"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 2"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 3"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 4"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 5"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 6"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 7"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 8"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 9"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 10"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 11"
+            },
+            {
+              "attribute": "Dimmer",
+              "offsets": [],
+              "home": 0.0,
+              "intensity": true,
+              "snap": false,
+              "cell": "Beam 12"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                1
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 1"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                5
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 2"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                9
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 3"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                13
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 4"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                17
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 5"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                21
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 6"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                25
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 7"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                29
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 8"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                33
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 9"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                37
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 10"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                41
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 11"
+            },
+            {
+              "attribute": "ColorAdd_R",
+              "offsets": [
+                45
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 12"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                2
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 1"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                6
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 2"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                10
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 3"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                14
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 4"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                18
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 5"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                22
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 6"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                26
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 7"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                30
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 8"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                34
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 9"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                38
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 10"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                42
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 11"
+            },
+            {
+              "attribute": "ColorAdd_G",
+              "offsets": [
+                46
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 12"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                3
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 1"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                7
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 2"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                11
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 3"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                15
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 4"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                19
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 5"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                23
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 6"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                27
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 7"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                31
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 8"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                35
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 9"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                39
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 10"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                43
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 11"
+            },
+            {
+              "attribute": "ColorAdd_B",
+              "offsets": [
+                47
+              ],
+              "home": 100.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 12"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                4
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 1"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                8
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 2"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                12
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 3"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                16
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 4"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                20
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 5"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                24
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 6"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                28
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 7"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                32
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 8"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                36
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 9"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                40
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 10"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                44
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 11"
+            },
+            {
+              "attribute": "ColorAdd_W",
+              "offsets": [
+                48
+              ],
+              "home": 0.0,
+              "intensity": false,
+              "snap": false,
+              "cell": "Beam 12"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

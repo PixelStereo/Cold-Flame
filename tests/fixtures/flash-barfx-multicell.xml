@@ -1,0 +1,466 @@
+<?xml version='1.0' encoding='utf-8'?>
+<GDTF DataVersion="1.2">
+  <FixtureType Name="ART BarFX 800 IP65" Manufacturer="FLASH">
+    <Geometries>
+      <Geometry Name="Base">
+        <Geometry Name="RGBW all">
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 1">
+            <Break DMXBreak="1" DMXOffset="1" />
+            <Break DMXBreak="2" DMXOffset="1" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 2">
+            <Break DMXBreak="1" DMXOffset="5" />
+            <Break DMXBreak="2" DMXOffset="5" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 3">
+            <Break DMXBreak="1" DMXOffset="9" />
+            <Break DMXBreak="2" DMXOffset="9" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 4">
+            <Break DMXBreak="1" DMXOffset="13" />
+            <Break DMXBreak="2" DMXOffset="13" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 5">
+            <Break DMXBreak="1" DMXOffset="17" />
+            <Break DMXBreak="2" DMXOffset="17" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 6">
+            <Break DMXBreak="1" DMXOffset="21" />
+            <Break DMXBreak="2" DMXOffset="21" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 7">
+            <Break DMXBreak="1" DMXOffset="25" />
+            <Break DMXBreak="2" DMXOffset="25" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 8">
+            <Break DMXBreak="1" DMXOffset="29" />
+            <Break DMXBreak="2" DMXOffset="29" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 9">
+            <Break DMXBreak="1" DMXOffset="33" />
+            <Break DMXBreak="2" DMXOffset="33" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 10">
+            <Break DMXBreak="1" DMXOffset="37" />
+            <Break DMXBreak="2" DMXOffset="37" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 11">
+            <Break DMXBreak="1" DMXOffset="41" />
+            <Break DMXBreak="2" DMXOffset="41" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 12">
+            <Break DMXBreak="1" DMXOffset="45" />
+            <Break DMXBreak="2" DMXOffset="45" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 13">
+            <Break DMXBreak="1" DMXOffset="49" />
+            <Break DMXBreak="2" DMXOffset="49" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 14">
+            <Break DMXBreak="1" DMXOffset="53" />
+            <Break DMXBreak="2" DMXOffset="53" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 15">
+            <Break DMXBreak="1" DMXOffset="57" />
+            <Break DMXBreak="2" DMXOffset="57" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam RGBW" Name="RGBW 16">
+            <Break DMXBreak="1" DMXOffset="61" />
+            <Break DMXBreak="2" DMXOffset="61" />
+          </GeometryReference>
+        </Geometry>
+        <Geometry Name="W all">
+          <GeometryReference Geometry="Beam W" Name="W 1">
+            <Break DMXBreak="1" DMXOffset="1" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 2">
+            <Break DMXBreak="1" DMXOffset="2" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 3">
+            <Break DMXBreak="1" DMXOffset="3" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 4">
+            <Break DMXBreak="1" DMXOffset="4" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 5">
+            <Break DMXBreak="1" DMXOffset="5" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 6">
+            <Break DMXBreak="1" DMXOffset="6" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 7">
+            <Break DMXBreak="1" DMXOffset="7" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 8">
+            <Break DMXBreak="1" DMXOffset="8" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 9">
+            <Break DMXBreak="1" DMXOffset="9" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 10">
+            <Break DMXBreak="1" DMXOffset="10" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 11">
+            <Break DMXBreak="1" DMXOffset="11" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 12">
+            <Break DMXBreak="1" DMXOffset="12" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 13">
+            <Break DMXBreak="1" DMXOffset="13" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 14">
+            <Break DMXBreak="1" DMXOffset="14" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 15">
+            <Break DMXBreak="1" DMXOffset="15" />
+          </GeometryReference>
+          <GeometryReference Geometry="Beam W" Name="W 16">
+            <Break DMXBreak="1" DMXOffset="16" />
+          </GeometryReference>
+        </Geometry>
+      </Geometry>
+      <Beam Name="Beam RGBW" />
+      <Beam Name="Beam W" />
+    </Geometries>
+    <DMXModes>
+      <DMXMode Name="13 channel" Geometry="Base">
+        <DMXChannels>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Dimmer.Dimmer.Dimmer 1" Offset="1">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/1" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Shutter1.Shutter1.Open 1" Offset="2">
+            <LogicalChannel Attribute="Shutter1" Snap="No">
+              <ChannelFunction Default="0/1" Name="Open" />
+              <ChannelFunction Default="5/1" Name="Shutter1Strobe 2" />
+              <ChannelFunction Default="131/1" Name="StrobeModePulseOpen 3" />
+              <ChannelFunction Default="181/1" Name="StrobeModePulseClose 4" />
+              <ChannelFunction Default="230/1" Name="StrobeModeRandom 5" />
+              <ChannelFunction Default="255/1" Name="Open 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorMacro1.ColorMacro1.ColorMacro1 1" Offset="3">
+            <LogicalChannel Attribute="ColorMacro1" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorMacro1Rate.ColorMacro1Rate.ColorMacro1Rate 1" Offset="4">
+            <LogicalChannel Attribute="ColorMacro1Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1Rate 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorMacro2.ColorMacro2.No function" Offset="5">
+            <LogicalChannel Attribute="ColorMacro2" Snap="No">
+              <ChannelFunction Default="0/1" Name="No function" />
+              <ChannelFunction Default="5/1" Name="Color HUE " />
+              <ChannelFunction Default="22/1" Name="Color HUE with white" />
+              <ChannelFunction Default="30/1" Name="ColorEffects" />
+              <ChannelFunction Default="255/1" Name="Color macro" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorMacro2Rate.ColorMacro2Rate.MacroWhiteSpeed 1" Offset="6">
+            <LogicalChannel Attribute="ColorMacro2Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="MacroWhiteSpeed 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Color foreground.Color foreground.Color Foreground HUE" Offset="7">
+            <LogicalChannel Attribute="Color foreground" Snap="No">
+              <ChannelFunction Default="0/1" Name="Color Foreground HUE" />
+              <ChannelFunction Default="255/1" Name="Color Foreground HUE with white" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Color background.Color background.Color Background HUE" Offset="8">
+            <LogicalChannel Attribute="Color background" Snap="No">
+              <ChannelFunction Default="0/1" Name="Color Background HUE" />
+              <ChannelFunction Default="255/1" Name="Color Background HUE with white" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorAdd_CW.ColorAdd_CW.ColorAdd_CW 1" Offset="9">
+            <LogicalChannel Attribute="ColorAdd_CW" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_CW 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Offset="10">
+            <LogicalChannel Attribute="ColorAdd_R" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_R 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Offset="11">
+            <LogicalChannel Attribute="ColorAdd_G" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_G 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Offset="12">
+            <LogicalChannel Attribute="ColorAdd_B" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_B 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Offset="13">
+            <LogicalChannel Attribute="ColorAdd_W" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_W 1" />
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations />
+      </DMXMode>
+      <DMXMode Name="64 channel" Geometry="Base">
+        <DMXChannels>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_Dimmer.Dimmer.Dimmer 1" Offset="">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/2" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Offset="1">
+            <LogicalChannel Attribute="ColorAdd_R" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_R 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Offset="2">
+            <LogicalChannel Attribute="ColorAdd_G" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_G 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Offset="3">
+            <LogicalChannel Attribute="ColorAdd_B" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_B 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Offset="4">
+            <LogicalChannel Attribute="ColorAdd_W" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_W 1" />
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations>
+          <Relation Follower="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+        </Relations>
+      </DMXMode>
+      <DMXMode Name="89 channel" Geometry="Base">
+        <DMXChannels>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_Dimmer.Dimmer.Dimmer 1" Offset="">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/2" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_Dimmer.Dimmer.DimmerCW 1" Offset="1">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="255/1" Name="DimmerCW 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_Dimmer.Dimmer.Dimmer 1" Offset="2">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="255/1" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_Shutter1.Shutter1.Open 1" Offset="3">
+            <LogicalChannel Attribute="Shutter1" Snap="No">
+              <ChannelFunction Default="0/1" Name="Open" />
+              <ChannelFunction Default="5/1" Name="Shutter1Strobe 2" />
+              <ChannelFunction Default="131/1" Name="StrobeModePulseOpen 3" />
+              <ChannelFunction Default="181/1" Name="StrobeModePulseClose 4" />
+              <ChannelFunction Default="230/1" Name="StrobeModeRandom 5" />
+              <ChannelFunction Default="255/1" Name="Open 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_ColorMacro1.ColorMacro1.ColorMacro1 1" Offset="4">
+            <LogicalChannel Attribute="ColorMacro1" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_ColorMacro1Rate.ColorMacro1Rate.ColorMacro1Rate 1" Offset="5">
+            <LogicalChannel Attribute="ColorMacro1Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1Rate 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_ColorMacro2.ColorMacro2.No function" Offset="6">
+            <LogicalChannel Attribute="ColorMacro2" Snap="No">
+              <ChannelFunction Default="0/1" Name="No function" />
+              <ChannelFunction Default="5/1" Name="Color HUE " />
+              <ChannelFunction Default="22/1" Name="Color HUE with white" />
+              <ChannelFunction Default="30/1" Name="ColorEffects2 4" />
+              <ChannelFunction Default="255/1" Name="Color macro" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_ColorMacro2Rate.ColorMacro2Rate.MacroWhiteSpeed 1" Offset="7">
+            <LogicalChannel Attribute="ColorMacro2Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="MacroWhiteSpeed 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Color foreground.Color foreground.Color Foreground HUE" Offset="8">
+            <LogicalChannel Attribute="Color foreground" Snap="No">
+              <ChannelFunction Default="0/1" Name="Color Foreground HUE" />
+              <ChannelFunction Default="255/1" Name="Color Foreground HUE with white" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Base" InitialFunction="Base_Color background.Color background.Color Background HUE" Offset="9">
+            <LogicalChannel Attribute="Color background" Snap="No">
+              <ChannelFunction Default="0/1" Name="Color Background HUE" />
+              <ChannelFunction Default="255/1" Name="Color Background HUE with white" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam W" InitialFunction="Beam W_Dimmer.Dimmer.ColorAdd_CW 1" Offset="10">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_CW 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Offset="26">
+            <LogicalChannel Attribute="ColorAdd_R" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_R 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Offset="27">
+            <LogicalChannel Attribute="ColorAdd_G" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_G 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Offset="28">
+            <LogicalChannel Attribute="ColorAdd_B" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_B 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Offset="29">
+            <LogicalChannel Attribute="ColorAdd_W" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_W 1" />
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations>
+          <Relation Follower="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+        </Relations>
+      </DMXMode>
+      <DMXMode Name="4 channel-NET" Geometry="Base">
+        <DMXChannels>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_Dimmer.Dimmer.Dimmer 1" Offset="">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/2" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_Dimmer.Dimmer.Dimmer 1" Offset="1">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/1" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_Shutter1.Shutter1.Open 1" Offset="2">
+            <LogicalChannel Attribute="Shutter1" Snap="No">
+              <ChannelFunction Default="0/1" Name="Open" />
+              <ChannelFunction Default="5/1" Name="Shutter1Strobe 2" />
+              <ChannelFunction Default="131/1" Name="StrobeModePulseOpen 3" />
+              <ChannelFunction Default="181/1" Name="StrobeModePulseClose 4" />
+              <ChannelFunction Default="230/1" Name="StrobeModeRandom 5" />
+              <ChannelFunction Default="255/1" Name="Open 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_ColorMacro1.ColorMacro1.ColorMacro1 1" Offset="3">
+            <LogicalChannel Attribute="ColorMacro1" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_ColorMacro1Rate.ColorMacro1Rate.ColorMacro1Rate 1" Offset="4">
+            <LogicalChannel Attribute="ColorMacro1Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1Rate 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Offset="1">
+            <LogicalChannel Attribute="ColorAdd_R" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_R 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Offset="2">
+            <LogicalChannel Attribute="ColorAdd_G" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_G 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Offset="3">
+            <LogicalChannel Attribute="ColorAdd_B" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_B 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Offset="4">
+            <LogicalChannel Attribute="ColorAdd_W" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_W 1" />
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations>
+          <Relation Follower="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+        </Relations>
+      </DMXMode>
+      <DMXMode Name="20 channel-NET" Geometry="Base">
+        <DMXChannels>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_Dimmer.Dimmer.Dimmer 1" Offset="">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/2" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_Dimmer.Dimmer.Dimmer 1" Offset="1">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="0/1" Name="Dimmer 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="RGBW all" InitialFunction="RGBW all_Shutter1.Shutter1.Open 1" Offset="2">
+            <LogicalChannel Attribute="Shutter1" Snap="No">
+              <ChannelFunction Default="0/1" Name="Open" />
+              <ChannelFunction Default="5/1" Name="Shutter1Strobe 2" />
+              <ChannelFunction Default="131/1" Name="StrobeModePulseOpen 3" />
+              <ChannelFunction Default="181/1" Name="StrobeModePulseClose 4" />
+              <ChannelFunction Default="230/1" Name="StrobeModeRandom 5" />
+              <ChannelFunction Default="255/1" Name="Open 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_ColorMacro1.ColorMacro1.ColorMacro1 1" Offset="3">
+            <LogicalChannel Attribute="ColorMacro1" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="W all" InitialFunction="W all_ColorMacro1Rate.ColorMacro1Rate.ColorMacro1Rate 1" Offset="4">
+            <LogicalChannel Attribute="ColorMacro1Rate" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorMacro1Rate 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Offset="1">
+            <LogicalChannel Attribute="ColorAdd_R" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_R 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Offset="2">
+            <LogicalChannel Attribute="ColorAdd_G" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_G 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Offset="3">
+            <LogicalChannel Attribute="ColorAdd_B" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_B 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="2" Geometry="Beam RGBW" InitialFunction="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Offset="4">
+            <LogicalChannel Attribute="ColorAdd_W" Snap="No">
+              <ChannelFunction Default="0/1" Name="ColorAdd_W 1" />
+            </LogicalChannel>
+          </DMXChannel>
+          <DMXChannel DMXBreak="1" Geometry="Beam W" InitialFunction="Beam W_Dimmer.Dimmer.ColorAdd_CW 1" Offset="5">
+            <LogicalChannel Attribute="Dimmer" Snap="No">
+              <ChannelFunction Default="255/1" Name="ColorAdd_CW 1" />
+            </LogicalChannel>
+          </DMXChannel>
+        </DMXChannels>
+        <Relations>
+          <Relation Follower="Beam RGBW_ColorAdd_R.ColorAdd_R.ColorAdd_R 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_G.ColorAdd_G.ColorAdd_G 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_B.ColorAdd_B.ColorAdd_B 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+          <Relation Follower="Beam RGBW_ColorAdd_W.ColorAdd_W.ColorAdd_W 1" Master="Beam RGBW_Dimmer" Type="Multiply" />
+        </Relations>
+      </DMXMode>
+    </DMXModes>
+  </FixtureType>
+</GDTF>

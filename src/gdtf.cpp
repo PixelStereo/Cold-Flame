@@ -70,80 +70,8 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
     }
     if (xml.isEmpty())
         return fail("description.xml not found");
-    QXmlStreamReader r(xml);
     FixtureProfile profile;
-    FixtureMode mode;
-    bool inMode = false;
-    FixtureParameter parameter;
-    QString defaultValue, initialFunction;
-    bool inChannel = false;
-    while (!r.atEnd()) {
-        r.readNext();
-        if (r.isDTD())
-            return fail("DTD is not allowed");
-        if (r.isStartElement()) {
-            auto a = r.attributes();
-            if (r.name() == QStringLiteral("FixtureType")) {
-                profile.name = a.value("Name").toString();
-                profile.manufacturer = a.value("Manufacturer").toString();
-            } else if (r.name() == QStringLiteral("DMXMode")) {
-                mode = {};
-                mode.name = a.value("Name").toString();
-                inMode = true;
-            } else if (inMode && r.name() == QStringLiteral("DMXChannel")) {
-                parameter = {}; inChannel = true;
-                defaultValue = a.value("Default").toString();
-                initialFunction = a.value("InitialFunction").toString();
-                QString dmxBreak = a.value("DMXBreak").toString();
-                if (!dmxBreak.isEmpty() && dmxBreak != "1") mode.unsupported = "Multiple DMX breaks are not supported";
-                for (auto v : a.value("Offset").toString().split(',')) {
-                    bool ok;
-                    int offset = v.toInt(&ok);
-                    if (ok && offset > 0) {
-                        parameter.offsets << offset;
-                        mode.footprint = qMax(mode.footprint, offset);
-                    } else mode.unsupported = "Virtual channels require a fixture relation evaluator";
-                }
-            } else if (inMode && r.name() == QStringLiteral("LogicalChannel")) {
-                auto attr = a.value("Attribute").toString();
-                if (!parameter.attribute.isEmpty()) mode.unsupported = "Multiplexed logical channels are not supported";
-                parameter.attribute = attr;
-                parameter.intensity = attr == "Dimmer";
-                parameter.snap = a.value("Snap") == QStringLiteral("Yes") || a.value("Snap") == QStringLiteral("On");
-                if (!attr.isEmpty() && !mode.attributes.contains(attr))
-                    mode.attributes << attr;
-            } else if (inMode && (r.name() == QStringLiteral("Relation") || r.name() == QStringLiteral("ModeMaster"))) {
-                mode.unsupported = "Channel relations and mode masters are not supported";
-            } else if (inChannel && r.name() == QStringLiteral("ChannelFunction")) {
-                if (!a.value("ModeMaster").isEmpty()) mode.unsupported = "Mode-dependent channels are not supported";
-                if (defaultValue.isEmpty() || (!initialFunction.isEmpty() && initialFunction.section('.', -1) == a.value("Name"))) defaultValue = a.value("Default").toString();
-            } else if (r.name() == QStringLiteral("GeometryReference")) {
-                // Expanded cells can shift offsets. Reject rather than address the wrong emitter.
-                for (auto &m : profile.modes) m.unsupported = "Geometry references and multi-cell expansion are not supported";
-                profile.source = "geometry-reference";
-            }
-        } else if (r.isEndElement() && r.name() == QStringLiteral("DMXChannel")) {
-            inChannel = false;
-            if (!defaultValue.isEmpty()) {
-                const auto parts = defaultValue.split('/'); bool ok = false, widthOk = false;
-                quint64 value = parts.value(0).toULongLong(&ok); int width = parts.value(1).toInt(&widthOk);
-                if (!ok || !widthOk || width < 1 || width > 4 || value > ((quint64(1) << (8 * width)) - 1))
-                    mode.unsupported = "Invalid DMX default";
-                else parameter.home = double(value) * 100. / double((quint64(1) << (8 * width)) - 1);
-            }
-            mode.parameters << parameter;
-        } else if (r.isEndElement() && r.name() == QStringLiteral("DMXMode")) {
-            profile.modes << mode;
-            inMode = false;
-        }
-    }
-    if (r.hasError() || profile.name.isEmpty() || profile.modes.isEmpty())
-        return fail("Invalid GDTF description or missing DMX mode");
-    for (auto &m : profile.modes) {
-        if (profile.source == "geometry-reference") m.unsupported = "Geometry references and multi-cell expansion are not supported";
-        QString issue;
-        if (!validateMode(m, issue) && m.unsupported.isEmpty()) m.unsupported = issue;
-    }
+    if (!parseGdtfDescription(xml, profile, error)) return false;
     profile.source = b;
     result = profile;
     return true;
@@ -152,13 +80,18 @@ bool readGdtf(const QByteArray &b, FixtureProfile &result, QString &error) {
 bool validateMode(const FixtureMode &m, QString &error) {
     auto fail = [&](QString text) { error = text; return false; };
     if (!m.unsupported.isEmpty()) return fail(m.unsupported);
-    if (m.name.isEmpty() || m.footprint < 1 || m.footprint > 512 || m.parameters.isEmpty() || m.parameters.size() > 512)
+    if (m.name.isEmpty() || m.name.size() > 256 || m.footprint < 1 || m.footprint > 512 || m.parameters.isEmpty() || m.parameters.size() > 512)
         return fail("A mode needs a name and 1–512 DMX slots");
-    QSet<int> used; int intensities = 0;
+    QSet<int> used; QSet<QString> intensities;
     for (const auto &p : m.parameters) {
-        if (p.attribute.isEmpty() || p.offsets.isEmpty() || p.offsets.size() > 4 || !qIsFinite(p.home) || p.home < 0 || p.home > 100)
+        if (p.cell == "*" || p.cell.size() > 2048) return fail("Invalid or oversized cell path");
+        if (p.attribute.size() > 256) return fail("Parameter attribute exceeds 256 characters");
+        if (p.attribute.isEmpty() || (p.offsets.isEmpty() && !p.intensity) || p.offsets.size() > 4 || !qIsFinite(p.home) || p.home < 0 || p.home > 100)
             return fail("Invalid parameter, resolution or home value");
-        if (p.intensity && ++intensities > 1) return fail("Multi-cell intensity modes are not supported");
+        if (p.intensity) {
+            if (intensities.contains(p.cell)) return fail("Only one intensity control is allowed per master or cell");
+            intensities.insert(p.cell);
+        }
         for (int offset : p.offsets) {
             if (offset < 1 || offset > m.footprint || used.contains(offset)) return fail("Overlapping or invalid offsets inside fixture mode");
             used.insert(offset);
@@ -189,7 +122,7 @@ QJsonObject fixtureJson(const FixtureProfile &p) {
     for (const auto &m : p.modes) {
         QJsonArray parameters;
         for (const auto &v : m.parameters) { QJsonArray offsets; for (int o : v.offsets) offsets << o;
-            parameters << QJsonObject{{"attribute", v.attribute}, {"offsets", offsets}, {"home", v.home}, {"intensity", v.intensity}, {"snap", v.snap}}; }
+            parameters << QJsonObject{{"attribute", v.attribute}, {"offsets", offsets}, {"home", v.home}, {"intensity", v.intensity}, {"snap", v.snap}, {"cell", v.cell}}; }
         modes << QJsonObject{{"name", m.name}, {"footprint", m.footprint}, {"parameters", parameters}, {"unsupported", m.unsupported}};
     }
     return {{"manufacturer", p.manufacturer}, {"name", p.name}, {"modes", modes}, {"gdtf", QString::fromLatin1(p.source.toBase64())}};
@@ -201,10 +134,11 @@ bool fixtureFromJson(const QJsonObject &j, FixtureProfile &p, QString &error) {
         auto o = entry.toObject(); FixtureMode m; m.name = o["name"].toString(); m.footprint = o["footprint"].toInt(); m.unsupported = o["unsupported"].toString();
         for (auto value : o["parameters"].toArray()) {
             auto v = value.toObject(); FixtureParameter param;
-            param.attribute = v["attribute"].toString(); param.home = v["home"].toDouble(-1); param.intensity = v["intensity"].toBool(); param.snap = v["snap"].toBool();
+            param.attribute = v["attribute"].toString(); param.home = v["home"].toDouble(-1); param.intensity = v["intensity"].toBool(); param.snap = v["snap"].toBool(); param.cell = v["cell"].toString();
             for (auto offset : v["offsets"].toArray()) param.offsets << offset.toInt();
             m.parameters << param; m.attributes << param.attribute;
         }
+        ensureCellControls(m);
         if (!validateMode(m, error)) return false;
         result.modes << m;
     }
@@ -239,20 +173,41 @@ QByteArray writeGdtf(const FixtureProfile &p) {
     auto ordered = attrs.values(); ordered.sort();
     for (const auto &attr : ordered) { w.writeEmptyElement("Attribute"); w.writeAttribute("Name", attr); w.writeAttribute("Pretty", attr); w.writeAttribute("Feature", "Control.Control"); w.writeAttribute("PhysicalUnit", "None"); }
     w.writeEndElement(); w.writeEndElement();
-    w.writeStartElement("Geometries"); w.writeEmptyElement("Geometry"); w.writeAttribute("Name", "Body");
-    w.writeAttribute("Position", "{1,0,0,0}{0,1,0,0}{0,0,1,0}{0,0,0,1}"); w.writeEndElement();
+    QStringList cells;
+    for (const auto &mode : p.modes) for (const auto &parameter : mode.parameters)
+        if (!parameter.cell.isEmpty() && !cells.contains(parameter.cell)) cells << parameter.cell;
+    auto geometryName = [&](const QString &cell) { return cell.isEmpty() ? QString("Body") : QString("CF_Cell_%1").arg(cells.indexOf(cell)); };
+    w.writeStartElement("Geometries"); w.writeStartElement("Geometry"); w.writeAttribute("Name", "Body");
+    w.writeAttribute("Position", "{1,0,0,0}{0,1,0,0}{0,0,1,0}{0,0,0,1}");
+    for (const auto &cell : cells) {
+        w.writeStartElement("GeometryReference"); w.writeAttribute("Name", cell); w.writeAttribute("Geometry", geometryName(cell));
+        w.writeEmptyElement("Break"); w.writeAttribute("DMXBreak", "1"); w.writeAttribute("DMXOffset", "1"); w.writeEndElement();
+    }
+    w.writeEndElement();
+    for (const auto &cell : cells) { w.writeEmptyElement("Geometry"); w.writeAttribute("Name", geometryName(cell)); }
+    w.writeEndElement();
     w.writeStartElement("DMXModes");
     for (const auto &m : p.modes) {
         w.writeStartElement("DMXMode"); w.writeAttribute("Name", m.name); w.writeAttribute("Geometry", "Body"); w.writeStartElement("DMXChannels");
         for (const auto &v : m.parameters) {
-            w.writeStartElement("DMXChannel"); w.writeAttribute("DMXBreak", "1"); w.writeAttribute("Geometry", "Body");
+            w.writeStartElement("DMXChannel"); w.writeAttribute("DMXBreak", "1"); w.writeAttribute("Geometry", geometryName(v.cell));
             QStringList offsets; for (int o : v.offsets) offsets << QString::number(o); w.writeAttribute("Offset", offsets.join(','));
-            quint64 max = (quint64(1) << (8 * v.offsets.size())) - 1;
-            const QString home = QString::number(quint64(qRound64(v.home * double(max) / 100.))) + "/" + QString::number(v.offsets.size());
+            const int width = v.offsets.isEmpty() ? 2 : v.offsets.size();
+            quint64 max = (quint64(1) << (8 * width)) - 1;
+            const QString home = QString::number(quint64(qRound64(v.home * double(max) / 100.))) + "/" + QString::number(width);
             w.writeStartElement("LogicalChannel"); w.writeAttribute("Attribute", v.attribute); w.writeAttribute("Snap", v.snap ? "Yes" : "No");
             w.writeStartElement("ChannelFunction"); w.writeAttribute("Name", v.attribute); w.writeAttribute("Attribute", v.attribute); w.writeAttribute("DMXFrom", "0/1"); w.writeAttribute("Default", home);
             w.writeEndElement(); w.writeEndElement(); w.writeEndElement();
         }
+        w.writeEndElement();
+        w.writeStartElement("Relations");
+        for (const auto &master : m.parameters) if (master.intensity && master.offsets.isEmpty())
+            for (const auto &target : m.parameters) if (target.cell == master.cell && target.attribute.startsWith("ColorAdd_")) {
+                const auto geometry = geometryName(master.cell);
+                w.writeEmptyElement("Relation"); w.writeAttribute("Name", geometry + "_" + target.attribute);
+                w.writeAttribute("Type", "Multiply"); w.writeAttribute("Master", geometry + "_Dimmer");
+                w.writeAttribute("Follower", geometry + "_" + target.attribute + "." + target.attribute + "." + target.attribute);
+            }
         w.writeEndElement(); w.writeEndElement();
     }
     w.writeEndElement(); w.writeEndElement(); w.writeEndElement(); w.writeEndDocument();

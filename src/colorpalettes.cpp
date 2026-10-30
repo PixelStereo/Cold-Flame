@@ -35,7 +35,8 @@ bool Engine::deleteColorPalette(int id) {
 double Engine::colorComponent(int key, int id) const {
     if (key >= 0 || id < 0 || (id > 0 && !colorPalettes.contains(id))) return -1;
     int channel = channelForControl(key);
-    const auto controls = colorControls(channel);
+    const int index = (-qint64(key) - 1) % 512;
+    const auto controls = colorControls(channel, fixtureMode(channel).parameters.value(index).cell);
     if (!controls.available()) return -1;
     const auto color = colorPalette(id);
     const double white = controls.white.isEmpty() ? 0. : qMin(color.red, qMin(color.green, color.blue));
@@ -53,9 +54,9 @@ double Engine::colorComponent(int key, int id) const {
     }
     return -1;
 }
-bool Engine::applyColorPalette(int channel, int id) {
+bool Engine::applyColorPalette(int channel, int id, QString cell) {
     if (!channels.contains(channel) || id < 0 || (id > 0 && !colorPalettes.contains(id))) return false;
-    const auto controls = colorControls(channel);
+    const auto controls = colorControls(channel, cell);
     if (!controls.available()) return false;
     for (int key : controls.keys()) manual[key] = {colorComponent(key, id), 0, id};
     return true;

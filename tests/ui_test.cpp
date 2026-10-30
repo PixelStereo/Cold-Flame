@@ -29,6 +29,36 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void multicellParameterScopeColorAndCancel() {
+        QFile file(QFINDTESTDATA("fixtures/flash-vintage-multicell.xml")); QVERIFY(file.open(QIODevice::ReadOnly));
+        FixtureProfile profile; QString issue; QVERIFY(parseGdtfDescription(file.readAll(), profile, issue));
+        FixtureMode selected; for (const auto &mode : profile.modes) if (mode.name == "12xRGBW") selected = mode;
+        profile.modes = {selected};
+        Engine engine; engine.channels[1] = "Wash · A"; engine.fixtureProfiles["cells"] = profile; engine.fixtures[1] = {"cells", 0}; engine.patch[1] = 513; engine.manual[1] = {50, 0};
+        int paletteEdits = 0; ParameterPanel panel(engine, [] {}); panel.paletteChanged = [&] { ++paletteEdits; }; panel.show(); panel.selectChannel(1);
+        const auto parts = engine.fixtureCells(1); QCOMPARE(parts.size(), 12);
+        auto scope = panel.findChild<QComboBox *>("parameterCell");
+        auto table = panel.findChild<QTableWidget *>("parameterTable");
+        scope->setCurrentIndex(scope->findData(parts[0])); QCOMPARE(table->rowCount(), 5);
+        QCOMPARE(table->item(0, 0)->text(), QString("Dimmer"));
+        auto first = engine.colorControls(1, parts[0]), second = engine.colorControls(1, parts[1]);
+        auto choose = [&](QColor color, bool accept) {
+            QTimer::singleShot(0, &panel, [&] {
+                if (auto dialog = panel.findChild<QColorDialog *>("parameterColorDialog")) {
+                    dialog->setCurrentColor(color); if (accept) dialog->accept(); else dialog->reject();
+                }
+            });
+            panel.findChild<QPushButton *>("parameterCellColor")->click();
+        };
+        choose(Qt::red, true); QCOMPARE(paletteEdits, 1); QCOMPARE(engine.manual[1].level, 50.);
+        QCOMPARE(engine.output()[first.red.first()], 100.); QCOMPARE(engine.output()[first.white.first()], 0.);
+        QCOMPARE(engine.output()[second.white.first()], 100.); QCOMPARE(engine.colorPalettes.size(), 1);
+        scope->setCurrentIndex(scope->findData(parts[1])); choose(Qt::blue, false);
+        QCOMPARE(engine.output()[second.white.first()], 100.); QVERIFY(!engine.manual.contains(second.blue.first()));
+        QCOMPARE(engine.colorPalettes.size(), 1); QCOMPARE(paletteEdits, 1);
+        scope->setCurrentIndex(scope->findData(QString())); QCOMPARE(table->rowCount(), 1);
+        QVERIFY(!panel.findChild<QPushButton *>("parameterCellColor")->isEnabled());
+    }
     void batchPatchConflictIncludesFineByteAndKeepsOtherCopies() {
         Engine engine; engine.fixtures[9] = {"dimmer16", 0}; engine.patch[9] = 513; engine.additionalPatch[9] = {1025};
         PatchDialog patch(engine); patch.show();
@@ -142,6 +172,8 @@ class UiTests : public QObject {
         QString geometry;
         QTimer::singleShot(40, &window, [&] {
             auto dialog = window.findChild<QDialog *>("submasterDialog"); if (!dialog) return;
+            // Mouse events sent by QTest bypass native window activation.
+            QApplication::setActiveWindow(dialog); QCoreApplication::processEvents();
             handled = true;
             dialog->findChild<QComboBox *>("submasterDwell")->setCurrentIndex(2);
             const QStringList names{"submasterUp", "submasterDwellTime", "submasterDown"};

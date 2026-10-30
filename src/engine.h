@@ -95,12 +95,13 @@ class Engine {
     QMap<QString, StoredCue> cueLibrary;
     QMap<int, Values> palettes, groups;
     QMap<int, ColorPalette> colorPalettes; // Only user palettes; white 0 is computed, never stored here.
-    ColorControls colorControls(int channel) const;
+    ColorControls colorControls(int channel, QString cell = "*") const;
+    QStringList fixtureCells(int channel) const;
     ColorPalette colorPalette(int id) const;
     int findOrCreateColorPalette(ColorPalette color);
     bool updateColorPalette(int id, ColorPalette color);
     bool deleteColorPalette(int id);
-    bool applyColorPalette(int channel, int id);
+    bool applyColorPalette(int channel, int id, QString cell = "*");
     int assignColorPaletteToCue(QString cue, int id, QSet<int> fixtures = {});
     double colorComponent(int control, int palette) const;
     bool validValue(int control, Value value) const;

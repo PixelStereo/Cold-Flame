@@ -643,6 +643,22 @@ bool Engine::command(QString text, QString *error) {
     text.remove(QRegularExpression("\\s+enter$"));
     if (commandSequence < 0 || commandSequence >= sequences.size())
         commandSequence = 0;
+    auto cellCommand = QRegularExpression("^(\\d+)\\.(\\d+) (?:at )?(full|out|\\d+(?:\\.\\d+)?)$").match(text);
+    if (cellCommand.hasMatch()) {
+        bool channelOk, numberOk;
+        const int channel = cellCommand.captured(1).toInt(&channelOk), number = cellCommand.captured(2).toInt(&numberOk);
+        const double value = cellCommand.captured(3) == "full" ? 100. : cellCommand.captured(3) == "out" ? 0. : cellCommand.captured(3).toDouble();
+        const auto cells = fixtureCells(channel);
+        if (!channelOk || !numberOk || !channels.contains(channel) || number < 0 || number > cells.size() || value > 100) return fail("Unknown cell or invalid intensity");
+        int key = channel;
+        if (number) {
+            key = 0; const auto mode = fixtureMode(channel);
+            for (int i = 0; i < mode.parameters.size(); ++i)
+                if (mode.parameters[i].intensity && mode.parameters[i].cell == cells[number - 1]) key = parameterKey(channel, i);
+            if (!key) return fail("Cell has no intensity control");
+        }
+        manual[key] = {value, 0}; selection = {channel}; return true;
+    }
     auto subCommand = QRegularExpression("^sub(?:master)? (\\d+) (?:at (\\d+(?:\\.\\d+)?)|(full|out|home|bump|release))$").match(text);
     if (subCommand.hasMatch()) {
         bool valid; const int number = subCommand.captured(1).toInt(&valid);
@@ -923,7 +939,7 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 5;
+    root["version"] = 6;
     QJsonArray colors;
     for (auto it = colorPalettes.begin(); it != colorPalettes.end(); ++it) if (it.key() > 0)
         colors << QJsonObject{{"id", it.key()}, {"name", it->name}, {"red", it->red}, {"green", it->green}, {"blue", it->blue}};
@@ -1020,7 +1036,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 5) || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 6) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;

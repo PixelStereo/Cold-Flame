@@ -280,21 +280,25 @@ void PatchDialog::exportProfile() {
     if (file.write(bytes) != bytes.size() || !file.commit()) error->setText(file.errorString()); else error->setText("GDTF profile exported");
 }
 void PatchDialog::defineFixture(bool copySelected) {
-    FixtureProfile seed; QString id;
+    FixtureProfile seed; QString id; bool selectedModeOnly = false;
     if (copySelected) {
         auto table = banks[0]; const int row = table->currentRow();
         if (row < 0) { error->setText("Select a fixture row to edit or copy its definition."); return; }
         id = assignment(qobject_cast<QComboBox *>(table->cellWidget(row, 3))).profile;
         seed = profiles.value(id);
-        for (const auto &mode : seed.modes) if (!mode.unsupported.isEmpty()) {
-            error->setText("This profile contains unsupported geometry or DMX modes. Use Define fixture to create a supported direct mode."); return;
+        const int selectedMode = assignment(qobject_cast<QComboBox *>(table->cellWidget(row, 3))).mode;
+        if (!seed.modes.value(selectedMode).unsupported.isEmpty()) {
+            error->setText("Select a supported mode, or use Define fixture to create a new definition."); return;
         }
+        bool hasUnsupported = false; for (const auto &mode : seed.modes) hasUnsupported |= !mode.unsupported.isEmpty();
+        if (hasUnsupported) { seed.modes = {seed.modes[selectedMode]}; selectedModeOnly = true; }
         bool copy = genericFixtures().contains(id) || !seed.source.isEmpty();
         for (int channel : engine.channels.keys()) copy |= engine.fixtures.value(channel).profile == id;
         if (copy) { id.clear(); seed.name += " copy"; }
     }
     FixtureEditor editor(seed, this);
     if (copySelected && id.isEmpty()) editor.setWindowTitle("Fixture definition · new copy");
+    if (selectedModeOnly) editor.setWindowTitle("Fixture definition · copy of selected supported mode");
     if (editor.exec() != QDialog::Accepted) return;
     if (id.isEmpty()) id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     profiles[id] = editor.profile();

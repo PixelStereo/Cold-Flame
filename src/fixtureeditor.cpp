@@ -26,8 +26,8 @@ FixtureEditor::FixtureEditor(FixtureProfile source, QWidget *parent) : QDialog(p
     modeName = new QLineEdit; modeName->setObjectName("fixtureModeName");
     auto modeHeading = new QFormLayout; modeHeading->addRow("Mode name", modeName); detail->addLayout(modeHeading);
     footprint = new QLabel; footprint->setObjectName("fixtureFootprint"); detail->addWidget(footprint);
-    parameters = new QTableWidget(0, 5); parameters->setObjectName("fixtureParameters");
-    parameters->setHorizontalHeaderLabels({"ATTRIBUTE", "SIZE", "DMX OFFSETS", "HOME (DMX)", "SNAP"});
+    parameters = new QTableWidget(0, 6); parameters->setObjectName("fixtureParameters");
+    parameters->setHorizontalHeaderLabels({"ATTRIBUTE", "SIZE", "DMX OFFSETS", "HOME (DMX / % virtual)", "SNAP", "CELL"});
     parameters->setItemDelegate(new TableDelegate(parameters)); parameters->verticalHeader()->setDefaultSectionSize(34);
     parameters->setStyleSheet("QTableWidget::item{padding:1px 4px;} QComboBox{padding:2px 4px;} QComboBox QLineEdit{padding:0px;}");
     parameters->setSelectionBehavior(QAbstractItemView::SelectRows); parameters->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -41,7 +41,7 @@ FixtureEditor::FixtureEditor(FixtureProfile source, QWidget *parent) : QDialog(p
     auto remove = new QPushButton("− Parameter"); remove->setObjectName("removeFixtureParameter");
     paramActions->addWidget(add); paramActions->addWidget(remove); paramActions->addStretch(); detail->addLayout(paramActions);
     auto note = new QLabel("Offsets are relative to the fixture start, most significant byte first: 1 = 8-bit; 1,2 = 16-bit. "
-        "Use Dimmer for physical intensity; RGB-only fixtures get a virtual dimmer. Home uses raw DMX units. NoFeature can reserve a slot.");
+        "Dimmer without offsets is virtual (Home 0–100%). Cell names group independent controls; blank is the master. NoFeature reserves a slot.");
     note->setWordWrap(true); detail->addWidget(note); body->addLayout(detail, 1); layout->addLayout(body, 1);
     error = new QLabel; error->setObjectName("fixtureDefinitionError"); error->setWordWrap(true); error->setStyleSheet("color:#e0c998;"); layout->addWidget(error);
     buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel); layout->addWidget(buttons);
@@ -96,10 +96,11 @@ void FixtureEditor::addParameter(FixtureParameter parameter) {
     auto size = new QTableWidgetItem; size->setFlags(size->flags() & ~Qt::ItemIsEditable); parameters->setItem(row, 1, size);
     QStringList offsets; for (int offset : parameter.offsets) offsets << QString::number(offset);
     parameters->setItem(row, 2, new QTableWidgetItem(offsets.join(',')));
-    quint64 maximum = parameter.offsets.isEmpty() || parameter.offsets.size() > 4 ? 255 : (quint64(1) << (8 * parameter.offsets.size())) - 1;
+    quint64 maximum = parameter.offsets.isEmpty() ? 100 : parameter.offsets.size() > 4 ? 255 : (quint64(1) << (8 * parameter.offsets.size())) - 1;
     parameters->setItem(row, 3, new QTableWidgetItem(QString::number(qRound64(parameter.home * double(maximum) / 100.))));
     auto snap = new QTableWidgetItem; snap->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
     snap->setCheckState(parameter.snap ? Qt::Checked : Qt::Unchecked); parameters->setItem(row, 4, snap);
+    parameters->setItem(row, 5, new QTableWidgetItem(parameter.cell));
     connect(attribute, &QComboBox::currentTextChanged, this, [this] { validate(); });
     parameters->selectRow(row);
 }
@@ -110,18 +111,19 @@ bool FixtureEditor::readMode(FixtureMode &mode, QString &issue) const {
     for (int row = 0; row < parameters->rowCount(); ++row) {
         FixtureParameter parameter;
         parameter.attribute = qobject_cast<QComboBox *>(parameters->cellWidget(row, 0))->currentText().trimmed();
-        if (!QRegularExpression("^[A-Za-z][A-Za-z0-9_]*$").match(parameter.attribute).hasMatch()) {
-            issue = QString("Parameter %1: use a GDTF attribute name with letters, digits or underscores.").arg(row + 1); return false;
+        if (parameter.attribute.isEmpty() || parameter.attribute.contains('.') || parameter.attribute.contains(QRegularExpression("[\\x00-\\x1f]"))) {
+            issue = QString("Parameter %1: enter an attribute name without dots or control characters.").arg(row + 1); return false;
         }
+        parameter.cell = parameters->item(row, 5)->text().trimmed();
         parameter.intensity = parameter.attribute == "Dimmer"; parameter.snap = parameters->item(row, 4)->checkState() == Qt::Checked;
         const auto text = parameters->item(row, 2)->text();
-        if (!QRegularExpression("^\\s*\\d+(?:\\s*,\\s*\\d+){0,3}\\s*$").match(text).hasMatch()) { issue = QString("Parameter %1: enter 1–4 comma-separated DMX offsets.").arg(row + 1); return false; }
-        for (const auto &part : text.split(',')) { bool ok; int offset = part.trimmed().toInt(&ok);
+        if (!(text.trimmed().isEmpty() && parameter.intensity) && !QRegularExpression("^\\s*\\d+(?:\\s*,\\s*\\d+){0,3}\\s*$").match(text).hasMatch()) { issue = QString("Parameter %1: enter 1–4 comma-separated DMX offsets.").arg(row + 1); return false; }
+        if (!text.trimmed().isEmpty()) for (const auto &part : text.split(',')) { bool ok; int offset = part.trimmed().toInt(&ok);
             if (!ok || offset < 1 || offset > 512) { issue = QString("Parameter %1: offsets must be between 1 and 512.").arg(row + 1); return false; }
             parameter.offsets << offset; mode.footprint = qMax(mode.footprint, offset);
         }
         bool ok; const auto home = parameters->item(row, 3)->text().trimmed().toULongLong(&ok);
-        const quint64 maximum = (quint64(1) << (8 * parameter.offsets.size())) - 1;
+        const quint64 maximum = parameter.offsets.isEmpty() ? 100 : (quint64(1) << (8 * parameter.offsets.size())) - 1;
         if (!ok || home > maximum) { issue = QString("Parameter %1: Home must be between 0 and %2.").arg(row + 1).arg(maximum); return false; }
         parameter.home = double(home) * 100. / double(maximum);
         mode.parameters << parameter; mode.attributes << parameter.attribute;
@@ -132,6 +134,7 @@ bool FixtureEditor::readProfile(FixtureProfile &profile, QString &issue) const {
     profile = draft; profile.manufacturer = manufacturer->text().trimmed(); profile.name = name->text().trimmed(); profile.source.clear();
     if (profile.manufacturer.isEmpty() || profile.name.isEmpty()) { issue = "Enter a manufacturer and fixture name."; return false; }
     if (!readMode(profile.modes[current], issue)) return false;
+    for (auto &mode : profile.modes) ensureCellControls(mode);
     QSet<QString> names;
     for (const auto &mode : profile.modes) {
         if (!validateMode(mode, issue)) return false;
@@ -157,7 +160,7 @@ void FixtureEditor::validate() {
     QSignalBlocker block(parameters);
     for (int row = 0; row < parameters->rowCount(); ++row) {
         const int bytes = parameters->item(row, 2)->text().split(',').size();
-        parameters->item(row, 1)->setText(bytes >= 1 && bytes <= 4 ? QString::number(bytes * 8) + " bit" : "—");
+        parameters->item(row, 1)->setText(parameters->item(row, 2)->text().trimmed().isEmpty() ? "Virtual" : bytes >= 1 && bytes <= 4 ? QString::number(bytes * 8) + " bit" : "—");
     }
 }
 FixtureProfile FixtureEditor::profile() const { FixtureProfile result; QString issue; return readProfile(result, issue) ? result : FixtureProfile{}; }
