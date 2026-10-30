@@ -12,6 +12,9 @@ class PatchDialog : public QDialog {
     QSpinBox *first, *count, *universe, *address;
     QComboBox *batchFixture;
     QSet<int> patchTargets;
+    bool importingBatch = false;
+    Flame::FixtureAssignment lastImported;
+    void refreshFixturePickers(Flame::FixtureAssignment selected);
     bool conflictPlan(const Flame::Engine &draft, QMap<int, QList<int>> &remaining, QStringList &details) const;
     void resolveConflicts();
     void appendRow(QTableWidget *table, int channel, QString name, int absolute,
@@ -21,7 +24,7 @@ class PatchDialog : public QDialog {
     void fillModes(QComboBox *combo, Flame::FixtureAssignment selected = {});
     bool buildDraft(Flame::Engine &draft, QString &issue) const;
     void importProfile();
-    void exportProfile();
+    void exportProfile(bool ofl = false);
     void importPatch();
     void exportPatch();
   public:
@@ -29,5 +32,7 @@ class PatchDialog : public QDialog {
                          std::function<void()> onApply = {});
     void reload();
     bool apply();
+    bool importFixtureFile(const QString &path);
+    bool exportFixtureFile(const QString &path, bool ofl);
     void defineFixture(bool copySelected = false);
 };

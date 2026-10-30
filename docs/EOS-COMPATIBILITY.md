@@ -1,4 +1,4 @@
-# Eos behavior audit — development version 0.11
+# Eos behavior audit — development version 0.12
 
 **Result: Cold Flame does not have full Eos feature or behavioral parity.** This is a partial, source-based audit of the workflows implemented so far. The entire Eos manual has not been read or exhaustively tested. Tests verify specific scenarios; they do not establish equivalence of a whole feature family. Reference: the current public Eos Family online manual (consulted 28–29 October 2026).
 
@@ -91,3 +91,7 @@ Patch conflict resolution previews conflicting starts and preserves unaffected c
 ## Version 0.11: multicell import and operation
 
 Geometry references and single-break cell expansion, including nested offsets and additive-color Multiply relations driven by virtual dimmers, are supported. Cell intensities default to Full relative to the fixture master, following the documented Eos multicell concept. Parameters exposes master/cell scope and per-cell color; `101.2 At 50` addresses a displayed cell number. Full Eos cell-selection grammar and per-cell submaster recording are not implemented. See [MULTICELL.md](MULTICELL.md) for the supplied Flash profiles, exact mode availability, validation and remaining limits.
+
+## Version 0.12: OFL interoperability and fixture selection
+
+[OFL JSON import/export and fixture search](OFL-FIXTURES.md) improve fixture preparation and library selection. This adds format interoperability and independently controllable imported matrix cells; it does not claim additional Eos capability-range or physical-unit parity. The focused [code/UX review](CODE-REVIEW-0.12.md) records scope and validation.

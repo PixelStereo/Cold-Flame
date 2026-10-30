@@ -45,7 +45,7 @@ Supported relations are virtual Dimmer **Multiply** relations targeting additive
 
 Expansion is bounded to 512 parameter controls per fixture, including virtual controls, with depth/instance limits and a 512-slot universe footprint. This covers the supplied pixel modes; it is not a claim of arbitrary GDTF conformance. Geometry paths provide control grouping; this change does not render 3D models or apply spatial transforms to pixel mapping.
 
-Show format **6** stores cell identities. Formats 1–5 remain readable; saving writes format 6. Existing supported single-cell control keys retain their ordering. Native definition editing exposes a Cell column and virtual intensity offsets. If an imported profile contains unsupported modes, the definition editor copies only the selected supported mode; the original profile remains intact.
+Show format **7** stores cell identities and original OFL sources. Formats 1–6 remain readable; saving writes format 7. Existing supported single-cell control keys retain their ordering. Native definition editing exposes a Cell column and virtual intensity offsets. If an imported profile contains unsupported modes, the definition editor copies only the selected supported mode; the original profile remains intact.
 
 Tests cover the supplied descriptions and original archives, independent cell colors/intensities, cue recall, show/native GDTF round trips, nested and Overwrite offsets, direct cells, physical/virtual master scaling, invalid references, cycles, collisions, and color Cancel. Address/undefined-behavior sanitizer checks cover the engine. Physical-fixture testing and exhaustive GDTF/Eos equivalence remain outstanding.
 

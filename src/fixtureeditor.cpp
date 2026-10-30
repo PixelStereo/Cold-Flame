@@ -5,7 +5,7 @@ using namespace Flame;
 FixtureEditor::FixtureEditor(FixtureProfile source, QWidget *parent) : QDialog(parent), draft(std::move(source)) {
     setWindowTitle("Fixture definition"); setObjectName("fixtureEditor"); resize(980, 650);
     if (draft.modes.isEmpty()) { draft = genericFixtures().value("dimmer8"); draft.manufacturer = "Custom"; draft.name = "New fixture"; }
-    draft.source.clear();
+    draft.source.clear(); draft.oflSource.clear();
     auto layout = new QVBoxLayout(this);
     auto fields = new QFormLayout;
     manufacturer = new QLineEdit(draft.manufacturer); manufacturer->setObjectName("fixtureManufacturer");
@@ -131,7 +131,7 @@ bool FixtureEditor::readMode(FixtureMode &mode, QString &issue) const {
     return validateMode(mode, issue);
 }
 bool FixtureEditor::readProfile(FixtureProfile &profile, QString &issue) const {
-    profile = draft; profile.manufacturer = manufacturer->text().trimmed(); profile.name = name->text().trimmed(); profile.source.clear();
+    profile = draft; profile.manufacturer = manufacturer->text().trimmed(); profile.name = name->text().trimmed(); profile.source.clear(); profile.oflSource.clear();
     if (profile.manufacturer.isEmpty() || profile.name.isEmpty()) { issue = "Enter a manufacturer and fixture name."; return false; }
     if (!readMode(profile.modes[current], issue)) return false;
     for (auto &mode : profile.modes) ensureCellControls(mode);

@@ -2,6 +2,7 @@
 #include "../src/main.cpp"
 #include <QtTest>
 #include "fixtureeditor.h"
+#include "fixturepicker.h"
 class UiTests : public QObject {
     Q_OBJECT
     static void dropStep(StepTable *table, int source, int beforeRow, bool gutter = false) {
@@ -29,6 +30,59 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void fixtureSearchScalesAndKeepsSelectionOnCancel() {
+        Engine engine;
+        for (int i = 0; i < 1000; ++i) {
+            auto profile = genericFixtures()["rgbw"]; profile.manufacturer = "Tour manufacturer"; profile.name = QString("Wash %1").arg(i, 4, 10, QChar('0'));
+            profile.modes[0].name = "RGBW 4ch"; engine.fixtureProfiles[QString("tour-%1").arg(i)] = profile;
+        }
+        auto unavailable = genericFixtures()["rgb"]; unavailable.manufacturer = "Test"; unavailable.name = "Conditional fixture";
+        unavailable.modes[0].unsupported = "Conditional switching is not supported"; engine.fixtureProfiles["conditional"] = unavailable;
+        engine.fixtureProfiles["rgb"].modes[0].unsupported = "Unavailable definition from an imported show";
+        PatchDialog patch(engine); patch.show(); auto picker = patch.findChild<FixturePicker *>("fixtureMode1"); QVERIFY(picker); QCOMPARE(picker->count(), 6);
+        bool handled = false, compact = false, query = false, noResult = false, bounded = false, blocked = false, keys = false;
+        QTimer::singleShot(0, &patch, [&] {
+            auto dialog = patch.findChild<QDialog *>("fixtureSearchDialog"); if (!dialog) return;
+            handled = true; QApplication::setActiveWindow(dialog); QCoreApplication::processEvents();
+            auto search = dialog->findChild<QLineEdit *>("fixtureSearch"); auto results = dialog->findChild<QTableWidget *>("fixtureSearchResults");
+            compact = results->rowCount() == 6 && results->columnWidth(0) >= 140 && results->columnWidth(2) >= 160;
+            search->setText("tour"); bounded = results->rowCount() == 200 && dialog->findChild<QLabel *>("fixtureSearchCount")->text().contains("1000 matches");
+            search->setText("not-a-real-fixture"); noResult = results->rowCount() == 0 && !dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->isEnabled();
+            search->setText("conditional"); blocked = results->rowCount() == 1 && !dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->isEnabled() && dialog->findChild<QPlainTextEdit *>("fixtureSearchDetails")->toPlainText().contains("switching") && !dialog->findChild<QPushButton *>("quickFixture_rgb")->isEnabled();
+            search->setText("wash 0731 rgbw"); query = results->rowCount() == 1 && results->item(0, 1)->text() == "Wash 0731";
+            search->setFocus(); QTest::keyClick(search, Qt::Key_Down); keys = results->hasFocus();
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        });
+        picker->showPopup(); QVERIFY(handled); QVERIFY(compact); QVERIFY(bounded); QVERIFY(noResult); QVERIFY(blocked); QVERIFY(query); QVERIFY(keys);
+        QCOMPARE(picker->fixture().profile, QString("tour-731")); QCOMPARE(picker->count(), 7);
+        picker->setFixture({"tour-9", 0}); QCOMPARE(picker->count(), 7); QCOMPARE(picker->fixture().profile, QString("tour-9"));
+        QWheelEvent wheel(QPointF(8, 8), picker->mapToGlobal(QPoint(8, 8)), QPoint(), QPoint(0, -120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(picker, &wheel); QCOMPARE(picker->fixture().profile, QString("tour-9"));
+        QTimer::singleShot(0, &patch, [&] { if (auto dialog = patch.findChild<QDialog *>("fixtureSearchDialog")) { dialog->findChild<QLineEdit *>("fixtureSearch")->setText("wash 0142"); dialog->reject(); } });
+        picker->showPopup(); QCOMPARE(picker->fixture().profile, QString("tour-9"));
+        // Readable fields and accessible names at normal and high DPI.
+        QTimer::singleShot(0, &patch, [&] {
+            auto dialog = patch.findChild<QDialog *>("fixtureSearchDialog"); if (!dialog) return;
+            auto search = dialog->findChild<QLineEdit *>("fixtureSearch"); compact = search->height() >= search->fontMetrics().height() + 4;
+            dialog->reject();
+        });
+        picker->showPopup(); QVERIFY(compact);
+    }
+    void oflPatchImportExportDraftAndSaveReload() {
+        Engine engine; PatchDialog patch(engine); patch.show();
+        const auto count = engine.fixtureProfiles.size(); const QString source = QFINDTESTDATA("fixtures/ofl-matrix.json");
+        QVERIFY(patch.importFixtureFile(source)); QCOMPARE(engine.fixtureProfiles.size(), count);
+        auto batch = patch.findChild<FixturePicker *>("batchFixtureMode"); const QString id = batch->fixture().profile; QVERIFY(id != "dimmer8");
+        QVERIFY(patch.importFixtureFile(source)); QCOMPARE(batch->fixture().profile, id); QVERIFY(patch.apply()); QCOMPARE(engine.fixtureProfiles.size(), count + 1);
+        auto table = patch.findChild<QTableWidget *>("patchBank0"); table->selectRow(0); auto picker = qobject_cast<FixturePicker *>(table->cellWidget(0, 3)); picker->setFixture({id, 0});
+        table->item(0, 2)->setText("2.001"); QVERIFY(patch.apply()); QCOMPARE(engine.fixtureCells(1).size(), 4);
+        QTemporaryDir folder; QVERIFY(folder.isValid()); QVERIFY(patch.exportFixtureFile(folder.filePath("roundtrip.json"), true));
+        QFile original(source), output(folder.filePath("roundtrip.json")); QVERIFY(original.open(QIODevice::ReadOnly)); QVERIFY(output.open(QIODevice::ReadOnly)); QCOMPARE(output.readAll(), original.readAll());
+        const auto saved = engine.json(); QCOMPARE(saved["version"].toInt(), 7); Engine loaded; QString issue; QVERIFY2(loaded.load(saved, &issue), qPrintable(issue));
+        QCOMPARE(loaded.fixtureProfiles[id].oflSource, engine.fixtureProfiles[id].oflSource);
+        QCOMPARE(loaded.fixtureCells(1), engine.fixtureCells(1));
+        const auto before = fixtureJson(engine.fixtureProfiles[id]); QVERIFY(!patch.importFixtureFile(folder.filePath("missing.json"))); QCOMPARE(fixtureJson(engine.fixtureProfiles[id]), before);
+    }
     void multicellParameterScopeColorAndCancel() {
         QFile file(QFINDTESTDATA("fixtures/flash-vintage-multicell.xml")); QVERIFY(file.open(QIODevice::ReadOnly));
         FixtureProfile profile; QString issue; QVERIFY(parseGdtfDescription(file.readAll(), profile, issue));
@@ -157,7 +211,7 @@ class UiTests : public QObject {
         auto modes = patch.findChild<QComboBox *>("batchFixtureMode"); const QString newId = modes->currentData().toString();
         QVERIFY(newId != "moving-rgbw"); QCOMPARE(engine.fixtureProfiles[newId].name, QString("Custom tour spot"));
         auto fixture = qobject_cast<QComboBox *>(table->cellWidget(0, 3));
-        fixture->setCurrentIndex(fixture->findData(newId)); QVERIFY(!patch.apply()); // Existing parameter data is preserved.
+        qobject_cast<FixturePicker *>(fixture)->setFixture({newId, 0}); QVERIFY(!patch.apply()); // Existing parameter data is preserved.
         QCOMPARE(engine.fixtures[1].profile, QString("moving-rgbw"));
         patch.reload();
         QTimer::singleShot(0, &patch, [&] { if (auto dialog = patch.findChild<QDialog *>("fixtureEditor")) dialog->reject(); });

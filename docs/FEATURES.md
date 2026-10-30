@@ -2,7 +2,7 @@
 
 The reference is the Eos family, rather than Element. Documentation review and the feature inventory remain partial. No feature parity is claimed.
 
-| Area | Implemented and tested in 0.11 | Remaining work |
+| Area | Implemented and tested in 0.12 | Remaining work |
 |---|---|---|
 | Selection | Channels, ranges, groups, manual levels | Query, filters, complex ordering, subfixtures |
 | Palettes | Intensity references; shared normalized RGB/RGBW/CMY Color Palettes; hidden immutable white; direct cue assignment; local step overrides; saved references | Focus/position and Beam palettes; calibrated color, Eos by-type/default/discrete options, locking, nested references |
@@ -50,3 +50,5 @@ Record stores changed intensity values from the live look while unchanged values
 The tabbed target views and explicit stored-content editor are informed by ETC’s [Submasters display](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submasters_%5BTab_15%5D.htm) and [Submaster Properties](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/15_Submasters/Submaster_Properties.htm). Cold Flame uses an explicit Save in its submaster editor; Eos Blind edits store immediately. Additive HTP and inhibitive intensity plus Manual/Hold/Timed bump timing are implemented. Attribute/effect submasters, LTP priorities, exclusions and custom button mappings remain incomplete. See [Submaster operation](SUBMASTERS.md). No comparative usability superiority has been measured.
 
 The supported fixture subset, file formats and tracking edit behavior are documented in [FIXTURES-AND-TRACKING.md](FIXTURES-AND-TRACKING.md).
+
+Version 0.12 adds [OFL JSON import/export and scalable fixture search](OFL-FIXTURES.md), including fine aliases, matrix expansion, original-file preservation and explicit mode limitations. See the [code and UX review](CODE-REVIEW-0.12.md).

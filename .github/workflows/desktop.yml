@@ -81,7 +81,11 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib -DCOLD_FLAME_DEPLOY=ON
       - name: Build
         run: cmake --build build --config Release --parallel 2
-      - name: Test
+      - name: Install schema test validator
+        # Offline schema checks use the pinned schemas committed in tests/ofl-schema.
+        # Install only the Python validator; the desktop application remains C++/Qt.
+        run: python -m pip install jsonschema==4.26.0
+      - name: Run tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Package and launch deployed app
         shell: bash

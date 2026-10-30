@@ -47,7 +47,7 @@ Sub 7 Release
 
 ## Saved state and references
 
-Show format 6 stores mode, membership and timing plus fixture cells. It loads formats 1–5 with additive/Manual/zero-time defaults. Active bump transport and fader positions are not saved: loading puts additive subs at Out and inhibitive subs at Full. Earlier application versions cannot open format 6.
+Show format 7 stores mode, membership and timing plus fixture cells and OFL sources. It loads formats 1–6 with additive/Manual/zero-time defaults. Active bump transport and fader positions are not saved: loading puts additive subs at Out and inhibitive subs at Full. Earlier application versions cannot open format 7.
 
 Official Eos references:
 

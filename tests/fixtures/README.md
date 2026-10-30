@@ -1,3 +1,5 @@
 These two reduced XML descriptions retain the geometry, DMX mode, default and relation mappings from the user-supplied flashPRO Vintage LED Washer and Flash ART BarFX profiles. Artwork, models, wheel data, ranges and descriptive metadata are omitted. They test mapping and mode availability, not complete vendor-profile or physical-fixture conformance.
 
 To additionally test the original uploaded `.gdtf` archives locally, set `FLAME_GDTF_ARCHIVE_DIR` to a directory containing those two files and run `engine-tests suppliedOriginalMulticellArchives`. CI tests the reduced descriptions; the optional archive case is skipped when that directory is not provided.
+
+`ofl-desk-channel.json` is the unmodified generic desk channel from Open Fixture Library, commit `312ff119135c0a33874a863361906d6fe9472f59`; its MIT license is in `../ofl-schema/LICENSE`. `ofl-matrix.json` is an authored regression for axis ordering, fine aliases and cell controls, rather than a vendor fixture. Both are validated against the pinned OFL schema.

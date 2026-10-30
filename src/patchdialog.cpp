@@ -1,6 +1,7 @@
 #include "tabledelegate.h"
 #include "patchdialog.h"
 #include "fixtureeditor.h"
+#include "fixturepicker.h"
 #include <algorithm>
 using namespace Flame;
 static QString targetText(int absolute) {
@@ -24,8 +25,9 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
     auto menu = new QMenu(more);
     auto editDefinition = menu->addAction("Edit / copy selected fixture…", this, [this] { defineFixture(true); });
     editDefinition->setObjectName("editFixtureDefinitionAction"); menu->addSeparator();
-    menu->addAction("Import GDTF profile…", this, [this] { importProfile(); });
-    menu->addAction("Export selected fixture as GDTF…", this, [this] { exportProfile(); }); menu->addSeparator();
+    menu->addAction("Import fixtures… (GDTF / OFL JSON)", this, [this] { importProfile(); });
+    menu->addAction("Export selected fixture as GDTF…", this, [this] { exportProfile(); });
+    menu->addAction("Export selected fixture as OFL JSON…", this, [this] { exportProfile(true); }); menu->addSeparator();
     menu->addAction("Import patch…", this, [this] { importPatch(); });
     menu->addAction("Export applied patch…", this, [this] { exportPatch(); });
     if (embedded) {
@@ -34,7 +36,7 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
             if (dialog.exec() == QDialog::Accepted) { reload(); if (this->onApply) this->onApply(); }
         });
     }
-    more->setMenu(menu); more->setStatusTip("Import and export GDTF fixture profiles or transfer an applied patch."); layout->addLayout(toolbar);
+    more->setMenu(menu); more->setStatusTip("Import and export GDTF or OFL JSON fixture profiles or transfer an applied patch."); layout->addLayout(toolbar);
     auto table = new QTableWidget(0, 5); banks << table; table->setItemDelegate(new TableDelegate(table));
     table->setObjectName("patchBank0"); table->setHorizontalHeaderLabels({"CH", "Label", "DMX start addresses", "Fixture / mode", "Output"});
     table->verticalHeader()->hide(); table->verticalHeader()->setMinimumSectionSize(28); table->verticalHeader()->setDefaultSectionSize(30);
@@ -59,7 +61,7 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
     universe = spin("Universe", 1, 63999, 1, 1, 0); address = spin("Address", 1, 512, 1, 1, 2);
     first->setObjectName("patchFirstChannel"); count->setObjectName("patchChannelCount");
     universe->setObjectName("patchUniverse"); address->setObjectName("patchStartAddress");
-    batchFixture = new QComboBox; batchFixture->setObjectName("batchFixtureMode"); fillModes(batchFixture);
+    batchFixture = new FixturePicker(profiles); batchFixture->setObjectName("batchFixtureMode"); fillModes(batchFixture);
     batch->addWidget(new QLabel("Fixture / mode"), 2, 0); batch->addWidget(batchFixture, 2, 1, 1, 3);
     auto add = new QPushButton("Add / repatch range"); add->setObjectName("patchRangeButton"); batch->addWidget(add, 3, 0, 1, 4); layout->addWidget(batchWidget);
     batchWidget->setVisible(!embedded); connect(batchToggle, &QPushButton::clicked, this, [batchWidget] { batchWidget->setVisible(!batchWidget->isVisible()); });
@@ -110,22 +112,14 @@ PatchDialog::PatchDialog(Engine &e, QWidget *parent, bool embedded, std::functio
     populate(); validate();
 }
 void PatchDialog::fillModes(QComboBox *combo, FixtureAssignment selected) {
-    QSignalBlocker blocker(combo); combo->clear(); int current = 0;
-    for (auto it = profiles.begin(); it != profiles.end(); ++it) for (int m = 0; m < it->modes.size(); ++m) {
-        const auto &mode = it->modes[m]; const int row = combo->count();
-        QString label = it->name + (it->manufacturer == "Generic" && mode.name == "Standard" ? "" : " / " + mode.name);
-        combo->addItem(QString("%1 · %2ch%3").arg(label).arg(mode.footprint).arg(mode.unsupported.isEmpty() ? "" : " · unsupported"), it.key());
-        combo->setItemData(row, m, Qt::UserRole + 1); combo->setItemData(row, mode.unsupported, Qt::ToolTipRole);
-        if (selected.profile == it.key() && selected.mode == m) current = row;
-    }
-    combo->setCurrentIndex(current);
+    static_cast<FixturePicker *>(combo)->setFixture(selected, false);
 }
 void PatchDialog::appendRow(QTableWidget *t, int id, QString name, int absolute, FixtureAssignment mode, QList<int> extra) {
     QSignalBlocker block(t); int r = t->rowCount(); t->insertRow(r);
     QStringList targets; if (absolute > 0) targets << targetText(absolute); for (int a : extra) targets << targetText(a);
     QStringList fields{QString::number(id), name, targets.join(", "), "", QString::number(engine.output().value(id), 'f', 0) + " %"};
     for (int c = 0; c < fields.size(); ++c) { auto item = new QTableWidgetItem(fields[c]); if (c == 0 || c >= 3) item->setFlags(item->flags() & ~Qt::ItemIsEditable); t->setItem(r, c, item); }
-    auto combo = new QComboBox; combo->setObjectName(QString("fixtureMode%1").arg(id)); fillModes(combo, mode); t->setCellWidget(r, 3, combo);
+    auto combo = new FixturePicker(profiles); combo->setObjectName(QString("fixtureMode%1").arg(id)); fillModes(combo, mode); t->setCellWidget(r, 3, combo);
     connect(combo, &QComboBox::currentIndexChanged, this, [this, id] { patchTargets = {id}; validate(); });
 }
 void PatchDialog::populate() {
@@ -147,8 +141,8 @@ bool PatchDialog::buildDraft(Engine &draft, QString &issue) const {
         if (checked.contains(id)) continue;
         checked.insert(id);
         auto proposed = profiles.value(id), existing = engine.fixtureProfiles.value(id);
-        const bool sameArchive = proposed.source == existing.source;
-        proposed.source.clear(); existing.source.clear();
+        const bool sameArchive = proposed.source == existing.source && proposed.oflSource == existing.oflSource;
+        proposed.source.clear(); existing.source.clear(); proposed.oflSource.clear(); existing.oflSource.clear();
         if (!sameArchive || fixtureJson(proposed) != fixtureJson(existing)) {
             issue = QString("Channel %1 uses a changed fixture definition. Save the definition as a copy.").arg(channel); return false;
         }
@@ -260,24 +254,70 @@ bool PatchDialog::apply() {
     engine.fixtures = draft.fixtures; engine.fixtureProfiles = profiles; return true;
 }
 void PatchDialog::importProfile() {
-    QString path = QFileDialog::getOpenFileName(this, "Import fixture profile", {}, "GDTF (*.gdtf)"); if (path.isEmpty()) return;
-    QFile file(path); FixtureProfile profile; QString issue;
-    if (!file.open(QIODevice::ReadOnly) || file.size() > 64 * 1024 * 1024) { error->setText("Cannot read profile or file is too large"); return; }
-    if (!readGdtf(file.readAll(), profile, issue)) { error->setText(issue); return; }
-    profiles[QUuid::createUuid().toString(QUuid::WithoutBraces)] = profile;
-    auto t = banks[0];
-    for (int r = 0; r < t->rowCount(); ++r) { auto combo = qobject_cast<QComboBox *>(t->cellWidget(r, 3)); fillModes(combo, assignment(combo)); }
-    fillModes(batchFixture, assignment(batchFixture)); validate();
-    error->setText("Imported " + profile.manufacturer + " / " + profile.name + ". Choose a mode in the patch or Batch. Apply patch to save the profile library.");
+    const auto paths = QFileDialog::getOpenFileNames(this, "Import fixture profiles", {}, "Fixture profiles (*.gdtf *.json);;GDTF (*.gdtf);;Open Fixture Library (*.json)");
+    if (paths.isEmpty()) return;
+    int imported = 0; QStringList failures; importingBatch = true;
+    for (const auto &path : paths) {
+        if (importFixtureFile(path)) ++imported;
+        else if (failures.size() < 10) failures << QFileInfo(path).fileName() + ": " + error->text();
+    }
+    importingBatch = false;
+    const QString lastReport = error->text();
+    if (imported) refreshFixturePickers(lastImported);
+    if (paths.size() > 1) error->setText(QString("%1 / %2 profiles imported into the draft. Apply patch to save the library.").arg(imported).arg(paths.size()) +
+        (failures.isEmpty() ? QString() : "\n" + failures.join("\n")));
+    else error->setText(lastReport);
 }
-void PatchDialog::exportProfile() {
-    auto t = banks[0]; int row = t->currentRow(); if (row < 0) { error->setText("Select a fixture row to export its profile"); return; }
+bool PatchDialog::importFixtureFile(const QString &path) {
+    QFile file(path); FixtureProfile profile; QString issue;
+    if (!file.open(QIODevice::ReadOnly) || file.size() > 64 * 1024 * 1024) { error->setText("Cannot read profile or file is too large"); return false; }
+    const auto bytes = file.readAll(); const bool ofl = QFileInfo(path).suffix().compare("json", Qt::CaseInsensitive) == 0;
+    QString manufacturer;
+    if (ofl) {
+        const auto json = QJsonDocument::fromJson(bytes).object();
+        QString key = json["manufacturerKey"].toString(); if (key.isEmpty()) key = QFileInfo(path).dir().dirName();
+        QFile names(QFileInfo(path).dir().filePath("manufacturers.json"));
+        if (!names.exists()) names.setFileName(QFileInfo(path).dir().filePath("../manufacturers.json"));
+        if (names.open(QIODevice::ReadOnly) && names.size() <= 4 * 1024 * 1024)
+            manufacturer = QJsonDocument::fromJson(names.readAll()).object()[key].toObject()["name"].toString();
+    }
+    if (!(ofl ? readOfl(bytes, profile, issue, manufacturer) : readGdtf(bytes, profile, issue))) { error->setText(issue); return false; }
+    QString id; bool duplicate = false;
+    for (auto it = profiles.cbegin(); it != profiles.cend(); ++it)
+        if ((ofl ? it->oflSource == bytes : it->source == bytes) && it->manufacturer == profile.manufacturer) { id = it.key(); duplicate = true; break; }
+    if (id.isEmpty()) { id = QUuid::createUuid().toString(QUuid::WithoutBraces); profiles[id] = profile; }
+    int supported = 0, selected = 0, rawModes = 0;
+    for (int i = 0; i < profile.modes.size(); ++i) {
+        if (profile.modes[i].unsupported.isEmpty()) { if (!supported) selected = i; ++supported; }
+        if (!profile.modes[i].warnings.isEmpty()) ++rawModes;
+    }
+    lastImported = {id, selected}; if (!importingBatch) refreshFixturePickers(lastImported);
+    error->setText(QString("%1 %2 / %3 · %4 / %5 modes available%6. Search fixtures to inspect mode details. Apply patch to save the library.")
+        .arg(duplicate ? "Already imported:" : "Imported:", profile.manufacturer, profile.name).arg(supported).arg(profile.modes.size())
+        .arg(rawModes ? QString(" · %1 modes include raw DMX controls").arg(rawModes) : QString()));
+    return true;
+}
+void PatchDialog::refreshFixturePickers(FixtureAssignment selected) {
+    auto table = banks[0];
+    for (int r = 0; r < table->rowCount(); ++r) { auto combo = qobject_cast<QComboBox *>(table->cellWidget(r, 3)); fillModes(combo, assignment(combo)); }
+    fillModes(batchFixture, selected); validate();
+}
+void PatchDialog::exportProfile(bool ofl) {
+    auto t = banks[0]; const int row = t->currentRow(); if (row < 0) { error->setText("Select a fixture row to export its profile"); return; }
     const auto profile = profiles.value(assignment(qobject_cast<QComboBox *>(t->cellWidget(row, 3))).profile);
-    QString path = QFileDialog::getSaveFileName(this, "Export fixture profile", profile.name + ".gdtf", "GDTF (*.gdtf)"); if (path.isEmpty()) return;
-    const auto bytes = writeGdtf(profile);
-    if (bytes.isEmpty()) { error->setText("Cannot export this definition. Check its modes and define reserved trailing slots with NoFeature parameters."); return; }
-    QSaveFile file(path); if (!file.open(QIODevice::WriteOnly)) { error->setText(file.errorString()); return; }
-    if (file.write(bytes) != bytes.size() || !file.commit()) error->setText(file.errorString()); else error->setText("GDTF profile exported");
+    const QString name = QString(profile.name).replace(QRegularExpression(R"([<>:"/\\|?*])"), "_");
+    const auto path = QFileDialog::getSaveFileName(this, ofl ? "Export OFL JSON fixture" : "Export GDTF fixture", name + (ofl ? ".json" : ".gdtf"), ofl ? "Open Fixture Library (*.json)" : "GDTF (*.gdtf)");
+    if (!path.isEmpty()) exportFixtureFile(path, ofl);
+}
+bool PatchDialog::exportFixtureFile(const QString &path, bool ofl) {
+    auto table = banks[0]; const int row = table->currentRow();
+    if (row < 0) { error->setText("Select a fixture row to export its profile"); return false; }
+    const auto profile = profiles.value(assignment(qobject_cast<QComboBox *>(table->cellWidget(row, 3))).profile);
+    QString issue; const auto bytes = ofl ? writeOfl(profile, issue) : writeGdtf(profile);
+    if (bytes.isEmpty()) { error->setText(issue.isEmpty() ? "Cannot export this definition as GDTF. Check its modes and define reserved trailing slots with NoFeature parameters." : issue); return false; }
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) { error->setText(file.errorString()); return false; }
+    error->setText(ofl ? "OFL JSON profile exported" : "GDTF profile exported"); return true;
 }
 void PatchDialog::defineFixture(bool copySelected) {
     FixtureProfile seed; QString id; bool selectedModeOnly = false;
@@ -292,7 +332,7 @@ void PatchDialog::defineFixture(bool copySelected) {
         }
         bool hasUnsupported = false; for (const auto &mode : seed.modes) hasUnsupported |= !mode.unsupported.isEmpty();
         if (hasUnsupported) { seed.modes = {seed.modes[selectedMode]}; selectedModeOnly = true; }
-        bool copy = genericFixtures().contains(id) || !seed.source.isEmpty();
+        bool copy = genericFixtures().contains(id) || !seed.source.isEmpty() || !seed.oflSource.isEmpty();
         for (int channel : engine.channels.keys()) copy |= engine.fixtures.value(channel).profile == id;
         if (copy) { id.clear(); seed.name += " copy"; }
     }
@@ -302,16 +342,12 @@ void PatchDialog::defineFixture(bool copySelected) {
     if (editor.exec() != QDialog::Accepted) return;
     if (id.isEmpty()) id = QUuid::createUuid().toString(QUuid::WithoutBraces);
     profiles[id] = editor.profile();
-    auto table = banks[0];
-    for (int row = 0; row < table->rowCount(); ++row) {
-        auto combo = qobject_cast<QComboBox *>(table->cellWidget(row, 3)); fillModes(combo, assignment(combo));
-    }
-    fillModes(batchFixture, {id, 0}); validate();
+    refreshFixturePickers({id, 0});
     error->setText("Definition saved in the patch draft. Select its mode for a channel or Batch, then Apply patch.");
 }
 void PatchDialog::exportPatch() {
     QString path = QFileDialog::getSaveFileName(this, "Export applied patch", "patch.cfp", "Cold Flame patch (*.cfp)"); if (path.isEmpty()) return;
-    auto json = engine.json(); QJsonObject patch{{"format", "cold-flame-patch"}, {"version", 1}, {"channels", json["channels"]}, {"fixtureProfiles", json["fixtureProfiles"]}};
+    auto json = engine.json(); QJsonObject patch{{"format", "cold-flame-patch"}, {"version", 2}, {"channels", json["channels"]}, {"fixtureProfiles", json["fixtureProfiles"]}};
     QSaveFile file(path); auto bytes = QJsonDocument(patch).toJson();
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) error->setText(file.errorString()); else error->setText("Applied patch exported");
 }
@@ -319,7 +355,7 @@ void PatchDialog::importPatch() {
     QString path = QFileDialog::getOpenFileName(this, "Import patch", {}, "Cold Flame patch (*.cfp)"); if (path.isEmpty()) return;
     QFile file(path); if (!file.open(QIODevice::ReadOnly) || file.size() > 64 * 1024 * 1024) { error->setText("Cannot read patch or file is too large"); return; }
     auto object = QJsonDocument::fromJson(file.readAll()).object();
-    if (object["format"] != "cold-flame-patch" || object["version"] != 1 || !object["channels"].isArray()) { error->setText("Invalid patch file"); return; }
+    if (object["format"] != "cold-flame-patch" || (object["version"] != 1 && object["version"] != 2) || !object["channels"].isArray()) { error->setText("Invalid patch file"); return; }
     auto json = engine.json(); json["channels"] = object["channels"]; json["fixtureProfiles"] = object["fixtureProfiles"];
     Engine draft; QString issue;
     if (!draft.load(json, &issue)) { error->setText("Patch is invalid, overlaps, or is incompatible with stored show data"); return; }

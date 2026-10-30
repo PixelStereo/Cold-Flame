@@ -939,7 +939,7 @@ bool Engine::command(QString text, QString *error) {
 QJsonObject Engine::json() const {
     QJsonObject root;
     root["format"] = "cold-flame";
-    root["version"] = 6;
+    root["version"] = 7;
     QJsonArray colors;
     for (auto it = colorPalettes.begin(); it != colorPalettes.end(); ++it) if (it.key() > 0)
         colors << QJsonObject{{"id", it.key()}, {"name", it->name}, {"red", it->red}, {"green", it->green}, {"blue", it->blue}};
@@ -1036,7 +1036,7 @@ bool Engine::load(const QJsonObject &r, QString *error) {
             *error = "Invalid show file or unsupported version";
         return false;
     };
-    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 6) || !r["channels"].isArray() ||
+    if (r["format"] != "cold-flame" || (r["version"].toInt() < 1 || r["version"].toInt() > 7) || !r["channels"].isArray() ||
         r["sequences"].toArray().isEmpty())
         return fail();
     Engine e;

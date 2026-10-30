@@ -1,4 +1,4 @@
-# Fixtures, patch and tracking (0.11)
+# Fixtures, patch and tracking (0.12)
 
 A console channel represents one fixture. Its intensity remains visible in the channel grid; its other parameters belong to that same channel in Parameters and Tracking. This follows the Eos [channel/fixture concept](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/06_Patch/About_Patch.htm). Shared reusable looks and repeated sequence occurrences retain Cold Flame's Congo/Cobalt-style model.
 
@@ -23,7 +23,7 @@ Supported modes use one output DMX break, one logical attribute per DMX channel,
 
 Modes requiring multiple output breaks, unsupported relations, multiplexed logical channels or conditional mode masters remain unsupported. Geometry-reference/cell expansion is now supported within the documented limits. This is a supported subset of GDTF, not full GDTF or Eos fixture coverage. Import preserves the original archive; exporting an imported profile returns those original bytes. Built-in generic profiles can also be exported as GDTF.
 
-**Export applied patch…** writes a versioned `.cfp` JSON patch with channel names, addresses, assignments and fixture profiles. **Import patch…** loads a compatible file into the draft for review and Apply. It preserves existing channel IDs and rejects profile identity conflicts or changes that would reinterpret stored fixture parameters. This is Cold Flame patch transfer, not MVR interchange. `.cfl` show format 6 stores cell identities, submaster mode/timing, color palettes/references plus the same fixture data plus cue/sequence content and tracking overrides. Format 1–5 shows remain readable; older builds cannot open format 6.
+**Export applied patch…** writes a versioned `.cfp` JSON patch with channel names, addresses, assignments and fixture profiles. **Import patch…** loads a compatible file into the draft for review and Apply. It preserves existing channel IDs and rejects profile identity conflicts or changes that would reinterpret stored fixture parameters. This is Cold Flame patch transfer, not MVR interchange. `.cfl` show format 7 stores original OFL JSON, cell identities, submaster mode/timing, color palettes/references plus the same fixture data plus cue/sequence content and tracking overrides. Format 1–6 shows remain readable; older builds cannot open format 7. Patch transfers write format 2 and load formats 1–2. See [OFL import/export and fixture search](OFL-FIXTURES.md).
 
 Changing start addresses keeps parameter identities and is supported with existing cues. Replacing a fixture type/mode once it has stored or live non-intensity data is rejected: use a new channel. Parameter migration between different fixture types remains future work. Undoing a fixture-type definition releases incompatible live non-intensity controls so their internal IDs cannot be reinterpreted as other parameters.
 

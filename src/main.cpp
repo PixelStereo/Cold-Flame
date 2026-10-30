@@ -12,6 +12,7 @@
 #include "cuelibrary.h"
 #include "steptable.h"
 #include "patchdialog.h"
+#include "fixturepicker.h"
 #include "parameterpanel.h"
 #include "fixturecolor.h"
 #include "colorpalettepanel.h"
@@ -1666,6 +1667,19 @@ int main(int argc, char **argv) {
         QTimer::singleShot(50, [&w] {
             w.findChild<QTabWidget *>("channelTabs")->setCurrentIndex(1);
             QTimer::singleShot(150, [&w] { w.grab().save("patch-preview.png"); });
+        });
+    if (app.arguments().contains("--fixture-search-screenshot"))
+        QTimer::singleShot(50, [&w] {
+            w.findChild<QTabWidget *>("channelTabs")->setCurrentIndex(1);
+            auto picker = w.findChild<FixturePicker *>("fixtureMode1");
+            if (!picker) return;
+            QTimer::singleShot(100, &w, [&w] {
+                if (auto dialog = w.findChild<QDialog *>("fixtureSearchDialog")) {
+                    dialog->findChild<QLineEdit *>("fixtureSearch")->setText("RGB");
+                    dialog->grab().save("fixture-search-preview.png"); dialog->reject();
+                }
+            });
+            picker->showPopup();
         });
     if (app.arguments().contains("--network-screenshot"))
         QTimer::singleShot(50, [&w] {

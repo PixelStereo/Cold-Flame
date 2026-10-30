@@ -14,12 +14,16 @@ struct FixtureMode {
     int footprint = 0;
     QList<FixtureParameter> parameters;
     QString unsupported;
+    QStringList warnings;
 };
 struct FixtureProfile {
     QString manufacturer, name;
     QList<FixtureMode> modes;
     QByteArray source; // Preserve vendor metadata on GDTF re-export.
+    QByteArray oflSource; // Original OFL JSON, including metadata and unsupported modes.
 };
+bool readOfl(const QByteArray &json, FixtureProfile &profile, QString &error, QString manufacturer = {});
+QByteArray writeOfl(const FixtureProfile &profile, QString &error);
 bool readGdtf(const QByteArray &archive, FixtureProfile &profile, QString &error);
 QByteArray writeGdtf(const FixtureProfile &profile);
 QMap<QString, FixtureProfile> genericFixtures();

@@ -2,7 +2,7 @@
 
 Eos palettes are independent, referenced show objects. A cue stores references to their parameter data. Changing the palette changes every place that references it. It is not a separate palette copied into each sequencer step. Official reference: [Eos About Palettes](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/10_Palettes/About_Palettes.htm).
 
-| Eos type | Typical content | Cold Flame 0.11 |
+| Eos type | Typical content | Cold Flame 0.12 |
 |---|---|---|
 | Intensity Palette | Dimmer levels | Basic intensity references |
 | Focus Palette | Position: pan and tilt | Not implemented; absolute position parameters can already be recorded in cues |
@@ -35,7 +35,7 @@ The same dialog is available by right-clicking a cue in the Cue library or a ref
 
 Eos offers several Update styles, including updating references or making data absolute. Their defaults depend on console/user configuration; Cold Flame does not implement the full Update dialog. See [Eos Update Dialogue Box](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/07_%5BUpdate%5D/Update_Dialogue_Box.htm).
 
-Color references survive recordings made from a completed playback, save/load, cue/step edits, channel blocks and definition Undo/Redo. Recording a fade in progress captures intermediate values rather than substituting the final palette target. Show format 4 introduced color palette definitions and references. The current format 6 also stores submaster mode/timing and fixture cell identities. Formats 1–5 remain readable; earlier application versions cannot read format 6.
+Color references survive recordings made from a completed playback, save/load, cue/step edits, channel blocks and definition Undo/Redo. Recording a fade in progress captures intermediate values rather than substituting the final palette target. Show format 4 introduced color palette definitions and references. The current format 7 also stores submaster mode/timing, fixture cell identities and original OFL sources. Formats 1–6 remain readable; earlier application versions cannot read format 7.
 
 ### References in cue and sequence lists
 

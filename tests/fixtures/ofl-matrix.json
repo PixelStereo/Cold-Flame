@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/OpenLightingProject/open-fixture-library/master/schemas/fixture.json",
+  "name": "OFL matrix regression",
+  "categories": ["Matrix"],
+  "meta": {"authors": ["Cold Flame"], "createDate": "2026-10-30", "lastModifyDate": "2026-10-30"},
+  "matrix": {"pixelCount": [2, 2, 1]},
+  "availableChannels": {
+    "Dimmer": {"capability": {"type": "Intensity"}},
+    "Pan": {"fineChannelAliases": ["Pan fine"], "defaultValue": 32768, "capability": {"type": "Pan", "angleStart": "0%", "angleEnd": "100%"}}
+  },
+  "templateChannels": {
+    "Red $pixelKey": {"defaultValue": "100%", "fineChannelAliases": ["Red fine $pixelKey"], "capability": {"type": "ColorIntensity", "color": "Red"}},
+    "Green $pixelKey": {"defaultValue": "100%", "capability": {"type": "ColorIntensity", "color": "Green"}},
+    "Blue $pixelKey": {"defaultValue": "100%", "capability": {"type": "ColorIntensity", "color": "Blue"}}
+  },
+  "modes": [
+    {"name": "Per pixel 16", "channels": ["Dimmer", {"insert": "matrixChannels", "repeatFor": "eachPixelXYZ", "channelOrder": "perPixel", "templateChannels": ["Red $pixelKey", "Green $pixelKey", "Blue $pixelKey", "Red fine $pixelKey"]}, "Pan", null, "Pan fine"]},
+    {"name": "Per channel YX", "channels": [{"insert": "matrixChannels", "repeatFor": "eachPixelYXZ", "channelOrder": "perChannel", "templateChannels": ["Red $pixelKey", "Green $pixelKey", "Blue $pixelKey"]}]},
+    {"name": "Explicit subset", "channels": [{"insert": "matrixChannels", "repeatFor": ["(2, 2)", "(1, 1)"], "channelOrder": "perPixel", "templateChannels": ["Red $pixelKey", "Green $pixelKey", "Blue $pixelKey"]}]}
+  ]
+}

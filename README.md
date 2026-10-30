@@ -1,7 +1,7 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.11.0: full Eos coverage is a goal, not an existing capability.**
+**Development version 0.12.0: full Eos coverage is a goal, not an existing capability.**
 
 ![Interface](cold-flame-preview.png)
 
@@ -29,9 +29,10 @@ The script installs Homebrew if absent (its installer may request your macOS pas
 
 ## Build and test
 
-Requirements: CMake 3.21+, a C++17 compiler, Qt 6.2+ (Core, Widgets, Network, Test), and zlib.
+Requirements: CMake 3.21+, a C++17 compiler, Qt 6.2+ (Core, Widgets, Network, Test), and zlib. Running the complete test suite also requires Python 3 with `jsonschema==4.26.0`; the application itself does not use Python.
 
 ```sh
+python3 -m pip install jsonschema==4.26.0
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
@@ -50,7 +51,7 @@ Native release packaging is enabled with `-DCOLD_FLAME_DEPLOY=ON`; it deploys th
 6. **Link…** selects the exact occurrence, including its sequence, step ID, cue and name. For example, steps 1, 3 and 7 can all use cue 10; linking to step 7 always chooses that occurrence, even after reordering. Link queues the target; Follow / Hang can fire it automatically. The Link cell accepts a step ID or `sequence/step`.
 7. Use **+ / −** above the step sheet to create or delete sequences (1, 2, 3…). One must remain. Double-click a sequence tab to rename it. Drag the workspace tabs to arrange them. Each sequence retains its own state and fade. Higher priority wins; at equal priority, the most recently triggered move wins for the channels it owns.
 8. **Edit content…** in the cue library edits the shared cue. **Update from manual** merges manual values; all referencing steps use the new look on their next playback, without changing active fades. A referenced library cue cannot be deleted until its occurrences are removed. **Update** on a sequence step updates its shared cue, unless Cue Only is enabled, which creates local step overrides. Existing local overrides remain local.
-9. Save as `.cfl`. Format 6 adds cell identities and contains submaster mode and bump timing, and color palette definitions/references as well as the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1–5 shows still load; saving writes format 6. Older Cold Flame builds cannot open format 6. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
+9. Save as `.cfl`. Format 7 preserves original OFL JSON and cell identities and contains submaster mode and bump timing, and color palette definitions/references as well as the fixture profiles/assignments, parameter data, cue library, steps, tracking overrides, patch, palettes, groups, submasters and network settings. Format 1–6 shows still load; saving writes format 7. Older Cold Flame builds cannot open format 7. Opening another show from the File menu disables outputs. At application startup, an Art-Net broadcast route is activated after loading the initial show.
 
 The reusable-look model follows [Congo/Cobalt’s documented preset-and-sequence model](https://support.etcconnect.com/ETC/Consoles/Congo_Cobalt/Software_and_Programming/Preset_vs_Cue_in_Congo). Eos uses cue numbers within cue lists; its [Link](https://www.etcconnect.com/WebDocs/Controls/EosFamilyOnlineHelp/en/Content/12_Cues_and_Cue_Lists/04_Cue_Attributes/Link_Loop.htm) addresses such cues. Cold Flame explicitly addresses sequence steps to distinguish repeated stored cues.
 
@@ -125,7 +126,9 @@ OSC bundles, feedback and configurable remote reception are not yet supported.
 
 **Pixel mapping** provides a sinusoidal intensity wave across selected channels in ascending numerical order, with adjustable speed and spread. Its layer overrides sequences and is overridden by manual values. This is an initial 1D generator; RGB matrices, video layers, masks and GPU processing remain to be developed.
 
-**Patch tools** imports/exports GDTF and transfers applied patches as `.cfp` files. Built-in 8/16-bit dimmers, RGB/RGBW and moving-head profiles are available. Supported GDTF modes patch 8/16/24/32-bit parameters with defaults, byte ordering and Snap, and record/play them through cues. Whole-footprint overlap and universe-boundary validation applies to every fixture start address. **Parameters** provides live controls. Geometry expansion, multiple breaks, mode dependencies, physical-unit tools, MVR and fixture-type migration remain incomplete; unsupported modes are rejected. See the [supported formats and programming guide](docs/FIXTURES-AND-TRACKING.md).
+**Patch tools** imports/exports GDTF and Open Fixture Library JSON, and transfers applied patches as `.cfp` files. The fixture picker offers Dimmer, RGB, RGBW and a few quick choices, plus search across imported manufacturer/fixture/mode names. Multiple profiles can be imported together; unsupported modes and raw DMX controls are explained in the chooser. OFL import supports fine aliases, defaults and matrix cells; imported JSON re-exports byte for byte. Native OFL conversion refuses definitions it cannot preserve. See the [OFL import/export and search guide](docs/OFL-FIXTURES.md).
+
+Supported GDTF modes patch 8/16/24/32-bit parameters with defaults, byte ordering and Snap, and record/play them through cues. Whole-footprint overlap and universe-boundary validation applies to every fixture start address. **Parameters** provides live master and cell controls. Conditional mode dependencies, multiple output breaks, physical-unit tools, MVR and fixture-type migration remain incomplete; unsupported modes are rejected. See the [fixture and tracking guide](docs/FIXTURES-AND-TRACKING.md) and [multicell guide](docs/MULTICELL.md).
 
 ## Status and next steps
 

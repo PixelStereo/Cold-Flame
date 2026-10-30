@@ -123,15 +123,18 @@ QJsonObject fixtureJson(const FixtureProfile &p) {
         QJsonArray parameters;
         for (const auto &v : m.parameters) { QJsonArray offsets; for (int o : v.offsets) offsets << o;
             parameters << QJsonObject{{"attribute", v.attribute}, {"offsets", offsets}, {"home", v.home}, {"intensity", v.intensity}, {"snap", v.snap}, {"cell", v.cell}}; }
-        modes << QJsonObject{{"name", m.name}, {"footprint", m.footprint}, {"parameters", parameters}, {"unsupported", m.unsupported}};
+        modes << QJsonObject{{"name", m.name}, {"footprint", m.footprint}, {"parameters", parameters}, {"unsupported", m.unsupported}, {"warnings", QJsonArray::fromStringList(m.warnings)}};
     }
-    return {{"manufacturer", p.manufacturer}, {"name", p.name}, {"modes", modes}, {"gdtf", QString::fromLatin1(p.source.toBase64())}};
+    return {{"manufacturer", p.manufacturer}, {"name", p.name}, {"modes", modes}, {"gdtf", QString::fromLatin1(p.source.toBase64())}, {"ofl", QString::fromLatin1(p.oflSource.toBase64())}};
 }
 bool fixtureFromJson(const QJsonObject &j, FixtureProfile &p, QString &error) {
+    if (!j["gdtf"].toString().isEmpty() && !j["ofl"].toString().isEmpty()) { error = "A fixture cannot have both GDTF and OFL sources"; return false; }
     if (!j["gdtf"].toString().isEmpty()) return readGdtf(QByteArray::fromBase64(j["gdtf"].toString().toLatin1()), p, error);
+    if (!j["ofl"].toString().isEmpty()) return readOfl(QByteArray::fromBase64(j["ofl"].toString().toLatin1()), p, error, j["manufacturer"].toString());
     FixtureProfile result; result.manufacturer = j["manufacturer"].toString(); result.name = j["name"].toString();
     for (auto entry : j["modes"].toArray()) {
         auto o = entry.toObject(); FixtureMode m; m.name = o["name"].toString(); m.footprint = o["footprint"].toInt(); m.unsupported = o["unsupported"].toString();
+        for (const auto &warning : o["warnings"].toArray()) m.warnings << warning.toString();
         for (auto value : o["parameters"].toArray()) {
             auto v = value.toObject(); FixtureParameter param;
             param.attribute = v["attribute"].toString(); param.home = v["home"].toDouble(-1); param.intensity = v["intensity"].toBool(); param.snap = v["snap"].toBool(); param.cell = v["cell"].toString();
