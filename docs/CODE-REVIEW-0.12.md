@@ -1,5 +1,24 @@
 # Code and UX review: OFL fixtures and searchable fixture selection
 
+## 0.12.1: Parameters input follow-up
+
+- Parameter text fields now use native focus and editing, with a separate dotted
+  drag grip. Table editing cannot open a competing editor over the field, and
+  the global NumberDrag filter explicitly leaves these editors alone.
+- Enter/Tab commits typed values; active text survives live refresh. Mouse
+  targeting is exercised through the application's actual window at desktop and
+  compact sizes, in addition to field-level typing, drag and DMX-output checks.
+- Editable intensity uses values before inhibition. A reproduced regression had
+  reset the editor to zero when an inhibitive submaster was at Out. The status
+  line now separates control intensity and output and names active output limits.
+- Dragging is cancelled on lost mouse grab or window deactivation, preventing
+  later hover events from changing levels. The panel uses readable names for
+  common colour controls and explains master/cell intensity.
+- Tests cover normal DPI, 200% scaling and Qt Windows style. The illustrated
+  fixture/parameters preview was regenerated and visually inspected.
+
+The sections below record the original 0.12.0 fixture-library review.
+
 Scope: OFL JSON parsing/export, profile persistence/identity, fixture chooser and
 patch import/export integration. This is a focused review of this change, not a
 claim of full Eos parity or a physical-rig qualification.

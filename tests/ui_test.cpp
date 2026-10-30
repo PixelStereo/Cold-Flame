@@ -30,6 +30,86 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void parameterIntensityValueSurvivesInhibitorsAndShowsOutputState() {
+        Engine engine; Submaster sub; sub.mode = Submaster::Mode::Inhibitive; sub.values[1] = 100; sub.level = 0;
+        engine.submasters << sub;
+        ParameterPanel *livePanel = nullptr;
+        ParameterPanel panel(engine, [&] { if (livePanel) livePanel->refresh(); }); livePanel = &panel; panel.show(); panel.refresh();
+        auto intensity = panel.findChild<QDoubleSpinBox *>("parameterLevel1"); QVERIFY(intensity);
+        intensity->clearFocus(); intensity->setValue(75); panel.refresh();
+        QCOMPARE(engine.manual[1].level, 75.); QCOMPARE(engine.output().value(1), 0.);
+        QCOMPARE(intensity->value(), 75.); // The editable value must not be replaced by inhibited output.
+        auto status = panel.findChild<QLabel *>("parameterMasterLevel"); QVERIFY(status->isVisible());
+        QVERIFY(status->text().contains("75.0%")); QVERIFY(status->text().contains("0.0%"));
+        QVERIFY(status->text().contains("Inhibited"));
+        engine.submasters[0].level = 1; engine.master = 0.5; panel.refresh();
+        QCOMPARE(intensity->value(), 75.); QVERIFY(status->text().contains("37.5%"));
+        engine.blackout = true; panel.refresh(); QVERIFY(status->text().contains("Blackout"));
+        engine.parked[1] = 42; panel.refresh(); QVERIFY(status->text().contains("Parked")); QVERIFY(status->text().contains("42.0%"));
+        QCOMPARE(intensity->value(), 75.);
+    }
+    void parameterValuesAcceptTypingAndDraggingDuringRefresh() {
+        Engine engine; engine.fixtures[1] = {"moving-rgbw", 0}; engine.patch[1] = 513;
+        Console theme({}, false); ParameterPanel *livePanel = nullptr;
+        ParameterPanel panel(engine, [&] { if (livePanel) livePanel->refresh(); }); livePanel = &panel;
+        panel.setStyleSheet(theme.styleSheet()); panel.resize(620, 650); panel.show();
+        QApplication::setActiveWindow(&panel); QCoreApplication::processEvents();
+        QTimer updates; connect(&updates, &QTimer::timeout, &panel, &ParameterPanel::refresh); updates.start(10);
+        const int pan = engine.parameterKey(1, 0);
+        auto field = panel.findChild<QDoubleSpinBox *>(QString("parameterLevel%1").arg(pan)); QVERIFY(field);
+        auto edit = field->findChild<QLineEdit *>(); QVERIFY(edit);
+        QStyleOptionFrame option; option.initFrom(edit);
+        const auto contents = edit->style()->subElementRect(QStyle::SE_LineEditContents, &option, edit);
+        QVERIFY2(contents.height() >= edit->fontMetrics().height(), qPrintable(QString("Text height %1, available %2 inside %3px row").arg(edit->fontMetrics().height()).arg(contents.height()).arg(field->height())));
+        QTest::mouseClick(field, Qt::LeftButton, Qt::NoModifier, QPoint(2, field->height() / 2));
+        QVERIFY(field->hasFocus() || edit->hasFocus());
+        QTest::keySequence(edit, QKeySequence::SelectAll); QTest::keyClicks(edit, "12."); QTest::qWait(40);
+        QVERIFY(edit->text().startsWith("12.")); QTest::keyClicks(edit, "75"); QTest::keyClick(edit, Qt::Key_Return);
+        QCOMPARE(field->value(), 12.75); QCOMPARE(engine.manual[pan].level, 12.75);
+        panel.findChild<QComboBox *>("parameterChannel")->setFocus(); field->clearFocus();
+        auto grip = panel.findChild<QWidget *>(QString("parameterGrip%1").arg(pan)); QVERIFY(grip);
+        QPoint start = grip->rect().center(); QTest::mousePress(grip, Qt::LeftButton, Qt::NoModifier, start);
+        for (int dx : {5, 25}) {
+            auto point = start + QPoint(dx, 0);
+            QMouseEvent move(QEvent::MouseMove, point, grip->mapToGlobal(point), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(grip, &move); QTest::qWait(20);
+        }
+        QTest::mouseRelease(grip, Qt::LeftButton, Qt::NoModifier, start + QPoint(25, 0));
+        QCOMPARE(engine.manual[pan].level, 15.25); QCOMPARE(field->value(), 15.25);
+        engine.manual[1] = {100, 0}; const auto frame = engine.dmxFrames().value(1);
+        QCOMPARE((quint8(frame[0]) << 8) | quint8(frame[1]), qRound(15.25 * 65535. / 100.));
+        QTest::mousePress(grip, Qt::LeftButton, Qt::NoModifier, start);
+        QEvent lost(QEvent::UngrabMouse); QApplication::sendEvent(grip, &lost);
+        const auto after = start + QPoint(50, 0);
+        QMouseEvent hover(QEvent::MouseMove, after, grip->mapToGlobal(after), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(grip, &hover); QCOMPARE(engine.manual[pan].level, 15.25);
+        QTest::mouseRelease(grip, Qt::LeftButton, Qt::NoModifier, after);
+    }
+    void parameterFieldsReceiveWindowMouseAndKeyboardEvents_data() {
+        QTest::addColumn<QSize>("windowSize"); QTest::newRow("desktop") << QSize(1440, 940); QTest::newRow("compact") << QSize(1100, 720);
+    }
+    void parameterFieldsReceiveWindowMouseAndKeyboardEvents() {
+        QFETCH(QSize, windowSize);
+        Engine engine; engine.fixtures[1] = {"moving-rgbw", 0}; engine.patch[1] = 513;
+        QTemporaryFile file; QVERIFY(file.open()); file.write(QJsonDocument(engine.json()).toJson()); file.flush();
+        Console window(file.fileName(), false); window.resize(windowSize); window.show();
+        window.findChild<QTabWidget *>("channelTabs")->setCurrentIndex(3);
+        QApplication::setActiveWindow(&window); QCoreApplication::processEvents();
+        const int key = engine.parameterKey(1, 0);
+        auto field = window.findChild<QDoubleSpinBox *>(QString("parameterLevel%1").arg(key)); QVERIFY(field);
+        auto edit = field->findChild<QLineEdit *>(); QVERIFY(edit);
+        const QPoint point = edit->mapTo(&window, edit->rect().center());
+        QTest::mouseClick(window.windowHandle(), Qt::LeftButton, Qt::NoModifier, point);
+        QVERIFY2(field->hasFocus() || edit->hasFocus(), qPrintable(QString("Hit: %1; focused: %2").arg(QApplication::widgetAt(window.mapToGlobal(point)) ? QApplication::widgetAt(window.mapToGlobal(point))->metaObject()->className() : "none", QApplication::focusWidget() ? QApplication::focusWidget()->metaObject()->className() : "none")));
+        QTest::keySequence(window.windowHandle(), QKeySequence::SelectAll); QTest::keyClicks(QApplication::focusWidget(), "37.25");
+        QTest::keyClick(window.windowHandle(), Qt::Key_Return); QTest::qWait(60); QCOMPARE(field->value(), 37.25);
+        auto grip = window.findChild<QWidget *>(QString("parameterGrip%1").arg(key)); QVERIFY(grip);
+        const auto start = grip->mapTo(&window, grip->rect().center());
+        QTest::mousePress(window.windowHandle(), Qt::LeftButton, Qt::NoModifier, start);
+        QTest::mouseMove(window.windowHandle(), start + QPoint(20, 0));
+        QTest::mouseRelease(window.windowHandle(), Qt::LeftButton, Qt::NoModifier, start + QPoint(20, 0));
+        QTest::qWait(60); QCOMPARE(field->value(), 39.25);
+    }
     void fixtureSearchScalesAndKeepsSelectionOnCancel() {
         Engine engine;
         for (int i = 0; i < 1000; ++i) {
@@ -94,7 +174,7 @@ class UiTests : public QObject {
         auto scope = panel.findChild<QComboBox *>("parameterCell");
         auto table = panel.findChild<QTableWidget *>("parameterTable");
         scope->setCurrentIndex(scope->findData(parts[0])); QCOMPARE(table->rowCount(), 5);
-        QCOMPARE(table->item(0, 0)->text(), QString("Dimmer"));
+        QCOMPARE(table->item(0, 0)->text(), QString("Cell intensity"));
         auto first = engine.colorControls(1, parts[0]), second = engine.colorControls(1, parts[1]);
         auto choose = [&](QColor color, bool accept) {
             QTimer::singleShot(0, &panel, [&] {

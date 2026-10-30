@@ -29,7 +29,9 @@ Changing start addresses keeps parameter identities and is supported with existi
 
 ## Program fixture parameters
 
-Open **Parameters**, then select the fixture. Double-clicking a dimmer tile also opens Parameters. The panel exposes intensity and each DMX parameter, its resolution and manual status. Drag a numeric field sideways, or click to type. Home parameters loads non-intensity defaults; Release fixture clears its manual values except captured controls.
+Open **Parameters**, then select the fixture. Double-clicking a dimmer tile also opens Parameters. **Value (%)** is editable: click the number, type 0–100 and press Enter or Tab to commit. Drag the dotted grip beside the number for live adjustment; Shift gives finer control and Ctrl/Command coarser control. The number itself uses normal text editing. See the [Parameters guide](PARAMETERS.md).
+
+The panel shows intensity and each DMX control, its resolution and manual status. **Intensity** controls the whole fixture's brightness; multicell fixtures also expose relative **Cell intensity** controls. The status line separates the editable intensity from its resulting output and identifies active inhibition, grand master, Blackout or Park. An inhibitive submaster no longer resets an editable value to zero. Home parameters restores color, position, beam and cell defaults while keeping master intensity; Release manual clears this fixture's manual values except captured controls.
 
 Record stores the unmastered look, including fixture parameters and their defaults; Record Only stores manual controls. Update, shared-cue content editing, local tracking edits, fades and show files preserve parameter data. Grand master and blackout affect intensity, leaving position/color/beam values unchanged. RGB/RGBW profiles without a physical dimmer use the channel intensity to scale additive colors. Submasters support additive HTP and inhibitive intensity with timed bumps. Capture, Park, Home and selected-channel Release include the fixture's parameters; Park remains excluded from recordings.
 

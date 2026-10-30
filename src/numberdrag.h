@@ -101,6 +101,7 @@ private:
 };
 
 inline void enableNumberDrag(QAbstractSpinBox *spin) {
+    if (spin->property("nativeNumberEditing").toBool()) return;
     if (spin->property("numberDragInstalled").toBool()) return;
     if (auto edit = spin->findChild<QLineEdit *>()) {
         new NumberDrag(spin, edit);
