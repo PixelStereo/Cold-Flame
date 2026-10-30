@@ -68,22 +68,26 @@ class UiTests : public QObject {
         QCOMPARE(field->value(), 12.75); QCOMPARE(engine.manual[pan].level, 12.75);
         panel.findChild<QComboBox *>("parameterChannel")->setFocus(); field->clearFocus();
         auto grip = panel.findChild<QWidget *>(QString("parameterGrip%1").arg(pan)); QVERIFY(grip);
-        QPoint start = grip->rect().center(); QTest::mousePress(grip, Qt::LeftButton, Qt::NoModifier, start);
+        const QPoint globalStart = grip->mapToGlobal(grip->rect().center());
+        auto mouse = [&](QEvent::Type type, QPoint global, Qt::MouseButton button, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, grip->mapFromGlobal(global), global, button, buttons, Qt::NoModifier);
+            QApplication::sendEvent(grip, &event);
+        };
+        mouse(QEvent::MouseButtonPress, globalStart, Qt::LeftButton, Qt::LeftButton);
+        // Keep the pointer path in screen coordinates even if a window/layout moves.
+        panel.move(panel.pos() + QPoint(50, 0));
         for (int dx : {5, 25}) {
-            auto point = start + QPoint(dx, 0);
-            QMouseEvent move(QEvent::MouseMove, point, grip->mapToGlobal(point), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
-            QApplication::sendEvent(grip, &move); QTest::qWait(20);
+            mouse(QEvent::MouseMove, globalStart + QPoint(dx, 0), Qt::NoButton, Qt::LeftButton); QTest::qWait(20);
         }
-        QTest::mouseRelease(grip, Qt::LeftButton, Qt::NoModifier, start + QPoint(25, 0));
+        mouse(QEvent::MouseButtonRelease, globalStart + QPoint(25, 0), Qt::LeftButton, Qt::NoButton);
         QCOMPARE(engine.manual[pan].level, 15.25); QCOMPARE(field->value(), 15.25);
         engine.manual[1] = {100, 0}; const auto frame = engine.dmxFrames().value(1);
         QCOMPARE((quint8(frame[0]) << 8) | quint8(frame[1]), qRound(15.25 * 65535. / 100.));
-        QTest::mousePress(grip, Qt::LeftButton, Qt::NoModifier, start);
+        mouse(QEvent::MouseButtonPress, globalStart, Qt::LeftButton, Qt::LeftButton);
         QEvent lost(QEvent::UngrabMouse); QApplication::sendEvent(grip, &lost);
-        const auto after = start + QPoint(50, 0);
-        QMouseEvent hover(QEvent::MouseMove, after, grip->mapToGlobal(after), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-        QApplication::sendEvent(grip, &hover); QCOMPARE(engine.manual[pan].level, 15.25);
-        QTest::mouseRelease(grip, Qt::LeftButton, Qt::NoModifier, after);
+        mouse(QEvent::MouseMove, globalStart + QPoint(50, 0), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(engine.manual[pan].level, 15.25);
+        mouse(QEvent::MouseButtonRelease, globalStart + QPoint(50, 0), Qt::LeftButton, Qt::NoButton);
     }
     void parameterFieldsReceiveWindowMouseAndKeyboardEvents_data() {
         QTest::addColumn<QSize>("windowSize"); QTest::newRow("desktop") << QSize(1440, 940); QTest::newRow("compact") << QSize(1100, 720);

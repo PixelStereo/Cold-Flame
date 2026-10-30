@@ -14,6 +14,9 @@
 - Dragging is cancelled on lost mouse grab or window deactivation, preventing
   later hover events from changing levels. The panel uses readable names for
   common colour controls and explains master/cell intensity.
+- Live value/source changes do not resize the input columns. The drag regression
+  fixes its pointer path in screen coordinates, including across a moved window,
+  instead of recomputing the pointer path from a potentially moving widget.
 - Tests cover normal DPI, 200% scaling and Qt Windows style. The illustrated
   fixture/parameters preview was regenerated and visually inspected.
 

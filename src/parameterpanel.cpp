@@ -88,6 +88,9 @@ ParameterPanel::ParameterPanel(Engine &e, std::function<void()> onLiveChange, QW
     table->setStyleSheet("QWidget#parameterValueCell{background:transparent;} QDoubleSpinBox{padding:3px 6px;min-height:0px;} QDoubleSpinBox QLineEdit{padding:0px;margin:0px;border:0px;background:transparent;}");
     table->verticalHeader()->hide(); table->verticalHeader()->setDefaultSectionSize(40);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents); table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    // Live values/source labels must not move the input fields under the pointer.
+    for (int col : {2, 3}) table->horizontalHeader()->setSectionResizeMode(col, QHeaderView::Interactive);
+    table->setColumnWidth(2, 142); table->setColumnWidth(3, 130);
     layout->addWidget(table, 1); auto actions = new QHBoxLayout;
     auto release = new QPushButton("Release manual"); auto home = new QPushButton("Home parameters"); actions->addWidget(release); actions->addWidget(home); actions->addStretch(); layout->addLayout(actions);
     release->setObjectName("releaseFixtureParameters");
@@ -175,6 +178,6 @@ void ParameterPanel::refresh() {
         const auto reference = engine.recordedValue(key, values);
         QString source = engine.manual.contains(key) ? "Manual" : "Playback / home";
         if (reference.colorPalette > 0) source = QString("CP %1 · ").arg(reference.colorPalette) + source;
-        table->item(row, 3)->setText(source);
+        table->item(row, 3)->setText(source); table->item(row, 3)->setToolTip(source);
     }
 }
