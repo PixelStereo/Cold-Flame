@@ -2,6 +2,31 @@
 #include "fixturecolor.h"
 using namespace Flame;
 namespace {
+// Keep the editor independent of native spin-button geometry, including macOS's
+// NoButtons layout. The text area must occupy the visible field, not a native inset.
+class ParameterNumber : public QDoubleSpinBox {
+    void fitText() {
+        lineEdit()->setGeometry(rect().adjusted(6, 2, -6, -2));
+    }
+  public:
+    ParameterNumber() {
+        setProperty("nativeNumberEditing", true); setButtonSymbols(QAbstractSpinBox::NoButtons);
+        setStyleSheet("QDoubleSpinBox{padding:0px;min-height:30px;border:1px solid #393c3f;border-radius:3px;background:#222426;color:#e5e5e5;}");
+        lineEdit()->setStyleSheet("QLineEdit{padding:0px;margin:0px;border:0px;min-height:0px;background:transparent;color:#e5e5e5;selection-background-color:#3c665e;selection-color:#ffffff;}");
+        lineEdit()->setTextMargins(0, 0, 0, 0);
+    }
+  protected:
+    bool event(QEvent *event) override {
+        const bool result = QDoubleSpinBox::event(event);
+        switch (event->type()) {
+        case QEvent::Resize: case QEvent::Show: case QEvent::Polish:
+        case QEvent::StyleChange: case QEvent::FontChange: case QEvent::LayoutRequest:
+            fitText(); break;
+        default: break;
+        }
+        return result;
+    }
+};
 // Let the number field use native focus/text input. The grip alone handles dragging.
 class ParameterGrip : public QWidget {
     QDoubleSpinBox *field;
@@ -85,7 +110,7 @@ ParameterPanel::ParameterPanel(Engine &e, std::function<void()> onLiveChange, QW
     auto note = new QLabel("Click a value, type 0–100 and press Enter. Drag the dotted grip to adjust live. Intensity controls brightness; other values are DMX percentages. Record / Update saves the look to a cue."); note->setWordWrap(true); layout->addWidget(note);
     table = new QTableWidget(0, 4); table->setObjectName("parameterTable"); table->setHorizontalHeaderLabels({"Control", "Resolution", "Value (%)", "Source"});
     table->setEditTriggers(QAbstractItemView::NoEditTriggers); table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setStyleSheet("QWidget#parameterValueCell{background:transparent;} QDoubleSpinBox{padding:3px 6px;min-height:0px;} QDoubleSpinBox QLineEdit{padding:0px;margin:0px;border:0px;background:transparent;}");
+    table->setStyleSheet("QWidget#parameterValueCell{background:transparent;}");
     table->verticalHeader()->hide(); table->verticalHeader()->setDefaultSectionSize(40);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents); table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     // Live values/source labels must not move the input fields under the pointer.
@@ -143,9 +168,7 @@ void ParameterPanel::populate(int id) {
         for (int col : {0, 1, 3}) table->item(row, col)->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         auto holder = new QWidget; holder->setObjectName("parameterValueCell");
         auto valueLayout = new QHBoxLayout(holder); valueLayout->setContentsMargins(2, 2, 2, 2); valueLayout->setSpacing(3);
-        auto value = new QDoubleSpinBox;
-        // Console's global NumberDrag installer must leave these native editors alone.
-        value->setProperty("nativeNumberEditing", true); value->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        auto value = new ParameterNumber;
         value->setObjectName(QString("parameterLevel%1").arg(key)); value->setRange(0, 100); value->setDecimals(decimals); value->setSingleStep(0.1); value->setMinimumWidth(106);
         value->setKeyboardTracking(false); value->setFocusPolicy(Qt::StrongFocus); value->setAlignment(Qt::AlignRight);
         value->setAccessibleName(engine.controlLabel(key) + " value, percent");

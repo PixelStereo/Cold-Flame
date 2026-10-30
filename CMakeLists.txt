@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(ColdFlame VERSION 0.12.1 LANGUAGES CXX)
+project(ColdFlame VERSION 0.12.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network Test)
@@ -44,15 +44,27 @@ set_tests_properties(interface PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen
 add_test(NAME interface-hidpi COMMAND ${CMAKE_COMMAND}
     "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
     "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-hidpi.log"
-    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace;channelColorSwatchContextAndCancel;cueColorPaletteUpdatesKeepIntensityAndStepScope;directCuePaletteAssignmentDialog;updatingPartialLocalColorDoesNotLeakToSharedCue;paletteReferencesVisibleInCueAndStepLists;submasterBumpModesAndSettings;submasterCardActionsStayGroupedOnResize;submasterTimesAcceptTypedInput;fixtureDefinitionEditorModesValidationAndRoundtrip;fixtureDefinitionPatchDraftAndUsedProfileCopy;patchConflictResolutionPreservesOtherStartsAndCueData;batchPatchConflictIncludesFineByteAndKeepsOtherCopies;multicellParameterScopeColorAndCancel;fixtureSearchScalesAndKeepsSelectionOnCancel;oflPatchImportExportDraftAndSaveReload;parameterValuesAcceptTypingAndDraggingDuringRefresh;parameterFieldsReceiveWindowMouseAndKeyboardEvents;parameterIntensityValueSurvivesInhibitorsAndShowsOutputState"
+    "-DTEST_ARGUMENTS=channelGridRemainsStable;channelGridStaysPutDuringFade;tableEditorsAndSubmasterBank;contextualFooterAndNumberDragging;inlineTriggersFlagsAndDragValidation;liveChannelModesAndSelectedMembership;balancedButtonLayout;fixturePatchParameterEditorAndRecall;trackingViewEditingAndTrace;channelColorSwatchContextAndCancel;cueColorPaletteUpdatesKeepIntensityAndStepScope;directCuePaletteAssignmentDialog;updatingPartialLocalColorDoesNotLeakToSharedCue;paletteReferencesVisibleInCueAndStepLists;submasterBumpModesAndSettings;submasterCardActionsStayGroupedOnResize;submasterTimesAcceptTypedInput;fixtureDefinitionEditorModesValidationAndRoundtrip;fixtureDefinitionPatchDraftAndUsedProfileCopy;patchConflictResolutionPreservesOtherStartsAndCueData;batchPatchConflictIncludesFineByteAndKeepsOtherCopies;multicellParameterScopeColorAndCancel;fixtureSearchScalesAndKeepsSelectionOnCancel;oflPatchImportExportDraftAndSaveReload;parameterValuesAcceptTypingAndDraggingDuringRefresh;parameterFieldsReceiveWindowMouseAndKeyboardEvents;parameterIntensityValueSurvivesInhibitorsAndShowsOutputState;parameterDigitsAreActuallyPainted"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-hidpi PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=2")
 add_test(NAME interface-windows-style COMMAND ${CMAKE_COMMAND}
     "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
     "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-windows-style.log"
-    "-DTEST_ARGUMENTS=-style;windows;balancedButtonLayout;channelGridRemainsStable;channelGridStaysPutDuringFade;submasterCardActionsStayGroupedOnResize;submasterTimesAcceptTypedInput;fixtureDefinitionEditorModesValidationAndRoundtrip;fixtureDefinitionPatchDraftAndUsedProfileCopy;patchConflictResolutionPreservesOtherStartsAndCueData;batchPatchConflictIncludesFineByteAndKeepsOtherCopies;multicellParameterScopeColorAndCancel;fixtureSearchScalesAndKeepsSelectionOnCancel;oflPatchImportExportDraftAndSaveReload;parameterValuesAcceptTypingAndDraggingDuringRefresh;parameterFieldsReceiveWindowMouseAndKeyboardEvents;parameterIntensityValueSurvivesInhibitorsAndShowsOutputState"
+    "-DTEST_ARGUMENTS=-style;windows;balancedButtonLayout;channelGridRemainsStable;channelGridStaysPutDuringFade;submasterCardActionsStayGroupedOnResize;submasterTimesAcceptTypedInput;fixtureDefinitionEditorModesValidationAndRoundtrip;fixtureDefinitionPatchDraftAndUsedProfileCopy;patchConflictResolutionPreservesOtherStartsAndCueData;batchPatchConflictIncludesFineByteAndKeepsOtherCopies;multicellParameterScopeColorAndCancel;fixtureSearchScalesAndKeepsSelectionOnCancel;oflPatchImportExportDraftAndSaveReload;parameterValuesAcceptTypingAndDraggingDuringRefresh;parameterFieldsReceiveWindowMouseAndKeyboardEvents;parameterIntensityValueSurvivesInhibitorsAndShowsOutputState;parameterDigitsAreActuallyPainted"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 set_tests_properties(interface-windows-style PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(APPLE)
+    # Offscreen GUI tests do not exercise Cocoa's native spin-box text geometry.
+    foreach(FLAME_NATIVE_SCALE IN ITEMS 1 2)
+        add_test(NAME interface-macos-native-${FLAME_NATIVE_SCALE} COMMAND ${CMAKE_COMMAND}
+            "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
+            "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface-macos-native-${FLAME_NATIVE_SCALE}.log"
+            "-DTEST_ARGUMENTS=-style;macintosh;parameterDigitsAreActuallyPainted;parameterValuesAcceptTypingAndDraggingDuringRefresh;parameterFieldsReceiveWindowMouseAndKeyboardEvents"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
+        set_tests_properties(interface-macos-native-${FLAME_NATIVE_SCALE} PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=cocoa;QT_SCALE_FACTOR=${FLAME_NATIVE_SCALE};FLAME_NATIVE_PARAMETER_RENDER=1")
+    endforeach()
+endif()
 if(WIN32)
     # Qt's offscreen platform does not use the native Windows font database.
     # Load installed fonts for meaningful metrics instead of placeholder glyphs.

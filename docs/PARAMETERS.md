@@ -35,3 +35,9 @@ Version 0.12.1 separates native text entry from dragging, prevents table editors
 from intercepting input, and fixes editable intensity being replaced by inhibited
 output. Input tests cover real window mouse targeting, decimal entry, live
 refresh, dragging, compact windows, 200% scaling and Qt's Windows style.
+
+Version 0.12.2 explicitly sizes and colours the numeric text editor, so native
+spin-box insets cannot hide its digits. Visual tests compare the rendered field
+against the same field with its text cleared, checking visible, contrasting glyphs
+for zero, fractional and maximum values, including 32-bit precision. macOS CI also
+runs these checks under Cocoa's native Mac style at normal and 200% scaling.

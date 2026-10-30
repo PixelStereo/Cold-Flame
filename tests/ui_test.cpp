@@ -30,6 +30,55 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void parameterDigitsAreActuallyPainted() {
+        if (qEnvironmentVariableIsSet("FLAME_NATIVE_PARAMETER_RENDER")) {
+            QCOMPARE(QGuiApplication::platformName(), QString("cocoa"));
+            QVERIFY2(QApplication::style()->objectName().contains("mac", Qt::CaseInsensitive), qPrintable(QApplication::style()->objectName()));
+        }
+        Engine engine; engine.fixtures[1] = {"rgb", 0}; engine.patch[1] = 513;
+        auto fine = genericFixtures()["dimmer16"]; fine.name = "32-bit parameter";
+        fine.modes[0].parameters = {{"Pan", {1, 2, 3, 4}, 50}}; fine.modes[0].attributes = {"Pan"}; fine.modes[0].footprint = 4;
+        engine.fixtureProfiles["fine-render"] = fine; engine.fixtures[2] = {"fine-render", 0}; engine.patch[2] = 1025;
+        engine.manual[1] = {60, 0}; engine.colorPalettes[2] = {"Blue", 0, 0, 1}; QVERIFY(engine.applyColorPalette(1, 2));
+        QVERIFY(engine.storeCue("10")); engine.insertStoredCue(0, "10"); engine.sequences[0].cues[0].time = 0;
+        engine.manual.clear(); engine.go(0); engine.tick(0);
+        Console theme({}, false); ParameterPanel panel(engine, [] {});
+        panel.setStyleSheet(theme.styleSheet()); panel.resize(620, 680); panel.show();
+        QApplication::setActiveWindow(&panel); QCoreApplication::processEvents();
+        auto table = panel.findChild<QTableWidget *>("parameterTable"); QVERIFY(table);
+        for (int channel : {1, 2}) {
+            panel.selectChannel(channel); panel.refresh(); QCoreApplication::processEvents();
+            table->selectRow(qMin(1, table->rowCount() - 1));
+            if (channel == 1 && qEnvironmentVariableIsSet("FLAME_NATIVE_PARAMETER_RENDER"))
+                QVERIFY(panel.grab().save("parameters-native-" + qEnvironmentVariable("QT_SCALE_FACTOR") + ".png"));
+            QList<QDoubleSpinBox *> fields;
+            for (int row = 0; row < table->rowCount(); ++row) fields << table->cellWidget(row, 2)->findChild<QDoubleSpinBox *>();
+            QVERIFY(!fields.isEmpty());
+            for (auto field : fields) for (double value : {0., 48.5, 100.}) {
+                field->clearFocus(); field->setValue(value); QCoreApplication::processEvents();
+                auto edit = field->findChild<QLineEdit *>(); QVERIFY(edit); edit->deselect();
+                const QString text = edit->text(); QVERIFY2(!text.isEmpty(), qPrintable(field->objectName()));
+                QVERIFY2(edit->isVisible() && edit->visibleRegion().contains(edit->rect().center()), qPrintable(QString("Hidden/clipped editor: %1").arg(field->objectName())));
+                QVERIFY2(field->rect().contains(edit->geometry()), qPrintable(QString("Editor outside field: %1").arg(field->objectName())));
+                auto grabText = [&] {
+                    const auto pixmap = field->grab(); const double scale = pixmap.devicePixelRatio();
+                    const QRect crop(qRound(edit->x() * scale), qRound(edit->y() * scale), qRound(edit->width() * scale), qRound(edit->height() * scale));
+                    auto result = pixmap.toImage().copy(crop).convertToFormat(QImage::Format_ARGB32); result.setDevicePixelRatio(scale); return result;
+                };
+                const auto visible = grabText();
+                QImage empty;
+                { QSignalBlocker block(edit); edit->clear(); empty = grabText(); edit->setText(text); }
+                QCOMPARE(visible.size(), empty.size());
+                int ink = 0;
+                for (int y = 0; y < visible.height(); ++y) for (int x = 0; x < visible.width(); ++x)
+                    if (qGray(visible.pixel(x, y)) > qGray(empty.pixel(x, y)) + 50) ++ink;
+                const QString diagnostic = QString("%1 '%2': %3 bright text pixels; field %4x%5, editor %6x%7; platform %8, style %9")
+                    .arg(field->objectName(), text).arg(ink).arg(field->width()).arg(field->height()).arg(edit->width()).arg(edit->height())
+                    .arg(QGuiApplication::platformName(), QApplication::style()->objectName());
+                QVERIFY2(ink >= 8 * visible.devicePixelRatio() * visible.devicePixelRatio(), qPrintable(diagnostic));
+            }
+        }
+    }
     void parameterIntensityValueSurvivesInhibitorsAndShowsOutputState() {
         Engine engine; Submaster sub; sub.mode = Submaster::Mode::Inhibitive; sub.values[1] = 100; sub.level = 0;
         engine.submasters << sub;

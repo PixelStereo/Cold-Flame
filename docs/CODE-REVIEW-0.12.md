@@ -1,5 +1,20 @@
 # Code and UX review: OFL fixtures and searchable fixture selection
 
+## 0.12.2: visible parameter digits
+
+The user reported blank numeric fields after the 0.12.1 input fix. The earlier
+tests checked editing, stored numbers and geometry, but not the rendered text;
+the offscreen macOS tests also did not establish Cocoa/native-style coverage.
+
+Parameter fields now explicitly size the internal text editor and define its
+foreground/background colours independently of native spin-button insets. A
+pixel-level regression compares the rendered field with and without its text,
+requiring visible, contrasting digits. It covers 0, fractional values and 100,
+RGB cue/palette controls, selected rows and 32-bit precision. Additional macOS
+CTest runs require Cocoa and a native Mac style at 100% and 200% scale, covering
+both painting and input. This closes the visual-coverage gap rather than using
+numeric state as evidence of visible text.
+
 ## 0.12.1: Parameters input follow-up
 
 - Parameter text fields now use native focus and editing, with a separate dotted
