@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -93,14 +94,16 @@ def main():
         assets.append(destination)
     elif args.platform == 'windows':
         run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
-        run('cpack', '--config', build / 'CPackConfig.cmake', '-G', 'NSIS', '-B', output,
-            '-D', f'CPACK_PACKAGE_FILE_NAME={name}-setup')
         destination = output / f'{name}-setup.exe'
-        if not destination.is_file():
-            raise RuntimeError('NSIS did not produce the expected installer')
+        makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
+        # The user picks at install time: all users (the default) or the current user only
+        run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={args.version.removeprefix("v")}', '/DAPP_EXE=bin\\cold-flame.exe',
+            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'packaging/windows.nsi')
+        # What users get is the installer: install it silently somewhere clean and start what it installed
+        with tempfile.TemporaryDirectory() as clean:
+            run(destination, '/S', '/CurrentUser', f'/D={clean}')
+            run(Path(clean) / 'app/bin/cold-flame.exe', '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         assets.append(destination)
-        # CPack leaves staging data in its output directory; publish only final assets.
-        shutil.rmtree(output / '_CPack_Packages', ignore_errors=True)
     else:
         launcher = stage / 'AppRun'
         launcher.write_text('''#!/bin/sh
