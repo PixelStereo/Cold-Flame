@@ -12,6 +12,15 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'third_party/pxs/scripts'))
+from build_id import display_version  # noqa: E402  the version the application carries in its name
+
+
+def app_name(version):
+    """'Cold Flame 0.12.2' for a release, '0.12.2+3' three commits after it, '0.12.2+3+' with uncommitted changes."""
+    release = version if re.fullmatch(r'v?\d+\.\d+(\.\d+)?', version) else None
+    fallback = re.search(r'project\(ColdFlame VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text()).group(1)
+    return f'Cold Flame {display_version(ROOT, release, fallback)}'
 
 
 def run(*args, **kwargs):
@@ -90,10 +99,18 @@ def main():
         shutil.rmtree(stage)
     run('cmake', '--install', build, '--config', 'Release', '--prefix', stage)
     executable = validate_payload(stage, args.platform)
+    display = app_name(args.version)
+    # The bundle and the Windows executable carry the version in their name
+    if args.platform == 'macos':
+        (stage / 'cold-flame.app').rename(stage / f'{display}.app')
+        executable = stage / f'{display}.app/Contents/MacOS/cold-flame'
+    elif args.platform == 'windows':
+        executable.rename(executable.with_name(f'{display}.exe'))
+        executable = executable.with_name(f'{display}.exe')
     name = f'ColdFlame-{args.version}-{args.platform}-{args.arch}'
     assets = []
     if args.platform == 'macos':
-        bundle = stage / 'cold-flame.app'
+        bundle = stage / f'{display}.app'
         if args.arch == 'universal':
             binaries = [executable]
             binaries.extend((bundle / 'Contents/Frameworks').glob('*.dylib'))
@@ -115,12 +132,12 @@ def main():
         destination = output / f'{name}-setup.exe'
         makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
         # The user picks at install time: all users (the default) or the current user only
-        run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={args.version.removeprefix("v")}', '/DAPP_EXE=bin\\cold-flame.exe',
-            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'packaging/windows.nsi')
+        run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={display.removeprefix("Cold Flame ")}', f'/DAPP_EXE=bin\\{display}.exe',
+            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'third_party/pxs/packaging/windows.nsi')
         # What users get is the installer: install it silently somewhere clean and start what it installed
         with tempfile.TemporaryDirectory() as clean:
             run(destination, '/S', '/CurrentUser', f'/D={clean}')
-            run(Path(clean) / 'app/bin/cold-flame.exe', '--smoke-test', env=smoke_environment(args.platform), timeout=30)
+            run(Path(clean) / 'app/bin' / f'{display}.exe', '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         assets.append(destination)
     else:
         launcher = stage / 'AppRun'
