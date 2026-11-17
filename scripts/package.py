@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import zipfile
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,6 +32,23 @@ def smoke_environment(platform="linux"):
     return env
 
 
+def bundle_windows_runtime(destination):
+    """Put the Visual C++ runtime DLLs next to the executable: the user installs nothing else."""
+    redist = os.environ.get('VCToolsRedistDir')
+    folders = [Path(redist) / 'x64'] if redist else sorted(
+        Path(os.environ.get('ProgramFiles', 'C:/Program Files')).glob('Microsoft Visual Studio/*/*/VC/Redist/MSVC/*/x64'))
+    crt = [crt for folder in folders[-1:] for crt in folder.glob('Microsoft.VC*.CRT')]
+    if not crt:
+        raise RuntimeError('The Microsoft Visual C++ runtime DLLs were not found')
+    for dll in crt[0].glob('*.dll'):
+        shutil.copy2(dll, destination)
+    for installer in destination.parent.rglob('vc_redist*.exe'):
+        installer.unlink()
+    for name in ('vcruntime140.dll', 'msvcp140.dll'):
+        if not (destination / name).is_file():
+            raise RuntimeError(f'Missing Windows runtime: {name}')
+
+
 def validate_payload(stage, platform):
     if platform == 'macos':
         executable = stage / 'cold-flame.app/Contents/MacOS/cold-flame'
@@ -48,13 +65,6 @@ def validate_payload(stage, platform):
     if not executable.is_file() or not runtime or not plugins:
         raise RuntimeError(f'Incomplete {platform} package: executable, Qt Core or platform plugin missing')
     return executable
-
-
-def zip_payload(stage, destination, folder):
-    with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-        for file in sorted(stage.rglob('*')):
-            if file.is_file():
-                archive.write(file, Path(folder) / file.relative_to(stage))
 
 
 def main():
@@ -99,29 +109,19 @@ def main():
         destination = output / f'{name}.zip'
         run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', bundle, destination)
         assets.append(destination)
-        disk = build / 'dmg-content'
-        if disk.exists():
-            shutil.rmtree(disk)
-        disk.mkdir()
-        shutil.copytree(bundle, disk / bundle.name, symlinks=True)
-        (disk / 'Applications').symlink_to('/Applications')
-        destination = output / f'{name}.dmg'
-        run('hdiutil', 'create', '-volname', 'Cold Flame', '-srcfolder', disk,
-            '-ov', '-format', 'UDZO', destination)
-        assets.append(destination)
     elif args.platform == 'windows':
+        bundle_windows_runtime(stage / 'bin')
         run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
-        destination = output / f'{name}-portable.zip'
-        zip_payload(stage, destination, name)
-        assets.append(destination)
-        run('cpack', '--config', build / 'CPackConfig.cmake', '-G', 'NSIS', '-B', output,
-            '-D', f'CPACK_PACKAGE_FILE_NAME={name}-setup')
         destination = output / f'{name}-setup.exe'
-        if not destination.is_file():
-            raise RuntimeError('NSIS did not produce the expected installer')
+        makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
+        # The user picks at install time: all users (the default) or the current user only
+        run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={args.version.removeprefix("v")}', '/DAPP_EXE=bin\\cold-flame.exe',
+            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'packaging/windows.nsi')
+        # What users get is the installer: install it silently somewhere clean and start what it installed
+        with tempfile.TemporaryDirectory() as clean:
+            run(destination, '/S', '/CurrentUser', f'/D={clean}')
+            run(Path(clean) / 'app/bin/cold-flame.exe', '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         assets.append(destination)
-        # CPack leaves staging data in its output directory; publish only final assets.
-        shutil.rmtree(output / '_CPack_Packages', ignore_errors=True)
     else:
         launcher = stage / 'AppRun'
         launcher.write_text('''#!/bin/sh

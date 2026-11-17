@@ -4,7 +4,6 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-import zipfile
 
 spec = importlib.util.spec_from_file_location('release_package', Path(__file__).resolve().parents[1] / 'scripts/package.py')
 package = importlib.util.module_from_spec(spec)
@@ -42,19 +41,6 @@ class PackageTests(unittest.TestCase):
     def test_native_smoke_uses_deployed_platform_plugins(self):
         self.assertEqual(package.smoke_environment('macos')['QT_QPA_PLATFORM'], 'cocoa')
         self.assertEqual(package.smoke_environment('windows')['QT_QPA_PLATFORM'], 'windows')
-
-    def test_portable_zip_keeps_dlls_next_to_executable(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            stage = root / 'stage'
-            (stage / 'bin').mkdir(parents=True)
-            (stage / 'bin/cold-flame.exe').write_bytes(b'app')
-            (stage / 'bin/Qt6Core.dll').write_bytes(b'qt')
-            destination = root / 'app.zip'
-            package.zip_payload(stage, destination, 'ColdFlame-test')
-            with zipfile.ZipFile(destination) as archive:
-                self.assertEqual(archive.read('ColdFlame-test/bin/cold-flame.exe'), b'app')
-                self.assertEqual(archive.read('ColdFlame-test/bin/Qt6Core.dll'), b'qt')
 
 
 if __name__ == '__main__':

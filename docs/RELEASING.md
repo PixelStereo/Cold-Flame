@@ -4,9 +4,9 @@ CI runs on every push and pull request. It builds, runs the tests, deploys Qt de
 
 | Platform | Runner / architecture | Downloads |
 |---|---|---|
-| macOS Apple Silicon + Intel | macos-15-intel / universal arm64+x86_64 | `.dmg` and `.zip` containing one universal `.app` |
+| macOS Apple Silicon + Intel | macos-15-intel / universal arm64+x86_64 | `.zip` containing one universal `.app` |
 | Linux | Ubuntu 22.04 / x86_64 | `.tar.gz` with `AppRun`, executable, Qt libraries and plugins |
-| Windows | Windows 2022 / x86_64 | NSIS `-setup.exe` installer and `-portable.zip` containing the executable and DLLs |
+| Windows | Windows 2022 / x86_64 | NSIS `-setup.exe` installer |
 
 Packages are built natively with Qt 6.9.3. SHA-256 checksum files accompany every download. The Linux package targets Ubuntu 22.04 or newer compatible desktop systems and uses their system graphics libraries. Extract the archive and run `./AppRun`; no Qt development installation is required.
 
