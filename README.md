@@ -153,3 +153,7 @@ Submasters now support additive HTP or inhibitive intensity, with timed bump con
 Create custom fixture definitions from **Patch → Define fixture…**. The editor supports multiple modes, attributes, byte offsets, raw DMX home values and Snap. **Unpatch conflicting outputs…** previews how to free occupied slots for a new patch. See [fixture definitions](docs/FIXTURE-EDITOR.md).
 
 Multicell GDTF fixtures can now expand geometry references into independent cell controls. Select cells in Parameters, choose per-cell colors, or enter `101.2 At 50`. See [Multicell fixtures and tested profiles](docs/MULTICELL.md).
+
+## License
+
+AGPL-3.0, see [LICENSE](LICENSE). The number-drag interaction adapted from NyxMap keeps its [MIT notice](licenses/NyxMap-MIT.txt); the Open Fixture Library test fixtures keep their MIT license.
