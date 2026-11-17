@@ -1,17 +1,6 @@
 # Cold Flame
 
 Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
-**Development version 0.12.2: full Eos coverage is a goal, not an existing capability.**
-
-![Interface](cold-flame-preview.png)
-
-![Shared cue library](cue-library-preview.png)
-
-![Patch overview](patch-preview.png)
-
-![Network outputs](network-preview.png)
-
-![Fixture parameters and tracking](fixtures-preview.png)
 
 ## Downloads and automated releases
 
