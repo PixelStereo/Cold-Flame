@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,13 +47,6 @@ def validate_payload(stage, platform):
     if not executable.is_file() or not runtime or not plugins:
         raise RuntimeError(f'Incomplete {platform} package: executable, Qt Core or platform plugin missing')
     return executable
-
-
-def zip_payload(stage, destination, folder):
-    with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
-        for file in sorted(stage.rglob('*')):
-            if file.is_file():
-                archive.write(file, Path(folder) / file.relative_to(stage))
 
 
 def main():
@@ -99,21 +91,8 @@ def main():
         destination = output / f'{name}.zip'
         run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', bundle, destination)
         assets.append(destination)
-        disk = build / 'dmg-content'
-        if disk.exists():
-            shutil.rmtree(disk)
-        disk.mkdir()
-        shutil.copytree(bundle, disk / bundle.name, symlinks=True)
-        (disk / 'Applications').symlink_to('/Applications')
-        destination = output / f'{name}.dmg'
-        run('hdiutil', 'create', '-volname', 'Cold Flame', '-srcfolder', disk,
-            '-ov', '-format', 'UDZO', destination)
-        assets.append(destination)
     elif args.platform == 'windows':
         run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
-        destination = output / f'{name}-portable.zip'
-        zip_payload(stage, destination, name)
-        assets.append(destination)
         run('cpack', '--config', build / 'CPackConfig.cmake', '-G', 'NSIS', '-B', output,
             '-D', f'CPACK_PACKAGE_FILE_NAME={name}-setup')
         destination = output / f'{name}-setup.exe'
