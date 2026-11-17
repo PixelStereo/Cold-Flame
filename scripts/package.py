@@ -32,6 +32,23 @@ def smoke_environment(platform="linux"):
     return env
 
 
+def bundle_windows_runtime(destination):
+    """Put the Visual C++ runtime DLLs next to the executable: the user installs nothing else."""
+    redist = os.environ.get('VCToolsRedistDir')
+    folders = [Path(redist) / 'x64'] if redist else sorted(
+        Path(os.environ.get('ProgramFiles', 'C:/Program Files')).glob('Microsoft Visual Studio/*/*/VC/Redist/MSVC/*/x64'))
+    crt = [crt for folder in folders[-1:] for crt in folder.glob('Microsoft.VC*.CRT')]
+    if not crt:
+        raise RuntimeError('The Microsoft Visual C++ runtime DLLs were not found')
+    for dll in crt[0].glob('*.dll'):
+        shutil.copy2(dll, destination)
+    for installer in destination.parent.rglob('vc_redist*.exe'):
+        installer.unlink()
+    for name in ('vcruntime140.dll', 'msvcp140.dll'):
+        if not (destination / name).is_file():
+            raise RuntimeError(f'Missing Windows runtime: {name}')
+
+
 def validate_payload(stage, platform):
     if platform == 'macos':
         executable = stage / 'cold-flame.app/Contents/MacOS/cold-flame'
@@ -93,6 +110,7 @@ def main():
         run('ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', bundle, destination)
         assets.append(destination)
     elif args.platform == 'windows':
+        bundle_windows_runtime(stage / 'bin')
         run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
         destination = output / f'{name}-setup.exe'
         makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
