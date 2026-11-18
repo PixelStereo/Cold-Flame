@@ -863,8 +863,6 @@ class Console : public QMainWindow {
  QPushButton:hover{background:@midlight;border-color:@focus;} QPushButton:checked{background:@fill;border-color:@focus;}
  QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:@window;border:1px solid @midlight;border-radius:3px;padding:7px;selection-background-color:@light;}
  QTabBar::tab{background:@button;padding:9px;border:1px solid @midlight;} QTabBar::tab:selected{background:@button;color:#f3fff9;}
- QCheckBox::indicator,QAbstractItemView::indicator{width:13px;height:13px;border:1px solid #6e9b8c;border-radius:2px;background:@window;}
- QCheckBox::indicator:checked,QAbstractItemView::indicator:checked{background:#b7cfc1;border-color:#b7cfc1;}
  QGroupBox{border:1px solid @midlight;border-radius:5px;margin-top:12px;padding-top:15px;}
  QListWidget,QTableWidget{background:@base;alternate-background-color:@window;border:1px solid @midlight;border-radius:4px;outline:0;}
  QListWidget::item{padding:10px;border-bottom:1px solid @midlight;} QListWidget::item:selected{background:@button;color:#f3fff9;}
