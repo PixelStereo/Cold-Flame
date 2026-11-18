@@ -107,7 +107,8 @@ def main():
     elif args.platform == 'windows':
         executable.rename(executable.with_name(f'{display}.exe'))
         executable = executable.with_name(f'{display}.exe')
-    name = f'ColdFlame-{args.version}-{args.platform}-{args.arch}'
+    # <App>-<os>-<arch>-<tag>: the same rule in every Pixel Stereo application
+    name = f"ColdFlame-{args.platform}-{'x64' if args.arch == 'x86_64' else args.arch}-{args.version}"
     assets = []
     if args.platform == 'macos':
         bundle = stage / f'{display}.app'
@@ -129,7 +130,7 @@ def main():
     elif args.platform == 'windows':
         bundle_windows_runtime(stage / 'bin')
         run(executable, '--smoke-test', env=smoke_environment(args.platform), timeout=30)
-        destination = output / f'{name}-setup.exe'
+        destination = output / f'{name}-Setup.exe'
         makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
         # The user picks at install time: all users (the default) or the current user only
         run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={display.removeprefix("Cold Flame ")}', f'/DAPP_EXE=bin\\{display}.exe',

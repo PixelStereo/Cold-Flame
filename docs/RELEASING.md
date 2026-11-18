@@ -6,7 +6,7 @@ CI runs on every push and pull request. It builds, runs the tests, deploys Qt de
 |---|---|---|
 | macOS Apple Silicon + Intel | macos-15-intel / universal arm64+x86_64 | `.zip` containing one universal `.app` |
 | Linux | Ubuntu 22.04 / x86_64 | `.tar.gz` with `AppRun`, executable, Qt libraries and plugins |
-| Windows | Windows 2022 / x86_64 | NSIS `-setup.exe` installer |
+| Windows | Windows 2022 / x86_64 | NSIS `-Setup.exe` installer |
 
 Packages are built natively with Qt 6.9.3. SHA-256 checksum files accompany every download. The Linux package targets Ubuntu 22.04 or newer compatible desktop systems and uses their system graphics libraries. Extract the archive and run `./AppRun`; no Qt development installation is required.
 
@@ -37,3 +37,5 @@ python scripts/package.py --platform linux --arch x86_64 --version v0.3.2
 Select `macos` with `universal` (or one architecture), or `windows` with `x86_64`, as appropriate. The macOS CI sets `CMAKE_OSX_ARCHITECTURES="arm64;x86_64"`. It verifies both architecture slices in the app, bundled Qt frameworks and dylibs, and smoke-tests the native Intel slice. A native Apple Silicon launch is not part of this Intel-hosted check. The package script rejects platform mismatches, checks the payload includes Qt Core and a native platform plugin, and launches the installed executable with the build machine's Qt environment removed.
 
 Runtime deployment uses [Qt's native deployment API](https://doc.qt.io/qt-6.8/qt-deploy-runtime-dependencies.html). Runner architectures follow the [GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+
+Release files are named `ColdFlame-<os>-<arch>-<tag>` (`ColdFlame-macos-universal-v0.12.2.zip`, `ColdFlame-windows-x64-v0.12.2-Setup.exe`, `ColdFlame-linux-x64-v0.12.2.tar.gz`), as in every Pixel Stereo application.
