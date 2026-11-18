@@ -1,3 +1,4 @@
+#include <pxs/Theme.h>
 #include "cardbank.h"
 #include "palettereferences.h"
 #include "blinddialog.h"
@@ -851,28 +852,30 @@ class Console : public QMainWindow {
         setWindowTitle("COLD FLAME[*] — Lighting workspace");
         resize(1440, 940);
         setMinimumSize(1100, 720);
-        setStyleSheet(R"(
- QWidget{background:#171819;color:#e5e5e5;font:12px 'DejaVu Sans';}
+        // The graphite look shared by every Pixel Stereo application (palette, Fusion, check boxes, tabs, sections). This
+        // window's own structure keeps its scope: written with the same colour tokens, on the window, where it outranks
+        // the sheets of the widgets inside it
+        const pxs::Palette palette = pxs::graphite();
+        pxs::apply(*qApp, palette);
+        setStyleSheet(pxs::resolve(QStringLiteral(R"(
+ QWidget{background:@base;color:@text;font:12px 'DejaVu Sans';}
  QLabel{background:transparent;}
- QLabel#title{font-size:23px;font-weight:700;letter-spacing:2px;color:#fafafa;}
- QLabel#section{color:#96999d;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 0;}
- QLabel#playback{background:#242628;border-left:3px solid #b7cfc1;padding:14px;color:#c2e5d3;font-size:15px;font-weight:600;}
- QPushButton{background:#292c2e;border:1px solid #404346;border-radius:4px;padding:7px 11px;min-height:18px;}
- QPushButton:hover{background:#35393b;border-color:#9cb8af;} QPushButton:checked{background:#314c44;}
- QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:#222426;border:1px solid #393c3f;border-radius:3px;padding:7px;selection-background-color:#3c665e;}
- QTabBar::tab{background:#292c2e;padding:9px;border:1px solid #404346;} QTabBar::tab:selected{background:#303a36;color:#f3fff9;}
- QCheckBox::indicator,QAbstractItemView::indicator{width:13px;height:13px;border:1px solid #6e9b8c;border-radius:2px;background:#222426;}
- QCheckBox::indicator:checked,QAbstractItemView::indicator:checked{background:#b7cfc1;border-color:#b7cfc1;}
- QGroupBox{border:1px solid #404346;border-radius:5px;margin-top:12px;padding-top:15px;}
- QListWidget,QTableWidget{background:#1d1f20;alternate-background-color:#202223;border:1px solid #36393b;border-radius:4px;outline:0;}
- QListWidget::item{padding:10px;border-bottom:1px solid #303234;} QListWidget::item:selected{background:#303a36;color:#f3fff9;}
- QTableWidget::item{padding:4px;border-bottom:1px solid #303234;} QTableWidget::item:selected{background:#303a36;color:#f3fff9;}
- QHeaderView::section{background:#303234;color:#b7babe;border:0;border-bottom:1px solid #404346;padding:9px 5px;font-size:10px;font-weight:700;}
- QTableWidget{gridline-color:#303234;background:#000;} QMenuBar,QMenu{background:#242628;} QMenu::item:selected{background:#3c4842;}
- QSlider::groove:horizontal{height:5px;background:#383d3a;} QSlider::handle:horizontal{background:#b7cfc1;width:15px;margin:-6px 0;border-radius:3px;}
- QScrollBar:horizontal{background:#1d1f20;height:10px;margin:0;} QScrollBar::handle:horizontal{background:#393c3f;min-width:24px;border-radius:4px;} QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0;} QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none;}
- QProgressBar{border:0;background:#232725;max-height:4px;} QProgressBar::chunk{background:#b7cfc1;} QScrollBar:vertical{background:#1d1f20;width:10px;margin:0;} QScrollBar::handle:vertical{background:#393c3f;min-height:24px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;} QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{background:none;}
- )");
+ QLabel#title{font-size:23px;font-weight:700;letter-spacing:2px;color:@text;}
+ QLabel#section{color:@muted;font-size:11px;font-weight:700;letter-spacing:1px;padding:5px 0;}
+ QLabel#playback{background:@window;border-left:3px solid #b7cfc1;padding:14px;color:#c2e5d3;font-size:15px;font-weight:600;}
+ QPushButton{background:@button;border:1px solid @midlight;border-radius:4px;padding:7px 11px;min-height:18px;}
+ QPushButton:hover{background:@midlight;border-color:@focus;} QPushButton:checked{background:@fill;border-color:@focus;}
+ QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:@window;border:1px solid @midlight;border-radius:3px;padding:7px;selection-background-color:@light;}
+ QGroupBox{border:1px solid @midlight;border-radius:5px;margin-top:12px;padding-top:15px;}
+ QListWidget,QTableWidget{background:@base;alternate-background-color:@window;border:1px solid @midlight;border-radius:4px;outline:0;}
+ QListWidget::item{padding:10px;border-bottom:1px solid @midlight;} QListWidget::item:selected{background:@button;color:#f3fff9;}
+ QTableWidget::item{padding:4px;border-bottom:1px solid @midlight;} QTableWidget::item:selected{background:@button;color:#f3fff9;}
+ QHeaderView::section{background:@button;color:@muted;border:0;border-bottom:1px solid @midlight;padding:9px 5px;font-size:10px;font-weight:700;}
+ QTableWidget{gridline-color:@border;background:#000;} QMenuBar,QMenu{background:@window;} QMenu::item:selected{background:@light;}
+ QSlider::groove:horizontal{height:5px;background:@midlight;} QSlider::handle:horizontal{background:#b7cfc1;width:15px;margin:-6px 0;border-radius:3px;}
+ QScrollBar:horizontal{background:@base;height:10px;margin:0;} QScrollBar::handle:horizontal{background:@midlight;min-width:24px;border-radius:4px;} QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0;} QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none;}
+ QProgressBar{border:0;background:@window;max-height:4px;} QProgressBar::chunk{background:#b7cfc1;} QScrollBar:vertical{background:@base;width:10px;margin:0;} QScrollBar::handle:vertical{background:@midlight;min-height:24px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;} QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{background:none;}
+ )"), palette));
         auto editMenu = menuBar()->addMenu("Edit");
         editMenu
             ->addAction("Undo show edit", this,

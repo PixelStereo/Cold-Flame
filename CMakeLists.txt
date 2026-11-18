@@ -3,6 +3,9 @@ project(ColdFlame VERSION 0.12.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network Test)
+# Shared Pixel Stereo code (the look), pinned as a submodule
+set(PXS_BUILD_TESTS OFF)
+add_subdirectory(third_party/pxs EXCLUDE_FROM_ALL)
 find_package(ZLIB REQUIRED)
 add_library(flame src/ofl.cpp src/submasters.cpp src/colorpalettes.cpp src/colorcontrols.h src/fixtures.cpp src/engine.cpp src/engine.h src/network.cpp src/network.h src/gdtf.cpp src/gdtfgeometry.cpp src/gdtf.h)
 target_link_libraries(flame PUBLIC Qt6::Core Qt6::Network ZLIB::ZLIB)
@@ -10,7 +13,7 @@ target_include_directories(flame PUBLIC src)
 add_library(flame-ui src/fixturepicker.cpp src/fixturepicker.h src/fixtureeditor.cpp src/fixtureeditor.h src/colorpalettepanel.cpp src/colorpalettepanel.h src/fixturecolor.cpp src/fixturecolor.h src/parameterpanel.cpp src/parameterpanel.h src/patchdialog.cpp src/patchdialog.h src/blinddialog.cpp src/blinddialog.h src/outputpanel.cpp src/outputpanel.h src/tabledelegate.h src/numberdrag.h src/steptable.h src/cuelibrary.cpp src/cuelibrary.h)
 target_link_libraries(flame-ui PUBLIC flame Qt6::Widgets)
 qt_add_executable(cold-flame src/main.cpp)
-target_link_libraries(cold-flame PRIVATE flame-ui Qt6::Widgets)
+target_link_libraries(cold-flame PRIVATE flame-ui Qt6::Widgets pxs::theme)
 if(WIN32)
     set_target_properties(cold-flame PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
@@ -35,7 +38,7 @@ add_test(NAME ofl-fixtures COMMAND ${CMAKE_COMMAND}
     -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run-qt-test.cmake")
 install(TARGETS cold-flame RUNTIME DESTINATION bin BUNDLE DESTINATION .)
 add_executable(ui-tests tests/ui_test.cpp)
-target_link_libraries(ui-tests PRIVATE flame-ui Qt6::Test Qt6::Widgets)
+target_link_libraries(ui-tests PRIVATE flame-ui Qt6::Test Qt6::Widgets pxs::theme)
 add_test(NAME interface COMMAND ${CMAKE_COMMAND}
     "-DTEST_EXECUTABLE=$<TARGET_FILE:ui-tests>"
     "-DTEST_LOG=${CMAKE_CURRENT_BINARY_DIR}/interface.log"
