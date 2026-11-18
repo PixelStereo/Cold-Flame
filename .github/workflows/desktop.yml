@@ -22,15 +22,22 @@ jobs:
             platform: linux
             arch: x86_64
             qt_arch: linux_gcc_64
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            qt_arch: clang_64
+          # The Intel build is attached to the release when it passes; it does not block the release when it fails
           - os: macos-15-intel
             platform: macos
-            arch: universal
+            arch: x86_64
             qt_arch: clang_64
+            optional: true
           - os: windows-2022
             platform: windows
             arch: x86_64
             qt_arch: win64_msvc2022_64
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional || false }}
     env:
       PACKAGE_VERSION: ${{ inputs.version }}
       PACKAGE_PLATFORM: ${{ matrix.platform }}
@@ -77,7 +84,7 @@ jobs:
         shell: bash
         run: >-
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCOLD_FLAME_DEPLOY=ON
-          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
+          -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
       - name: Configure Linux
         if: runner.os == 'Linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=lib -DCOLD_FLAME_DEPLOY=ON
@@ -93,7 +100,7 @@ jobs:
         if: always() && runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: Parameter-visuals-macos
+          name: Parameter-visuals-macos-${{ matrix.arch }}
           path: build/parameters-native-*.png
           if-no-files-found: warn
           retention-days: 14

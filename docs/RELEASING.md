@@ -4,7 +4,8 @@ CI runs on every push and pull request. It builds, runs the tests, deploys Qt de
 
 | Platform | Runner / architecture | Downloads |
 |---|---|---|
-| macOS Apple Silicon + Intel | macos-15-intel / universal arm64+x86_64 | `.zip` containing one universal `.app` |
+| macOS Apple Silicon | macos-latest / arm64 | `.zip` containing the `.app` |
+| macOS Intel | macos-15-intel / x86_64 | `.zip` containing the `.app`; attached when its build passes, it does not block the release |
 | Linux | Ubuntu 22.04 / x86_64 | `.tar.gz` with `AppRun`, executable, Qt libraries and plugins |
 | Windows | Windows 2022 / x86_64 | NSIS `-Setup.exe` installer |
 
@@ -34,8 +35,8 @@ ctest --test-dir build -C Release --output-on-failure
 python scripts/package.py --platform linux --arch x86_64 --version v0.3.2
 ```
 
-Select `macos` with `universal` (or one architecture), or `windows` with `x86_64`, as appropriate. The macOS CI sets `CMAKE_OSX_ARCHITECTURES="arm64;x86_64"`. It verifies both architecture slices in the app, bundled Qt frameworks and dylibs, and smoke-tests the native Intel slice. A native Apple Silicon launch is not part of this Intel-hosted check. The package script rejects platform mismatches, checks the payload includes Qt Core and a native platform plugin, and launches the installed executable with the build machine's Qt environment removed.
+Select `macos` with `arm64` or `x86_64`, or `windows` with `x86_64`, as appropriate. The macOS CI sets `CMAKE_OSX_ARCHITECTURES` to the architecture of each runner. Each package is built and smoke-tested on a runner of its own architecture. The package script rejects platform mismatches, checks the payload includes Qt Core and a native platform plugin, and launches the installed executable with the build machine's Qt environment removed.
 
 Runtime deployment uses [Qt's native deployment API](https://doc.qt.io/qt-6.8/qt-deploy-runtime-dependencies.html). Runner architectures follow the [GitHub-hosted runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 
-Release files are named `ColdFlame-<os>-<arch>-<tag>` (`ColdFlame-macos-universal-v0.12.2.zip`, `ColdFlame-windows-x64-v0.12.2-Setup.exe`, `ColdFlame-linux-x64-v0.12.2.tar.gz`), as in every Pixel Stereo application.
+Release files are named `ColdFlame-<os>-<arch>-<tag>` (`ColdFlame-macos-arm64-v0.12.2.zip`, `ColdFlame-macos-x64-v0.12.2.zip`, `ColdFlame-windows-x64-v0.12.2-Setup.exe`, `ColdFlame-linux-x64-v0.12.2.tar.gz`), as in every Pixel Stereo application.

@@ -55,6 +55,10 @@ class UiTests : public QObject {
             for (int row = 0; row < table->rowCount(); ++row) fields << table->cellWidget(row, 2)->findChild<QDoubleSpinBox *>();
             QVERIFY(!fields.isEmpty());
             for (auto field : fields) for (double value : {0., 48.5, 100.}) {
+                // The row is brought into the viewport: on a short screen (an Apple Silicon runner) the table shows one row and a half
+                for (int r = 0; r < table->rowCount(); ++r)
+                    if (table->cellWidget(r, 2)->isAncestorOf(field)) { table->scrollTo(table->model()->index(r, 2)); break; }
+                QCoreApplication::processEvents();
                 field->clearFocus(); field->setValue(value); QCoreApplication::processEvents();
                 auto edit = field->findChild<QLineEdit *>(); QVERIFY(edit); edit->deselect();
                 const QString text = edit->text(); QVERIFY2(!text.isEmpty(), qPrintable(field->objectName()));

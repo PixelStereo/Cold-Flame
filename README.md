@@ -7,7 +7,7 @@ Desktop lighting console written in C++17 / Qt 6 for macOS, Windows and Linux.
 <!-- release-downloads:start -->
 <!-- release-downloads:end -->
 
-Each published GitHub release triggers native application builds for a universal macOS app for Apple Silicon and Intel, Linux x86_64, and Windows x86_64. Downloads include bundled Qt libraries, native platform plugins and SHA-256 checksums. Windows includes an installer `.exe`; macOS includes a `.app` ZIP; Linux includes a runnable archive. See [release instructions and signing status](docs/RELEASING.md).
+Each published GitHub release triggers native application builds for macOS (a zip for Apple Silicon and one for Intel), Linux x86_64, and Windows x86_64. Downloads include bundled Qt libraries, native platform plugins and SHA-256 checksums. Windows includes an installer `.exe`; macOS includes a `.app` ZIP; Linux includes a runnable archive. See [release instructions and signing status](docs/RELEASING.md).
 
 ## macOS: install, build and launch
 
