@@ -852,8 +852,12 @@ class Console : public QMainWindow {
         setWindowTitle("COLD FLAME[*] — Lighting workspace");
         resize(1440, 940);
         setMinimumSize(1100, 720);
-        // The graphite look shared by every Pixel Stereo application; the rest is this window's own structure
-        pxs::apply(*qApp, pxs::graphite(), QStringLiteral(R"(
+        // The graphite look shared by every Pixel Stereo application (palette, Fusion, check boxes, tabs, sections). This
+        // window's own structure keeps its scope: written with the same colour tokens, on the window, where it outranks
+        // the sheets of the widgets inside it
+        const pxs::Palette palette = pxs::graphite();
+        pxs::apply(*qApp, palette);
+        setStyleSheet(pxs::resolve(QStringLiteral(R"(
  QWidget{background:@base;color:@text;font:12px 'DejaVu Sans';}
  QLabel{background:transparent;}
  QLabel#title{font-size:23px;font-weight:700;letter-spacing:2px;color:@text;}
@@ -862,7 +866,6 @@ class Console : public QMainWindow {
  QPushButton{background:@button;border:1px solid @midlight;border-radius:4px;padding:7px 11px;min-height:18px;}
  QPushButton:hover{background:@midlight;border-color:@focus;} QPushButton:checked{background:@fill;border-color:@focus;}
  QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox{background:@window;border:1px solid @midlight;border-radius:3px;padding:7px;selection-background-color:@light;}
- QTabBar::tab{background:@button;padding:9px;border:1px solid @midlight;} QTabBar::tab:selected{background:@button;color:#f3fff9;}
  QGroupBox{border:1px solid @midlight;border-radius:5px;margin-top:12px;padding-top:15px;}
  QListWidget,QTableWidget{background:@base;alternate-background-color:@window;border:1px solid @midlight;border-radius:4px;outline:0;}
  QListWidget::item{padding:10px;border-bottom:1px solid @midlight;} QListWidget::item:selected{background:@button;color:#f3fff9;}
@@ -872,7 +875,7 @@ class Console : public QMainWindow {
  QSlider::groove:horizontal{height:5px;background:@midlight;} QSlider::handle:horizontal{background:#b7cfc1;width:15px;margin:-6px 0;border-radius:3px;}
  QScrollBar:horizontal{background:@base;height:10px;margin:0;} QScrollBar::handle:horizontal{background:@midlight;min-width:24px;border-radius:4px;} QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0;} QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none;}
  QProgressBar{border:0;background:@window;max-height:4px;} QProgressBar::chunk{background:#b7cfc1;} QScrollBar:vertical{background:@base;width:10px;margin:0;} QScrollBar::handle:vertical{background:@midlight;min-height:24px;border-radius:4px;} QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;} QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical{background:none;}
- )"));
+ )"), palette));
         auto editMenu = menuBar()->addMenu("Edit");
         editMenu
             ->addAction("Undo show edit", this,
