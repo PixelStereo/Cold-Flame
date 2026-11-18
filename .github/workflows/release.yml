@@ -39,3 +39,11 @@ jobs:
         run: |
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
           gh release upload "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+
+  # The README download badges and VERSION follow the latest complete release
+  downloads:
+    needs: publish
+    permissions:
+      contents: write
+    uses: PixelStereo/pxs/.github/workflows/release-downloads.yml@v0.12.1
+    with: { app: ColdFlame, platforms: "mac,win,linux", pxs-ref: v0.12.1 }
