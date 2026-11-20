@@ -3,6 +3,7 @@
 #include <QtTest>
 #include "fixtureeditor.h"
 #include "fixturepicker.h"
+#include "monitorpanel.h"
 class UiTests : public QObject {
     Q_OBJECT
     static void dropStep(StepTable *table, int source, int beforeRow, bool gutter = false) {
@@ -30,6 +31,44 @@ class UiTests : public QObject {
         table->customContextMenuRequested(point);
     }
   private slots:
+    void networkMonitorDockIsHiddenUntilAskedInTheShowMenu() {
+        Console window({}, false);
+        window.show();
+        auto dock = window.findChild<QDockWidget *>("networkMonitorDock");
+        QVERIFY(dock);
+        QVERIFY(!dock->isVisible());
+        QVERIFY(!window.findChild<QPushButton *>("monitorListen")->isChecked()); // and it listens only when asked again
+        dock->toggleViewAction()->trigger();
+        QVERIFY(dock->isVisible());
+    }
+    void networkMonitorListensOnlyWhenAskedAndIsReadOnly() {
+        Flame::Network network;
+        MonitorPanel panel(network);
+        panel.resize(1000, 600);
+        panel.show();
+        QVERIFY(!panel.listening()); // off until asked
+        auto adapters = panel.findChild<QComboBox *>("monitorInterface");
+        int loopback = -1;
+        for (int i = 0; i < adapters->count(); ++i) if (adapters->itemText(i).contains("[local]")) loopback = i;
+        if (loopback < 0) QSKIP("no loopback interface");
+        adapters->setCurrentIndex(loopback);
+        auto listen = panel.findChild<QPushButton *>("monitorListen");
+        listen->click();
+        QVERIFY(panel.listening());
+        QUdpSocket sender;
+        QByteArray levels(512, 0);
+        levels[2] = char(77);
+        sender.writeDatagram(Flame::artnet(levels, 0, 1), QHostAddress::LocalHost, 6454);
+        auto grid = panel.findChild<QTableWidget *>("channelGrid");
+        QTRY_COMPARE(grid->item(0, 2)->text(), QString("3\n77"));
+        // Reading a channel shows the network's level; there is nothing to send from here
+        QTest::mouseClick(grid->viewport(), Qt::LeftButton, Qt::NoModifier, grid->visualRect(grid->model()->index(0, 2)).center());
+        QTRY_VERIFY(panel.findChild<QFrame *>("channelEditor")->isVisible());
+        QVERIFY(!panel.findChild<QSpinBox *>("outputValue")->isVisibleTo(&panel));
+        QVERIFY(panel.findChild<QLabel *>("monitorUniverses")->text().contains("Art-Net U0"));
+        listen->click();
+        QVERIFY(!panel.listening());
+    }
     void parameterDigitsAreActuallyPainted() {
         if (qEnvironmentVariableIsSet("FLAME_NATIVE_PARAMETER_RENDER")) {
             QCOMPARE(QGuiApplication::platformName(), QString("cocoa"));
