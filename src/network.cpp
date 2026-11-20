@@ -50,13 +50,11 @@ Network::Network(QObject *parent) : QObject(parent) {
     // The sACN identity is the console's own and stays the same from one run to the next
     if (!QCoreApplication::organizationName().isEmpty()) {
         QSettings settings;
-        QUuid cid(settings.value("dmx/cid").toString());
-        if (cid.isNull()) {
-            cid = QUuid::createUuid();
-            settings.setValue("dmx/cid", cid.toString());
-        }
-        sender.setCid(cid);
+        QUuid stored(settings.value("dmx/cid").toString());
+        if (stored.isNull()) settings.setValue("dmx/cid", cid.toString());
+        else cid = stored;
     }
+    sender.setCid(cid);
 }
 Network::~Network() { sender.stop(); }
 bool Network::enabled() const {

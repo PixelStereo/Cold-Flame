@@ -12,6 +12,7 @@ class Network : public QObject {
     void follow();
   public:
     QList<pxs::dmx::Output> outputs;
+    QUuid cid = QUuid::createUuid(); // the console's sACN identity, also what the monitor recognises as its own
     QUdpSocket receiver; // the local OSC input
     explicit Network(QObject *parent = nullptr);
     ~Network() override;

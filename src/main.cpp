@@ -9,6 +9,7 @@
 #include "gdtf.h"
 #include "network.h"
 #include "outputpanel.h"
+#include "monitorpanel.h"
 #include "numberdrag.h"
 #include "cuelibrary.h"
 #include "steptable.h"
@@ -32,6 +33,8 @@ class Console : public QMainWindow {
     QTabWidget *workspaceTabs;
     QScrollArea *subBank;
     OutputPanel *outputPanel;
+    MonitorPanel *monitorPanel;
+    QDockWidget *monitorDock;
     QTabWidget *channelTabs;
     QComboBox *channelPages;
     int channelPage = 0;
@@ -1210,6 +1213,14 @@ class Console : public QMainWindow {
         parameterPanel = new ParameterPanel(engine, [this] { refresh(); }, channelTabs);
         parameterPanel->paletteChanged = [this] { changed(); };
         channelTabs->addTab(parameterPanel, "Parameters");
+        // The network monitor is a dock that is hidden until asked (Show menu), and listens only when asked again
+        monitorPanel = new MonitorPanel(network);
+        monitorDock = new QDockWidget("Network monitor", this);
+        monitorDock->setObjectName("networkMonitorDock");
+        monitorDock->setWidget(monitorPanel);
+        addDockWidget(Qt::BottomDockWidgetArea, monitorDock);
+        monitorDock->hide();
+        file->addAction(monitorDock->toggleViewAction());
         connect(channels, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
             const int id = item->data(Qt::UserRole).toInt();
             if (colorControls(engine, id).available()) chooseChannelColor(id);
