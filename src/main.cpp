@@ -134,8 +134,9 @@ class Console : public QMainWindow {
         fitChannels();
     }
     void refresh() {
-        outputStatus->setText(!network.enabled ? "DMX OFF" : !network.lastError.isEmpty() ? "DMX ERROR" : "DMX ON");
-        outputStatus->setToolTip(network.lastError);
+        const auto outputError = network.lastError();
+        outputStatus->setText(!network.enabled() ? "DMX OFF" : !outputError.isEmpty() ? "DMX ERROR" : "DMX ON");
+        outputStatus->setToolTip(outputError);
         auto out = engine.output();
         updateChannelPage(out);
         QSignalBlocker cueBlock(cues);
@@ -692,11 +693,11 @@ class Console : public QMainWindow {
     }
     bool loadShow(const QJsonObject &show, QString *error) {
         Engine next;
-        Network validation;
-        if (!next.load(show, error) || !validation.loadOutputs(show["outputs"].toArray(), error))
+        QList<pxs::dmx::Output> outputs;
+        if (!next.load(show, error) || !Network::parseOutputs(show["outputs"].toArray(), outputs, error))
             return false;
         engine = next;
-        network.applyOutputs(validation.outputs);
+        network.applyOutputs(outputs);
         outputPanel->reload();
         patchPanel->reload();
         return true;
@@ -1203,7 +1204,7 @@ class Console : public QMainWindow {
         workspaceTabs->addTab(trackingPanel, "Tracking");
         outputPanel = new OutputPanel(network, engine, [this] {
             dirty = true; setWindowModified(true);
-            message(network.enabled ? "DMX outputs enabled" : "DMX outputs off");
+            message(network.enabled() ? "DMX outputs enabled" : "DMX outputs off");
         });
         channelTabs->addTab(outputPanel, "Network");
         parameterPanel = new ParameterPanel(engine, [this] { refresh(); }, channelTabs);
@@ -1627,8 +1628,8 @@ class Console : public QMainWindow {
             }
             network.send(engine);
             refresh();
-            if (!network.lastError.isEmpty())
-                message(network.lastError);
+            if (const auto outputError = network.lastError(); !outputError.isEmpty())
+                message(outputError);
         });
         timer.start();
     }
@@ -1664,6 +1665,7 @@ class Console : public QMainWindow {
 #ifndef FLAME_NO_MAIN
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
+    QCoreApplication::setOrganizationName("PixelStereo");
     QCoreApplication::setApplicationName("Cold Flame");
     QString showFile;
     for (const auto &arg : app.arguments().mid(1))

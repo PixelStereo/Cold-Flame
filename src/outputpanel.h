@@ -6,11 +6,12 @@ class OutputPanel : public QWidget {
     Flame::Network &network;
     const Flame::Engine &engine;
     std::function<void()> edited;
-    QList<Flame::DmxOutput> draft;
+    QList<pxs::dmx::Output> draft;
     QTableWidget *table;
     QComboBox *protocol, *mode, *interface;
     QLineEdit *name, *addresses, *source;
-    QSpinBox *patchFirst, *wireFirst, *count, *rate, *priority;
+    QSpinBox *patchFirst, *wireFirst, *count, *rate, *priority, *port;
+    QComboBox *transmission;
     QLabel *feedback, *route;
     QFormLayout *form;
     bool updating = false, pending = false;

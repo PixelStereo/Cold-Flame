@@ -40,19 +40,22 @@ OutputPanel::OutputPanel(Network &n, const Engine &e, std::function<void()> chan
     count = spin(0, 32768, "dmxOutputCount"); count->setSpecialValueText("All patched universes");
     rate = spin(1, 44, "dmxOutputRate"); rate->setSuffix(" Hz");
     priority = spin(0, 200, "dmxOutputPriority");
+    port = spin(0, 65535, "dmxOutputPort"); port->setSpecialValueText("Protocol default");
+    transmission = new QComboBox; transmission->addItems({"Full (512 channels)", "Partial (used channels)"}); transmission->setObjectName("dmxOutputTransmission");
     form->addRow("Name", name); form->addRow("Protocol", protocol);
     form->addRow("Network interface", interface); form->addRow("Destination mode", mode);
-    form->addRow("Unicast IPv4 addresses", addresses);
+    form->addRow("Unicast IPv4 addresses", addresses); form->addRow("Port", port);
     form->addRow("First patch universe", patchFirst); form->addRow("First network universe", wireFirst);
-    form->addRow("Universe count", count); form->addRow("Refresh rate", rate);
+    form->addRow("Universe count", count); form->addRow("Refresh rate", rate); form->addRow("Frames", transmission);
     form->addRow("sACN priority", priority); form->addRow("sACN source name", source);
     scroll->setWidget(editor); layout->addWidget(scroll, 1);
     route = new QLabel; route->setWordWrap(true); layout->addWidget(route);
     feedback = new QLabel("Outputs are off until enabled and applied."); feedback->setWordWrap(true); layout->addWidget(feedback);
     auto changedField = [this] { if (!updating) { store(); pending = true; feedback->setText("Unapplied changes · Apply outputs to activate this configuration"); } };
     for (auto edit : {name, addresses, source}) connect(edit, &QLineEdit::textEdited, this, changedField);
-    for (auto spin : {patchFirst, wireFirst, count, rate, priority}) connect(spin, &QSpinBox::valueChanged, this, changedField);
+    for (auto spin : {patchFirst, wireFirst, count, rate, priority, port}) connect(spin, &QSpinBox::valueChanged, this, changedField);
     connect(interface, &QComboBox::activated, this, changedField);
+    connect(transmission, &QComboBox::activated, this, changedField);
     connect(mode, &QComboBox::activated, this, [this, changedField] { changedField(); updateProtocol(); });
     connect(protocol, &QComboBox::activated, this, [this, changedField] { updateProtocol(); changedField(); });
     connect(table, &QTableWidget::currentCellChanged, this, [this](int row) { store(); select(row); });
@@ -62,7 +65,8 @@ OutputPanel::OutputPanel(Network &n, const Engine &e, std::function<void()> chan
         pending = true; feedback->setText("Unapplied changes · Apply outputs to activate");
     });
     connect(add, &QPushButton::clicked, this, [this] {
-        store(); DmxOutput output; output.name = QString("Output %1").arg(draft.size() + 1);
+        store(); auto output = pxs::dmx::Output::defaults(pxs::dmx::Protocol::ArtNet); output.name = QString("Output %1").arg(draft.size() + 1);
+        output.enabled = false; output.rate = 44;
         draft << output; pending = true; rows(); table->selectRow(draft.size() - 1);
         feedback->setText("New output is off. Configure it, tick On, then Apply outputs.");
     });
@@ -74,7 +78,6 @@ OutputPanel::OutputPanel(Network &n, const Engine &e, std::function<void()> chan
     connect(applyButton, &QPushButton::clicked, this, [this] { apply(); });
     connect(stop, &QPushButton::clicked, this, [this] {
         network.stop();
-        for (auto &output : network.outputs) output.enabled = false;
         reload(); edited(); feedback->setText("All outputs stopped");
     });
     auto timer = new QTimer(this); timer->setInterval(400);
@@ -84,17 +87,22 @@ OutputPanel::OutputPanel(Network &n, const Engine &e, std::function<void()> chan
 void OutputPanel::store() {
     if (updating || selected < 0 || selected >= draft.size()) return;
     auto &o = draft[selected];
-    o.name = name->text().trimmed(); o.protocol = protocol->currentText(); o.mode = mode->currentText();
-    o.interfaceAddress = interface->currentData().toString(); o.destinations = addresses->text().trimmed();
+    using namespace pxs::dmx;
+    o.name = name->text().trimmed(); o.protocol = protocol->currentText() == "Art-Net" ? Protocol::ArtNet : Protocol::Sacn;
+    o.delivery = mode->currentText() == "Unicast" ? Delivery::Unicast : Delivery::Group;
+    o.interfaceAddress = interface->currentData().toString();
+    o.destinations = addresses->text().split(QRegularExpression("[,;\\s]+"), Qt::SkipEmptyParts);
     o.sourceName = source->text().trimmed(); o.priority = priority->value(); o.rate = rate->value();
-    o.firstPatchUniverse = patchFirst->value(); o.firstUniverse = wireFirst->value(); o.universeCount = count->value();
+    o.port = port->value(); o.transmission = transmission->currentIndex() ? Transmission::Partial : Transmission::Full;
+    o.firstSourceUniverse = patchFirst->value(); o.firstUniverse = wireFirst->value(); o.universeCount = count->value();
+    const QString protocolName = o.protocol == Protocol::ArtNet ? "Art-Net" : "sACN";
     if (table->item(selected, 1)) {
         QSignalBlocker block(table);
-        table->item(selected, 1)->setText(o.name); table->item(selected, 2)->setText(o.protocol);
+        table->item(selected, 1)->setText(o.name); table->item(selected, 2)->setText(protocolName);
     }
     route->setText(QString("Patch %1 → network %2 · %3 · Only patched universes are transmitted.")
-        .arg(o.firstPatchUniverse).arg(o.firstUniverse)
-        .arg(o.protocol == "Art-Net" ? "Art-Net: 0–32767" : "sACN: 1–63999"));
+        .arg(o.firstSourceUniverse).arg(o.firstUniverse)
+        .arg(o.protocol == Protocol::ArtNet ? "Art-Net: 0–32767" : "sACN: 1–63999"));
 }
 void OutputPanel::updateProtocol() {
     const bool art = protocol->currentText() == "Art-Net";
@@ -115,7 +123,7 @@ void OutputPanel::select(int row) {
         if (auto widget = form->itemAt(i)->widget()) widget->setEnabled(valid);
     if (!valid) { updating = false; return; }
     const auto &o = draft[row];
-    name->setText(o.name); protocol->setCurrentText(o.protocol);
+    name->setText(o.name); protocol->setCurrentText(o.protocol == pxs::dmx::Protocol::ArtNet ? "Art-Net" : "sACN");
     interface->clear(); interface->addItem("Automatic · system routing", "");
     for (const auto &card : QNetworkInterface::allInterfaces()) {
         if (!(card.flags() & QNetworkInterface::IsUp)) continue;
@@ -126,10 +134,13 @@ void OutputPanel::select(int row) {
     int at = interface->findData(o.interfaceAddress);
     if (at < 0) { interface->addItem(o.interfaceAddress + " · unavailable", o.interfaceAddress); at = interface->count() - 1; }
     interface->setCurrentIndex(at);
-    mode->clear(); mode->addItem(o.mode); updateProtocol(); mode->setCurrentText(o.mode);
-    addresses->setText(o.destinations); source->setText(o.sourceName);
-    priority->setValue(o.priority); rate->setValue(o.rate);
-    patchFirst->setValue(o.firstPatchUniverse); wireFirst->setValue(o.firstUniverse); count->setValue(o.universeCount);
+    const bool art = o.protocol == pxs::dmx::Protocol::ArtNet;
+    const QString modeName = o.delivery == pxs::dmx::Delivery::Unicast ? "Unicast" : art ? "Broadcast" : "Multicast";
+    mode->clear(); mode->addItem(modeName); updateProtocol(); mode->setCurrentText(modeName);
+    addresses->setText(o.destinations.join(", ")); source->setText(o.sourceName);
+    priority->setValue(o.priority); rate->setValue(int(o.rate)); port->setValue(o.port);
+    transmission->setCurrentIndex(o.transmission == pxs::dmx::Transmission::Partial ? 1 : 0);
+    patchFirst->setValue(o.firstSourceUniverse); wireFirst->setValue(o.firstUniverse); count->setValue(o.universeCount);
     updating = false; store();
 }
 void OutputPanel::rows() {
@@ -139,7 +150,7 @@ void OutputPanel::rows() {
         auto on = new QTableWidgetItem; on->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable);
         on->setCheckState(draft[i].enabled ? Qt::Checked : Qt::Unchecked); table->setItem(i, 0, on);
         for (int c = 1; c < 4; ++c) {
-            auto item = new QTableWidgetItem(c == 1 ? draft[i].name : c == 2 ? draft[i].protocol : "Off");
+            auto item = new QTableWidgetItem(c == 1 ? draft[i].name : c == 2 ? QString(draft[i].protocol == pxs::dmx::Protocol::ArtNet ? "Art-Net" : "sACN") : QString("Off"));
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable); table->setItem(i, c, item);
         }
     }
@@ -151,9 +162,9 @@ void OutputPanel::reload() { selected = -1; draft = network.outputs; pending = f
 bool OutputPanel::apply() {
     store();
     for (const auto &o : draft) {
-        const int max = o.protocol == "Art-Net" ? 32767 : 63999;
+        const int max = o.highestUniverse();
         for (int channel : engine.channels.keys()) for (int address : engine.dmxAddresses(channel)) {
-            int offset = (address - 1) / 512 + 1 - o.firstPatchUniverse;
+            int offset = (address - 1) / 512 + 1 - o.firstSourceUniverse;
             if (offset >= 0 && (!o.universeCount || offset < o.universeCount) && o.firstUniverse + offset > max) {
                 feedback->setText(o.name + ": patched universes exceed the protocol range"); return false;
             }
@@ -162,18 +173,19 @@ bool OutputPanel::apply() {
     QString error;
     if (!network.applyOutputs(draft, &error)) { feedback->setText(error); return false; }
     pending = false; edited(); states();
-    feedback->setText(network.enabled ? "Applied · outputs enabled" : "Applied · outputs off");
+    feedback->setText(network.enabled() ? "Applied · outputs enabled" : "Applied · outputs off");
     return true;
 }
 void OutputPanel::states() {
     QSignalBlocker block(table);
     for (int i = 0; i < table->rowCount(); ++i) {
         auto state = network.state(i);
-        QString text = pending ? "Unapplied draft" : !network.enabled || !draft[i].enabled ? "Off"
-            : !state.error.isEmpty() ? "Error: " + state.error
+        const bool failed = state.level == pxs::dmx::OutputState::Error;
+        QString text = pending ? "Unapplied draft" : !network.enabled() || !draft[i].enabled ? "Off"
+            : failed ? "Error: " + state.text
             : state.packets ? QString("Sending · %1 packets").arg(state.packets) : "Waiting for frame";
         table->item(i, 3)->setText(text);
         table->item(i, 3)->setToolTip(text);
-        table->item(i, 3)->setForeground(!state.error.isEmpty() && !pending ? QColor("#e0c998") : QColor("#e5e5e5"));
+        table->item(i, 3)->setForeground(failed && !pending ? QColor("#e0c998") : QColor("#e5e5e5"));
     }
 }
