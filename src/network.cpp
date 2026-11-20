@@ -79,7 +79,7 @@ void Network::follow() {
 }
 bool Network::applyOutputs(const QList<pxs::dmx::Output> &settings, QString *error) {
     for (const auto &o : settings) {
-        const auto invalid = o.validate();
+        const auto invalid = o.validate().isEmpty() ? o.validateMapping() : o.validate();
         if (!invalid.isEmpty()) { if (error) *error = o.name + ": " + invalid; return false; }
     }
     // Each output has an identity of its own, which the sender follows it by
@@ -126,7 +126,7 @@ bool Network::parseOutputs(const QJsonArray &json, QList<pxs::dmx::Output> &sett
         auto o = pxs::dmx::Output::fromJson(entry.toObject());
         o.id = 0;
         o.enabled = false; // Opening a show always leaves output switches off.
-        const auto invalid = o.validate();
+        const auto invalid = o.validate().isEmpty() ? o.validateMapping() : o.validate();
         if (!invalid.isEmpty()) { if (error) *error = o.name + ": " + invalid; return false; }
         settings << o;
     }
