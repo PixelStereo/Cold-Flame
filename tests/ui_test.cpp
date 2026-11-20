@@ -30,6 +30,16 @@ class UiTests : public QObject {
         QPoint point = table->visualItemRect(table->item(table->currentRow(), 0)).center();
         table->customContextMenuRequested(point);
     }
+    // An ArtDmx packet written out by hand (the test's own reference of the wire format, not the sender's code)
+    static QByteArray artDmx(const QByteArray &levels, quint16 universe, quint8 sequence) {
+        QByteArray p("Art-Net\0", 8);
+        p.append(char(0x00)).append(char(0x50)); // OpDmx, little endian
+        p.append(char(0)).append(char(14));      // protocol version 14
+        p.append(char(sequence)).append(char(0));
+        p.append(char(universe & 0xFF)).append(char((universe >> 8) & 0x7F));
+        p.append(char(levels.size() >> 8)).append(char(levels.size() & 0xFF));
+        return p + levels;
+    }
   private slots:
     void networkMonitorDockIsHiddenUntilAskedInTheShowMenu() {
         Console window({}, false);
@@ -58,7 +68,7 @@ class UiTests : public QObject {
         QUdpSocket sender;
         QByteArray levels(512, 0);
         levels[2] = char(77);
-        sender.writeDatagram(Flame::artnet(levels, 0, 1), QHostAddress::LocalHost, 6454);
+        sender.writeDatagram(artDmx(levels, 0, 1), QHostAddress::LocalHost, 6454);
         auto grid = panel.findChild<QTableWidget *>("channelGrid");
         QTRY_COMPARE(grid->item(0, 2)->text(), QString("3\n77"));
         // Reading a channel shows the network's level; there is nothing to send from here
@@ -1058,12 +1068,21 @@ class UiTests : public QObject {
         auto table = panel.findChild<QTableWidget *>("dmxOutputsTable");
         QCOMPARE(table->rowCount(), 1);
         auto addresses = panel.findChild<QLineEdit *>("dmxOutputAddresses");
+        QCOMPARE(panel.findChild<QComboBox *>("dmxOutputMode")->currentText(), QString("Broadcast")); // a new output broadcasts
+        panel.findChild<QComboBox *>("dmxOutputMode")->setCurrentText("Unicast");
         addresses->setText("bad address");
         QVERIFY(!panel.apply()); QCOMPARE(changes, 0);
         addresses->setText("127.0.0.1");
         panel.findChild<QSpinBox *>("dmxOutputUniverse")->setValue(42);
         QVERIFY(panel.apply()); QCOMPARE(network.outputs[0].firstUniverse, 42);
-        QVERIFY(!network.enabled);
+        QCOMPARE(network.outputs[0].delivery, pxs::dmx::Delivery::Unicast);
+        QCOMPARE(network.outputs[0].destinations, QStringList{"127.0.0.1"});
+        // The new settings: a port, partial frames
+        panel.findChild<QSpinBox *>("dmxOutputPort")->setValue(6455);
+        panel.findChild<QComboBox *>("dmxOutputTransmission")->setCurrentIndex(1);
+        QVERIFY(panel.apply()); QCOMPARE(network.outputs[0].port, 6455);
+        QCOMPARE(network.outputs[0].transmission, pxs::dmx::Transmission::Partial);
+        QVERIFY(!network.enabled());
         panel.findChild<QPushButton *>("addDmxOutput")->click();
         QCOMPARE(table->rowCount(), 2);
         panel.findChild<QPushButton *>("removeDmxOutput")->click();

@@ -1,53 +1,32 @@
 #pragma once
 #include "engine.h"
 #include <QtNetwork>
+#include <pxs/DmxOut.h>
 namespace Flame {
-QByteArray artnet(const QByteArray &dmx, quint16 universe, quint8 sequence);
-QByteArray sacn(const QByteArray &dmx, quint16 universe, quint8 sequence, const QUuid &cid, int priority = 100,
-                QString sourceName = "Cold Flame", bool terminated = false);
 QByteArray oscMessage(QString address, float value);
 bool oscDecode(const QByteArray &packet, QString &address, float &value);
-struct DmxOutput {
-    QString name = "Output 1", protocol = "Art-Net", mode = "Unicast";
-    QString interfaceAddress, destinations = "127.0.0.1", sourceName = "Cold Flame";
-    bool enabled = false;
-    int firstPatchUniverse = 1, firstUniverse = 1, universeCount = 0, priority = 100, rate = 44;
-};
-struct DmxState { quint64 packets = 0; QString error; };
+// The console's DMX outputs: pxs's (settings, validation, JSON, the sender on its own thread), with the patch's universes routed onto
+// them. Opening a show leaves every output off.
 class Network : public QObject {
-    struct Link {
-        QSharedPointer<QUdpSocket> socket;
-        DmxState state;
-        QMap<int, QByteArray> lastFrames;
-        quint8 sequence = 0;
-        qint64 nextFrame = 0;
-    };
-    QList<Link> links;
-    QElapsedTimer transportClock;
-    void terminate(int index);
+    pxs::dmx::Sender sender;
+    void follow();
   public:
-    QList<DmxOutput> outputs;
-    bool applyOutputs(const QList<DmxOutput> &settings, QString *error = nullptr);
-    static QString validateOutput(const DmxOutput &output);
-    DmxState state(int index) const;
-    QJsonArray outputJson() const;
-    bool loadOutputs(const QJsonArray &json, QString *error = nullptr);
+    QList<pxs::dmx::Output> outputs;
+    QUuid cid = QUuid::createUuid(); // the console's sACN identity, also what the monitor recognises as its own
+    QUdpSocket receiver; // the local OSC input
+    explicit Network(QObject *parent = nullptr);
+    ~Network() override;
+    bool enabled() const; // an output is on
+    QString lastError() const;
+    pxs::dmx::OutputState state(int index) const;
+    // Atomic: an output that cannot work rejects them all, and what runs keeps running
+    bool applyOutputs(const QList<pxs::dmx::Output> &settings, QString *error = nullptr);
     void stop();
     bool startDefaultArtNet(QString *error = nullptr);
-    ~Network() override { stop(); }
-
-    // Legacy single-route API retained for existing transport clients.
-    QUdpSocket sender, receiver;
-    QUuid cid = QUuid::createUuid();
-    quint8 serial = 0;
-    bool enabled = false;
-    QString protocol = "Art-Net", host = "127.0.0.1", lastError;
-    int firstUniverse = 1;
-    explicit Network(QObject *parent = nullptr) : QObject(parent) {
-        // Lighting UDP transports use direct LAN addresses, never HTTP/SOCKS proxy discovery.
-        sender.setProxy(QNetworkProxy::NoProxy);
-        receiver.setProxy(QNetworkProxy::NoProxy);
-    }
-    void send(const Engine &engine);
+    QJsonArray outputJson() const;
+    // The outputs a show saved, switched off and checked (the application's own are left as they are until it applies them)
+    static bool parseOutputs(const QJsonArray &json, QList<pxs::dmx::Output> &outputs, QString *error = nullptr);
+    bool loadOutputs(const QJsonArray &json, QString *error = nullptr);
+    void send(const Engine &engine); // the latest levels, to be streamed at each output's rate
 };
 } // namespace Flame

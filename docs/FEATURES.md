@@ -13,7 +13,7 @@ The reference is the Eos family, rather than Element. Documentation review and t
 | Files | Versioned JSON, atomic save, validated loading | Migration, autosave, recovery, selective merge |
 | Patch | Editable channel overview, footprint-aware batch stride, complete footprint overlap checks, explicit conflict-resolution preview, custom fixture/mode editor with copy protection, multiple fixture starts, unpatching, 8/16-bit dimmers and generic fixtures, patch transfer | Geometry, MVR, fixture replacement/migration |
 | GDTF | Import/export, preserved original archives, single output-break modes, geometry-reference/cell expansion, nested offsets, virtual dimmer color multiplication, 8/16/24/32-bit offsets, default/Snap, cue parameter recording/output | Physical units, curves, general relations, multiple output breaks and conditional mode masters |
-| Network | Multiple ArtDmx/sACN outputs, interface selection, multi-IP unicast/broadcast/multicast, route ranges, rates, sACN priority/source/termination, packet counters, UDP tests | ArtPoll, sACN sync, RDM, redundancy, dedicated output thread |
+| Network | Multiple ArtDmx/sACN outputs on a dedicated thread, interface selection, multi-IP unicast/broadcast/multicast, port, route ranges, rates, full or partial frames, sACN priority/source/per-channel priority/termination, packet counters, UDP tests | ArtPoll (node discovery), sACN sync, RDM, redundancy |
 | OSC | Float messages and three local receive actions | Full dictionary, feedback, bundles, timing |
 | Effects | 1D intensity wave generator | Absolute/relative/step effects, phases, variables, curves, tempo |
 | Pixel mapping | 1D generator | RGB/RGBW matrices, free geometry, video, masks, layers, GPU |

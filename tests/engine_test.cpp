@@ -7,6 +7,25 @@
 using namespace Flame;
 class Tests : public QObject {
     Q_OBJECT
+    private:
+    // An output that sends to the loopback, as the tests listen there
+    static pxs::dmx::Output loopback(pxs::dmx::Protocol protocol) {
+        auto o = pxs::dmx::Output::defaults(protocol);
+        o.enabled = true; o.delivery = pxs::dmx::Delivery::Unicast; o.destinations = {"127.0.0.1"}; o.interfaceAddress = "127.0.0.1";
+        return o;
+    }
+    // The datagram of the receiver whose first channel is `level`, among those streamed (they come at the output's rate)
+    static bool receiveLevel(QUdpSocket &receiver, int offset, int level, int timeoutMs = 1500) {
+        QElapsedTimer clock; clock.start();
+        while (clock.elapsed() < timeoutMs) {
+            if (!receiver.waitForReadyRead(50)) continue;
+            while (receiver.hasPendingDatagrams()) {
+                const auto packet = receiver.receiveDatagram().data();
+                if (packet.size() > offset && quint8(packet[offset]) == level) return true;
+            }
+        }
+        return false;
+    }
   private slots:
     void barFx89ModeKeepsPhysicalGroupsAndVirtualCellsSeparate() {
         QFile input(QFINDTESTDATA("fixtures/flash-barfx-multicell.xml")); QVERIFY(input.open(QIODevice::ReadOnly));
@@ -280,18 +299,21 @@ class Tests : public QObject {
         Engine rejected; QVERIFY(!rejected.load(bad));
     }
     void startupBroadcastRoutePreservesSettings() {
-        Network network; DmxOutput unicast, broadcast;
-        broadcast.name = "Rig broadcast"; broadcast.mode = "Broadcast"; broadcast.firstUniverse = 42;
+        using namespace pxs::dmx;
+        Network network; auto unicast = loopback(Protocol::ArtNet), broadcast = Output::defaults(Protocol::ArtNet);
+        unicast.enabled = false;
+        broadcast.name = "Rig broadcast"; broadcast.enabled = false; broadcast.firstUniverse = 42;
         QVERIFY(network.applyOutputs({unicast, broadcast}));
         QVERIFY(network.startDefaultArtNet()); QCOMPARE(network.outputs.size(), 2);
         QVERIFY(!network.outputs[0].enabled); QVERIFY(network.outputs[1].enabled);
-        QCOMPARE(network.outputs[1].firstUniverse, 42); QVERIFY(network.enabled);
+        QCOMPARE(network.outputs[1].firstUniverse, 42); QVERIFY(network.enabled());
         QVERIFY(network.startDefaultArtNet()); QCOMPARE(network.outputs.size(), 2);
-        Network restored; QVERIFY(restored.loadOutputs(network.outputJson())); QVERIFY(!restored.enabled);
+        Network restored; QVERIFY(restored.loadOutputs(network.outputJson())); QVERIFY(!restored.enabled());
         QVERIFY(restored.startDefaultArtNet()); QVERIFY(restored.outputs[1].enabled);
         Network fresh; QVERIFY(fresh.startDefaultArtNet()); QCOMPARE(fresh.outputs.size(), 1);
-        QCOMPARE(fresh.outputs[0].protocol, QString("Art-Net")); QCOMPARE(fresh.outputs[0].mode, QString("Broadcast"));
-        QVERIFY(fresh.enabled); fresh.stop(); QVERIFY(!fresh.enabled);
+        QCOMPARE(fresh.outputs[0].protocol, Protocol::ArtNet); QCOMPARE(fresh.outputs[0].delivery, Delivery::Group);
+        QCOMPARE(fresh.outputs[0].firstUniverse, 0); // patch universe 1 is Art-Net's first, 0
+        QVERIFY(fresh.enabled()); fresh.stop(); QVERIFY(!fresh.enabled());
     }
     void undoFixtureTypeReleasesIncompatibleLiveParameters() {
         Engine e; EditHistory history; history.reset(e);
@@ -354,7 +376,7 @@ class Tests : public QObject {
         auto frames = e.dmxFrames(); QCOMPARE(quint8(frames[1][0]), 255); QCOMPARE(quint8(frames[1][1]), 255);
         QCOMPARE(quint8(frames[1][4]), 128); QCOMPARE(quint8(frames[1][5]), 64); QCOMPARE(frames[1], frames[2]);
         QUdpSocket receiver; receiver.setProxy(QNetworkProxy::NoProxy); QVERIFY(receiver.bind(QHostAddress::LocalHost, 6454));
-        Network n; DmxOutput route; route.enabled = true; route.interfaceAddress = "127.0.0.1"; route.firstPatchUniverse = 2; route.universeCount = 1;
+        Network n; auto route = loopback(pxs::dmx::Protocol::ArtNet); route.firstSourceUniverse = 2; route.universeCount = 1;
         QVERIFY(n.applyOutputs({route})); n.send(e); QVERIFY(receiver.waitForReadyRead(1000));
         QCOMPARE(receiver.receiveDatagram().data().mid(18), frames[1]);
         Engine restored; QString error; QVERIFY2(restored.load(e.json(), &error), qPrintable(error));
@@ -613,15 +635,14 @@ class Tests : public QObject {
         e.selection = {12};
         e.level(100);
         Network n;
-        n.enabled = true;
-        n.protocol = "sACN";
-        n.firstUniverse = 1;
+        QVERIFY(n.applyOutputs({loopback(pxs::dmx::Protocol::Sacn)}));
         n.send(e);
         QMap<int, QByteArray> frames;
         auto receiveUniverses = [&] {
             while (receiver.hasPendingDatagrams()) {
                 const auto packet = receiver.receiveDatagram().data();
                 if (packet.size() < 126) return false;
+                if (quint8(packet[125]) != 0) continue; // the per-channel priorities are not levels
                 const int universe = (quint8(packet[113]) << 8) | quint8(packet[114]);
                 frames[universe] = packet.mid(126);
             }
@@ -635,9 +656,8 @@ class Tests : public QObject {
         QCOMPARE(quint8(frames[3][17]), 255);
         QCOMPARE(quint8(frames[3][511]), 255);
         e.blackout = true;
-        frames.clear();
         n.send(e);
-        QTRY_VERIFY_WITH_TIMEOUT(receiveUniverses(), 1000);
+        QTRY_VERIFY_WITH_TIMEOUT((receiveUniverses(), quint8(frames[22][12]) == 0 && quint8(frames[3][17]) == 0), 1500);
         QCOMPARE(quint8(frames[22][12]), 0);
         QCOMPARE(quint8(frames[3][17]), 0);
         QCOMPARE(quint8(frames[3][511]), 0);
@@ -1011,25 +1031,8 @@ class Tests : public QObject {
         QVERIFY(!copy.load(j));
         QCOMPARE(copy.json(), e.json());
     }
-    void packets() {
-        QByteArray d(512, '\0');
-        d[0] = char(255);
-        auto a = artnet(d, 0, 1);
-        QCOMPARE(a.size(), 530);
-        QCOMPARE(a.left(8), QByteArray("Art-Net\0", 8));
-        QCOMPARE(quint8(a[9]), 0x50);
-        QCOMPARE(quint8(a[16]), 2);
-        QCOMPARE(quint8(a[18]), 255);
-        auto id = QUuid::createUuid();
-        auto s = sacn(d, 1, 5, id);
-        QCOMPARE(s.size(), 638);
-        QCOMPARE(s.mid(22, 16), id.toRfc4122());
-        QCOMPARE(quint8(s[111]), 5);
-        QCOMPARE(quint8(s[114]), 1);
-        QCOMPARE(quint8(s[126]), 255);
-        QVERIFY(sacn(d, 0, 1, id).isEmpty());
-    }
     void multipleNetworkOutputsAndTermination() {
+        using namespace pxs::dmx;
         QUdpSocket art, streaming;
         art.setProxy(QNetworkProxy::NoProxy); streaming.setProxy(QNetworkProxy::NoProxy);
         QVERIFY(art.bind(QHostAddress::LocalHost, 6454));
@@ -1038,10 +1041,9 @@ class Tests : public QObject {
         e.patch[1] = 513;
         e.selection = {1}; e.level(100);
         Network n;
-        DmxOutput a, b;
-        a.enabled = true; a.firstPatchUniverse = 2; a.firstUniverse = 7; a.universeCount = 1;
-        a.interfaceAddress = "127.0.0.1";
-        b = a; b.name = "sACN backup"; b.protocol = "sACN"; b.firstUniverse = 22;
+        auto a = loopback(Protocol::ArtNet), b = loopback(Protocol::Sacn);
+        a.firstSourceUniverse = 2; a.firstUniverse = 7; a.universeCount = 1;
+        b.name = "sACN backup"; b.firstSourceUniverse = 2; b.universeCount = 1; b.firstUniverse = 22;
         b.priority = 150; b.sourceName = "Theatre A";
         QVERIFY(n.applyOutputs({a, b})); n.send(e);
         QVERIFY(art.waitForReadyRead(1000)); QVERIFY(streaming.waitForReadyRead(1000));
@@ -1050,19 +1052,22 @@ class Tests : public QObject {
         p = streaming.receiveDatagram().data();
         QCOMPARE(quint8(p[114]), 22); QCOMPARE(quint8(p[126]), 255);
         QCOMPARE(quint8(p[108]), 150); QVERIFY(p.mid(44).startsWith("Theatre A"));
-        QCOMPARE(n.state(0).packets, quint64(1)); QCOMPARE(n.state(1).packets, quint64(1));
-        auto bad = b; bad.destinations = "invalid";
-        QVERIFY(!n.applyOutputs({bad})); QVERIFY(n.enabled); // Atomic rejection preserves running routes.
+        QTRY_VERIFY(n.state(0).packets >= 1); QTRY_VERIFY(n.state(1).packets >= 1);
+        auto bad = b; bad.destinations = {"invalid"};
+        QVERIFY(!n.applyOutputs({bad})); QVERIFY(n.enabled()); // Atomic rejection preserves running routes.
         Network loaded;
         QVERIFY(loaded.loadOutputs(n.outputJson()));
-        QVERIFY(!loaded.enabled); QCOMPARE(loaded.outputs[1].firstUniverse, 22);
+        QVERIFY(!loaded.enabled()); QCOMPARE(loaded.outputs[1].firstUniverse, 22);
         QCOMPARE(loaded.outputs[1].priority, 150);
-        n.stop(); QVERIFY(!n.enabled);
-        QVERIFY(streaming.waitForReadyRead(1000));
+        n.stop(); QVERIFY(!n.enabled());
         int terminated = 0;
-        while (streaming.hasPendingDatagrams()) {
-            p = streaming.receiveDatagram().data();
-            QVERIFY(quint8(p[112]) & 0x40); ++terminated;
+        QElapsedTimer clock; clock.start();
+        while (terminated < 3 && clock.elapsed() < 2000) {
+            if (!streaming.waitForReadyRead(50)) continue;
+            while (streaming.hasPendingDatagrams()) {
+                p = streaming.receiveDatagram().data();
+                if (quint8(p[112]) & 0x40) ++terminated;
+            }
         }
         QCOMPARE(terminated, 3);
     }
@@ -1073,8 +1078,9 @@ class Tests : public QObject {
         e.selection = {1};
         e.level(100);
         Network n;
-        n.enabled = true;
-        n.firstUniverse = 0;
+        auto output = loopback(pxs::dmx::Protocol::ArtNet);
+        output.firstSourceUniverse = 1; output.firstUniverse = 0;
+        QVERIFY(n.applyOutputs({output}));
         n.send(e);
         QVERIFY(receiver.waitForReadyRead(1000));
         auto p = receiver.receiveDatagram().data();
@@ -1082,8 +1088,7 @@ class Tests : public QObject {
         QCOMPARE(quint8(p[18]), 255);
         e.blackout = true;
         n.send(e);
-        QVERIFY(receiver.waitForReadyRead(1000));
-        QCOMPARE(quint8(receiver.receiveDatagram().data()[18]), 0);
+        QVERIFY(receiveLevel(receiver, 18, 0)); // the stream goes on with the new levels
     }
     void gdtfArchive() {
         QByteArray xml =
