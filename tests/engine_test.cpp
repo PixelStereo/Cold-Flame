@@ -1049,8 +1049,13 @@ class Tests : public QObject {
         QVERIFY(art.waitForReadyRead(1000)); QVERIFY(streaming.waitForReadyRead(1000));
         auto p = art.receiveDatagram().data();
         QCOMPARE(quint8(p[14]), 7); QCOMPARE(quint8(p[18]), 255);
+        // The first sACN packets may be the per-channel priorities (start code 0xDD) as well as the levels: take a levels packet
         p = streaming.receiveDatagram().data();
-        QCOMPARE(quint8(p[114]), 22); QCOMPARE(quint8(p[126]), 255);
+        for (int tries = 0; quint8(p[125]) != 0 && tries < 20; ++tries) {
+            if (!streaming.hasPendingDatagrams()) QVERIFY(streaming.waitForReadyRead(1000));
+            p = streaming.receiveDatagram().data();
+        }
+        QCOMPARE(quint8(p[125]), 0); QCOMPARE(quint8(p[114]), 22); QCOMPARE(quint8(p[126]), 255);
         QCOMPARE(quint8(p[108]), 150); QVERIFY(p.mid(44).startsWith("Theatre A"));
         QTRY_VERIFY(n.state(0).packets >= 1); QTRY_VERIFY(n.state(1).packets >= 1);
         auto bad = b; bad.destinations = {"invalid"};
