@@ -2,27 +2,17 @@
 #include "network.h"
 #include <QtWidgets>
 #include <functional>
+#include <pxs/OutputsPanel.h>
+// The Network tab: pxs's panel for the outputs, applied to the console's Network as they are edited. An output that cannot work
+// (an address that is not one, a patched universe past the protocol's last) is not applied and says why; what runs keeps running.
 class OutputPanel : public QWidget {
     Flame::Network &network;
     const Flame::Engine &engine;
     std::function<void()> edited;
-    QList<pxs::dmx::Output> draft;
-    QTableWidget *table;
-    QComboBox *protocol, *mode, *interface;
-    QLineEdit *name, *addresses, *source;
-    QSpinBox *patchFirst, *wireFirst, *count, *rate, *priority, *port;
-    QComboBox *transmission;
-    QLabel *feedback, *route;
-    QFormLayout *form;
-    bool updating = false, pending = false;
-    int selected = -1;
-    void store();
-    void select(int row);
-    void rows();
-    void updateProtocol();
-    void states();
+    pxs::dmx::OutputsPanel *panel;
+    QLabel *feedback;
+    void changed(const QList<pxs::dmx::Output> &outputs);
   public:
     OutputPanel(Flame::Network &, const Flame::Engine &, std::function<void()> edited, QWidget *parent = nullptr);
-    void reload();
-    bool apply();
+    void reload(); // the network's outputs, as they are now (a show was opened, the startup route was made)
 };

@@ -1066,27 +1066,32 @@ class UiTests : public QObject {
         panel.show();
         panel.findChild<QPushButton *>("addDmxOutput")->click();
         auto table = panel.findChild<QTableWidget *>("dmxOutputsTable");
-        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->rowCount(), 1); QCOMPARE(changes, 1); QCOMPARE(network.outputs.size(), 1); // applied as it is edited
+        QVERIFY(!network.outputs[0].enabled);
         auto addresses = panel.findChild<QLineEdit *>("dmxOutputAddresses");
-        QCOMPARE(panel.findChild<QComboBox *>("dmxOutputMode")->currentText(), QString("Broadcast")); // a new output broadcasts
-        panel.findChild<QComboBox *>("dmxOutputMode")->setCurrentText("Unicast");
-        addresses->setText("bad address");
-        QVERIFY(!panel.apply()); QCOMPARE(changes, 0);
-        addresses->setText("127.0.0.1");
-        panel.findChild<QSpinBox *>("dmxOutputUniverse")->setValue(42);
-        QVERIFY(panel.apply()); QCOMPARE(network.outputs[0].firstUniverse, 42);
+        auto mode = panel.findChild<QComboBox *>("dmxOutputMode");
+        QCOMPARE(mode->currentText(), QString("Broadcast")); // a new output broadcasts
+        mode->setCurrentIndex(1); emit mode->activated(1);
+        addresses->setText("bad address"); emit addresses->editingFinished();
+        // An output that cannot work is not applied: what runs keeps running
+        QCOMPARE(network.outputs[0].delivery, pxs::dmx::Delivery::Group); QCOMPARE(changes, 1);
+        QVERIFY(panel.findChild<QLabel *>("dmxOutputProblem")->isVisible());
+        addresses->setText("127.0.0.1"); emit addresses->editingFinished();
         QCOMPARE(network.outputs[0].delivery, pxs::dmx::Delivery::Unicast);
         QCOMPARE(network.outputs[0].destinations, QStringList{"127.0.0.1"});
-        // The new settings: a port, partial frames
+        panel.findChild<QSpinBox *>("dmxOutputUniverse")->setValue(42);
+        QCOMPARE(network.outputs[0].firstUniverse, 42);
+        // The other settings: a port, partial frames
         panel.findChild<QSpinBox *>("dmxOutputPort")->setValue(6455);
-        panel.findChild<QComboBox *>("dmxOutputTransmission")->setCurrentIndex(1);
-        QVERIFY(panel.apply()); QCOMPARE(network.outputs[0].port, 6455);
+        auto frames = panel.findChild<QComboBox *>("dmxOutputTransmission");
+        frames->setCurrentIndex(1); emit frames->activated(1);
+        QCOMPARE(network.outputs[0].port, 6455);
         QCOMPARE(network.outputs[0].transmission, pxs::dmx::Transmission::Partial);
         QVERIFY(!network.enabled());
         panel.findChild<QPushButton *>("addDmxOutput")->click();
-        QCOMPARE(table->rowCount(), 2);
+        QCOMPARE(table->rowCount(), 2); QCOMPARE(network.outputs.size(), 2);
         panel.findChild<QPushButton *>("removeDmxOutput")->click();
-        QVERIFY(panel.apply()); QCOMPARE(network.outputs.size(), 1);
+        QCOMPARE(network.outputs.size(), 1);
         QCOMPARE(network.outputs[0].firstUniverse, 42);
     }
     void tableEditorsAndSubmasterBank() {
