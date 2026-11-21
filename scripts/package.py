@@ -12,7 +12,7 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'third_party/pxs/scripts'))
+sys.path.insert(0, str(ROOT / 'third_party/pxs-qt/scripts'))
 from build_id import display_version  # noqa: E402  the version the application carries in its name
 
 
@@ -134,7 +134,7 @@ def main():
         makensis = shutil.which('makensis') or 'C:/Program Files (x86)/NSIS/makensis.exe'
         # The user picks at install time: all users (the default) or the current user only
         run(makensis, '/DPRODUCT=ColdFlame', f'/DAPP_VERSION={display.removeprefix("Cold Flame ")}', f'/DAPP_EXE=bin\\{display}.exe',
-            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'third_party/pxs/packaging/windows.nsi')
+            f'/DPAYLOAD={stage}', f'/DOUTPUT={destination}', ROOT / 'third_party/pxs-qt/packaging/windows.nsi')
         # What users get is the installer: install it silently somewhere clean and start what it installed
         with tempfile.TemporaryDirectory() as clean:
             run(destination, '/S', '/CurrentUser', f'/D={clean}')
