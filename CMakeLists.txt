@@ -5,7 +5,7 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network Test)
 # Shared Pixel Stereo code (the look), pinned as a submodule
 set(PXS_BUILD_TESTS OFF)
-add_subdirectory(third_party/pxs EXCLUDE_FROM_ALL)
+add_subdirectory(third_party/pxs-qt EXCLUDE_FROM_ALL)
 find_package(ZLIB REQUIRED)
 add_library(flame src/ofl.cpp src/submasters.cpp src/colorpalettes.cpp src/colorcontrols.h src/fixtures.cpp src/engine.cpp src/engine.h src/network.cpp src/network.h src/gdtf.cpp src/gdtfgeometry.cpp src/gdtf.h)
 target_link_libraries(flame PUBLIC Qt6::Core Qt6::Network ZLIB::ZLIB pxs::dmxout)
