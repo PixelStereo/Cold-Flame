@@ -47,7 +47,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0 # the tags: the version in the application's name counts commits since the last release
-          submodules: true # third_party/pxs
+          submodules: recursive # third_party/pxs-qt
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
